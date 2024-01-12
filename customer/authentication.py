@@ -1,6 +1,7 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework import exceptions
 from .models import *
+from hotel_app_backend.messages import *
 import jwt
 
 class JWTAuthentication(BaseAuthentication):
@@ -13,13 +14,13 @@ class JWTAuthentication(BaseAuthentication):
             
             except (jwt.DecodeError, jwt.ExpiredSignatureError) as e:
                 print(e)
-                raise exceptions.AuthenticationFailed('Token is invalid')
+                raise exceptions.AuthenticationFailed(INVALID_TOKEN_MESSAGE)
         else:
-            raise exceptions.AuthenticationFailed('Token is required')
+            raise exceptions.AuthenticationFailed(TOKEN_REQUIRED_MESSAGE)
 
         try:
             request.user = Customer.objects.get(id=payload['user_id'])    
         except Customer.DoesNotExist:
-            raise exceptions.AuthenticationFailed('Customer not found.')
+            raise exceptions.AuthenticationFailed(CUSTOMER_NOT_FOUND_MESSAGE)
 
         return (request.user, jwt_token)
