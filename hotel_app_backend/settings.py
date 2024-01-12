@@ -10,7 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
-from aifc import _aifc_params
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 import os
