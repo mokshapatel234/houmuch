@@ -1,7 +1,8 @@
 from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
-# Create your models here.
+
+
 class Customer(models.Model):
     first_name = models.CharField(('First Name'), max_length=30)
     last_name = models.CharField(('Last Name'), max_length=20)
