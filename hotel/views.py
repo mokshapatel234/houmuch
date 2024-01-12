@@ -1,18 +1,11 @@
-from django.shortcuts import render
-from rest_framework import filters
-from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
+from rest_framework import  permissions, status
 from rest_framework.response import Response
-from rest_framework import status, generics
-from django.template.loader import render_to_string
-from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from .models import Hotel,FCMToken
+from .models import Hotel, FCMToken
 from .serializer import *
 from .utils import generate_token
-from .authentication import JWTAuthentication
 
-# Create your views here.
+
 class HotelRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
@@ -23,7 +16,6 @@ class HotelRegisterView(APIView):
 
             phone_number = serializer.validated_data.get('phone_number')
             fcm_token = request.GET.get('fcm_token')
-            print(fcm_token)
 
             if not phone_number:
                 return Response({'result': False, 'message': 'phone number is required for registration.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -51,7 +43,6 @@ class HotelRegisterView(APIView):
                 return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            print(e)
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -2,7 +2,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework import exceptions
 from .models import *
 import jwt
-from rest_framework import permissions
+
 
 class JWTAuthentication(BaseAuthentication):
     def authenticate(self, request):

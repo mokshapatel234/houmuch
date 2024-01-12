@@ -1,7 +1,6 @@
 from rest_framework import serializers 
-from django.core.validators import RegexValidator
-from django.conf import settings
 from .models import Hotel
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,6 +17,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     is_verified = serializers.CharField(required=False)
     is_active = serializers.CharField(required=False)
     bidding_mode = serializers.CharField(required=False)
+
 
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
