@@ -1,9 +1,11 @@
-SUCCESS_MESSAGE = {'result': True, 'message': 'Operation successful.'}
-FAILURE_MESSAGE = {'result': False, 'message': 'Operation failed.'}
-REGISTRATION_SUCCESS_MESSAGE = {'result': True, 'message': 'Congratulations, you are registered.'}
-LOGIN_SUCCESS_MESSAGE = {'result': True, 'message': 'Congratulations, you are logged in.'}
-OWNER_NOT_VERIFIED_MESSAGE = {'result': False, 'message': 'Owner not verified by admin.'}
-NOT_REGISTERED_MESSAGE = {'result': False, 'message': 'You are not registered.'}
-PHONE_REQUIRED_MESSAGE = {'result': False, 'message': 'Phone number is required for registration.'}
-PHONE_ALREADY_PRESENT_MESSAGE = {'result': False, 'message': 'Phone number is already present.'}
-EXCEPTION_MESSAGE = {'result': False, 'message': 'Something went wrong'}
+from django.utils.translation import gettext as _
+
+SUCCESS_MESSAGE = _('Operation successful.')
+FAILURE_MESSAGE = _('Operation failed.')
+REGISTRATION_SUCCESS_MESSAGE = _('Congratulations, you are registered.')
+LOGIN_SUCCESS_MESSAGE = _('Congratulations, you are logged in.')
+OWNER_NOT_VERIFIED_MESSAGE = _('Owner not verified by admin.')
+NOT_REGISTERED_MESSAGE = _('You are not registered.')
+PHONE_REQUIRED_MESSAGE = _('Phone number is required for registration.')
+PHONE_ALREADY_PRESENT_MESSAGE = _('Phone number is already present.')
+EXCEPTION_MESSAGE = _('Something went wrong')

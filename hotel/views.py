@@ -18,10 +18,10 @@ class HotelRegisterView(APIView):
             fcm_token = request.data.get('fcm_token')
 
             if not phone_number:
-                return Response(PHONE_REQUIRED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'result': False, 'message': PHONE_REQUIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
             if Owner.objects.filter(phone_number=phone_number).exists():
-                return Response(PHONE_ALREADY_PRESENT_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
              
             else:
                 serializer.save()
@@ -33,16 +33,17 @@ class HotelRegisterView(APIView):
                 token = generate_token(user_id)
 
                 response_data = {
-                    **REGISTRATION_SUCCESS_MESSAGE,
+                    'result': True,
                     'data': {
                         'first_name': serializer.data['first_name'],
                         'token': token,
                     },
+                    'message': REGISTRATION_SUCCESS_MESSAGE
                 }
                 return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception:
-            return Response(EXCEPTION_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class HotelLoginView(APIView):
@@ -63,18 +64,19 @@ class HotelLoginView(APIView):
 
                     token = generate_token(hotel_owner.id)
                     response_data = {
-                        **LOGIN_SUCCESS_MESSAGE,
+                        'result': True,
                         'data': {
                             'PhoneNumber': phone,
                             'token': token,
                         },
+                        'message': LOGIN_SUCCESS_MESSAGE
                     }
                     return Response(response_data, status=status.HTTP_200_OK)
                 else:
-                    return Response(OWNER_NOT_VERIFIED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({'result': False, 'message': OWNER_NOT_VERIFIED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
             except Owner.DoesNotExist:
-                return Response(NOT_REGISTERED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception:
-            return Response(EXCEPTION_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
