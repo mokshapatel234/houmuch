@@ -15,7 +15,7 @@ class HotelRegisterView(APIView):
             serializer.is_valid(raise_exception=True)
 
             phone_number = serializer.validated_data.get('phone_number')
-            fcm_token = request.GET.get('fcm_token')
+            fcm_token = request.data.get('fcm_token')
 
             if not phone_number:
                 return Response({'result': False, 'message': 'phone number is required for registration.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -54,7 +54,7 @@ class HotelLoginView(APIView):
             serializer = LoginSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone = serializer.validated_data.get('phone_number')
-            fcm_token = request.GET.get('fcm_token')
+            fcm_token = request.data.get('fcm_token')
 
             try:
                 hotel_owner = HotelOwner.objects.get(phone_number=phone)
