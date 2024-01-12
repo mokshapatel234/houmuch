@@ -1,5 +1,5 @@
 from django.db import models
-from django.core.validators import RegexValidator
+from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
 
 
@@ -7,8 +7,7 @@ class Owner(models.Model):
     first_name = models.CharField(('First Name'), max_length=30 , null=False)
     last_name = models.CharField(('Last Name'), max_length=20, null=False)
     email = models.EmailField(max_length=100, null=False)
-    phoneNumberRegex = RegexValidator(regex = r"^\+?1?\d{10}$")
-    phone_number = models.CharField(validators=[phoneNumberRegex], max_length=17, blank=True)
+    phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address')
     government_id = models.TextField(verbose_name='gov_id')
