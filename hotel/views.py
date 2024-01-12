@@ -1,7 +1,7 @@
 from rest_framework import  permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Hotel, FCMToken
+from .models import HotelOwner, FCMToken
 from .serializer import *
 from .utils import generate_token
 
@@ -20,7 +20,7 @@ class HotelRegisterView(APIView):
             if not phone_number:
                 return Response({'result': False, 'message': 'phone number is required for registration.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if Hotel.objects.filter(phone_number=phone_number).exists():
+            if HotelOwner.objects.filter(phone_number=phone_number).exists():
                 return Response({'result': False, 'message': 'phone number is already present'}, status=status.HTTP_400_BAD_REQUEST)
              
             else:
@@ -56,29 +56,27 @@ class HotelLoginView(APIView):
             phone = serializer.validated_data.get('phone_number')
             fcm_token = request.GET.get('fcm_token')
 
-            # Check if the customer with the given phone number exists
             try:
-                hotel = Hotel.objects.get(phone_number=phone)
-                # Customer exists, update the fcm_token
-                if fcm_token:
-                    FCMToken.objects.create(user_id=hotel.id, fcm_token=fcm_token, is_owner=True)
+                hotel_owner = HotelOwner.objects.get(phone_number=phone)
+                if hotel_owner.is_verified:
+                    if fcm_token:
+                        FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
 
-                # Generate token and return the response
-                token = generate_token(hotel.id)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        'PhoneNumber': phone,
-                        'token': token,
-                    },
-                    'message': 'Congratulations, you are logged in.',
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
+                    token = generate_token(hotel_owner.id)
+                    response_data = {
+                        'result': True,
+                        'data': {
+                            'PhoneNumber': phone,
+                            'token': token,
+                        },
+                        'message': 'Congratulations, you are logged in.',
+                    }
+                    return Response(response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response({'result': False, 'message': 'Owner not verified by admin'}, status=status.HTTP_400_BAD_REQUEST)
 
-            except Hotel.DoesNotExist:
-                # Customer doesn't exist, return an error response
+            except HotelOwner.DoesNotExist:
                 return Response({'result': False, 'message': 'You are not registered.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print(e)
             return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)

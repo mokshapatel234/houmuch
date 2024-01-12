@@ -1,10 +1,10 @@
 from rest_framework import serializers 
-from .models import Hotel
+from .models import HotelOwner
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Hotel
+        model = HotelOwner
         fields = '__all__'
     
     # Override the default behavior of the fields
@@ -21,5 +21,5 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
-        model=Hotel
+        model=HotelOwner
         fields = ('phone_number',)
