@@ -1,18 +1,11 @@
-from django.shortcuts import render
-from rest_framework import filters
-from django.shortcuts import get_object_or_404
-from rest_framework import generics, permissions
+from rest_framework import permissions, status
 from rest_framework.response import Response
-from rest_framework import status, generics
-from django.template.loader import render_to_string
-from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
-from .models import Hotel,FCMToken
+from .models import Owner, FCMToken
 from .serializer import *
 from .utils import generate_token
-from .authentication import JWTAuthentication
+from hotel_app_backend.messages import *
 
-# Create your views here.
 class HotelRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
@@ -22,14 +15,13 @@ class HotelRegisterView(APIView):
             serializer.is_valid(raise_exception=True)
 
             phone_number = serializer.validated_data.get('phone_number')
-            fcm_token = request.GET.get('fcm_token')
-            print(fcm_token)
+            fcm_token = request.data.get('fcm_token')
 
             if not phone_number:
-                return Response({'result': False, 'message': 'phone number is required for registration.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(PHONE_REQUIRED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
 
-            if Hotel.objects.filter(phone_number=phone_number).exists():
-                return Response({'result': False, 'message': 'phone number is already present'}, status=status.HTTP_400_BAD_REQUEST)
+            if Owner.objects.filter(phone_number=phone_number).exists():
+                return Response(PHONE_ALREADY_PRESENT_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
              
             else:
                 serializer.save()
@@ -41,18 +33,16 @@ class HotelRegisterView(APIView):
                 token = generate_token(user_id)
 
                 response_data = {
-                    'result': True,
+                    **REGISTRATION_SUCCESS_MESSAGE,
                     'data': {
                         'first_name': serializer.data['first_name'],
                         'token': token,
                     },
-                    'message': 'Congratulations, you are registered.',
                 }
                 return Response(response_data, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(EXCEPTION_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
 
 
 class HotelLoginView(APIView):
@@ -63,31 +53,28 @@ class HotelLoginView(APIView):
             serializer = LoginSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone = serializer.validated_data.get('phone_number')
-            fcm_token = request.GET.get('fcm_token')
+            fcm_token = request.data.get('fcm_token')
 
-            # Check if the customer with the given phone number exists
             try:
-                hotel = Hotel.objects.get(phone_number=phone)
-                # Customer exists, update the fcm_token
-                if fcm_token:
-                    FCMToken.objects.create(user_id=hotel.id, fcm_token=fcm_token, is_owner=True)
+                hotel_owner = Owner.objects.get(phone_number=phone)
+                if hotel_owner.is_verified:
+                    if fcm_token:
+                        FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
 
-                # Generate token and return the response
-                token = generate_token(hotel.id)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        'PhoneNumber': phone,
-                        'token': token,
-                    },
-                    'message': 'Congratulations, you are logged in.',
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
+                    token = generate_token(hotel_owner.id)
+                    response_data = {
+                        **LOGIN_SUCCESS_MESSAGE,
+                        'data': {
+                            'PhoneNumber': phone,
+                            'token': token,
+                        },
+                    }
+                    return Response(response_data, status=status.HTTP_200_OK)
+                else:
+                    return Response(OWNER_NOT_VERIFIED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
 
-            except Hotel.DoesNotExist:
-                # Customer doesn't exist, return an error response
-                return Response({'result': False, 'message': 'You are not registered.'}, status=status.HTTP_400_BAD_REQUEST)
+            except Owner.DoesNotExist:
+                return Response(NOT_REGISTERED_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            print(e)
-            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(EXCEPTION_MESSAGE, status=status.HTTP_400_BAD_REQUEST)
