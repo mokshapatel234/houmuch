@@ -3,6 +3,7 @@ from rest_framework import exceptions
 from .models import *
 from hotel_app_backend.messages import *
 import jwt
+
 class JWTAuthentication(BaseAuthentication):
     def authenticate(self, request):
         jwt_token = request.headers.get('Authorization', None)
@@ -18,8 +19,8 @@ class JWTAuthentication(BaseAuthentication):
             raise exceptions.AuthenticationFailed(TOKEN_REQUIRED_MESSAGE)
 
         try:
-            request.user = Owner.objects.get(id=payload['user_id'])    
-        except Owner.DoesNotExist:
-            raise exceptions.AuthenticationFailed(OWNER_NOT_FOUND_MESSAGE)
+            request.user = Customer.objects.get(id=payload['user_id'])    
+        except Customer.DoesNotExist:
+            raise exceptions.AuthenticationFailed(CUSTOMER_NOT_FOUND_MESSAGE)
 
         return (request.user, jwt_token)
