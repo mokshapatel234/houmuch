@@ -1,7 +1,7 @@
 from rest_framework import  permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import HotelOwner, FCMToken
+from .models import Owner, FCMToken
 from .serializer import *
 from .utils import generate_token
 
@@ -20,7 +20,7 @@ class HotelRegisterView(APIView):
             if not phone_number:
                 return Response({'result': False, 'message': 'phone number is required for registration.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if HotelOwner.objects.filter(phone_number=phone_number).exists():
+            if Owner.objects.filter(phone_number=phone_number).exists():
                 return Response({'result': False, 'message': 'phone number is already present'}, status=status.HTTP_400_BAD_REQUEST)
              
             else:
@@ -57,7 +57,7 @@ class HotelLoginView(APIView):
             fcm_token = request.data.get('fcm_token')
 
             try:
-                hotel_owner = HotelOwner.objects.get(phone_number=phone)
+                hotel_owner = Owner.objects.get(phone_number=phone)
                 if hotel_owner.is_verified:
                     if fcm_token:
                         FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
@@ -75,7 +75,7 @@ class HotelLoginView(APIView):
                 else:
                     return Response({'result': False, 'message': 'Owner not verified by admin'}, status=status.HTTP_400_BAD_REQUEST)
 
-            except HotelOwner.DoesNotExist:
+            except Owner.DoesNotExist:
                 return Response({'result': False, 'message': 'You are not registered.'}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:

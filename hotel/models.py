@@ -3,7 +3,7 @@ from django.core.validators import RegexValidator
 from django.utils.timezone import now
 
 
-class HotelOwner(models.Model):
+class Owner(models.Model):
     first_name = models.CharField(('First Name'), max_length=30 , null=False)
     last_name = models.CharField(('Last Name'), max_length=20, null=False)
     email = models.EmailField(max_length=100, null=False)
@@ -27,7 +27,7 @@ class HotelOwner(models.Model):
 
     def delete(self, hard=False, **kwargs):
         if hard:
-            super(HotelOwner, self).delete()
+            super(Owner, self).delete()
         else:
             self.deleted_at = now()
             self.save()
