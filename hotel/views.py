@@ -6,6 +6,7 @@ from .serializer import *
 from .utils import generate_token
 from hotel_app_backend.messages import *
 
+
 class HotelRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
