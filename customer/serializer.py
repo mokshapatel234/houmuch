@@ -20,3 +20,8 @@ class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model=Customer
         fields = ('phone_number',)
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ('first_name', 'last_name', 'phone_number', 'email', 'address', 'government_id', 'profile_image')
