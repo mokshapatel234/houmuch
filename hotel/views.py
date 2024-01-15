@@ -37,7 +37,7 @@ class HotelRegisterView(APIView):
                 response_data = {
                     'result': True,
                     'data': {
-                        'first_name': serializer.data['first_name'],
+                        **serializer.data,
                         'token': token,
                     },
                     'message': REGISTRATION_SUCCESS_MESSAGE
@@ -65,10 +65,11 @@ class HotelLoginView(APIView):
                         FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
 
                     token = generate_token(hotel_owner.id)
+                    owner_data = serializer.to_representation(hotel_owner)
                     response_data = {
                         'result': True,
                         'data': {
-                            'PhoneNumber': phone,
+                            **owner_data,
                             'token': token,
                         },
                         'message': LOGIN_SUCCESS_MESSAGE
