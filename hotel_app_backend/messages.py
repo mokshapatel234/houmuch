@@ -13,4 +13,7 @@ INVALID_TOKEN_MESSAGE = _('Token is invalid.')
 TOKEN_REQUIRED_MESSAGE = _('Token is required.')
 CUSTOMER_NOT_FOUND_MESSAGE = _('Customer not found.')
 OWNER_NOT_FOUND_MESSAGE = _('Owner not found.')
-
+PROFILE_MESSAGE = _('Profile retrieved successfully.')
+PROFILE_UPDATE_MESSAGE = _('Profile updated suceessfully.')
+PROFILE_ERROR_MESSAGE = _('Invalid data provided.')
+EMAIL_ALREADY_PRESENT_MESSAGE = _('Email is already present.')

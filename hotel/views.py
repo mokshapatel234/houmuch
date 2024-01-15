@@ -5,6 +5,7 @@ from .models import Owner, FCMToken
 from .serializer import *
 from .utils import generate_token
 from hotel_app_backend.messages import *
+from .authentication import JWTAuthentication
 
 class HotelRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -78,5 +79,47 @@ class HotelLoginView(APIView):
             except Owner.DoesNotExist:
                 return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
+        except Exception:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OwnerProfileView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def get(self,request):
+        try:
+            serializer = OwnerProfileSerializer(request.user)
+    
+            return Response({"result": True,
+                            "data": serializer.data,
+                            "message": PROFILE_MESSAGE}, status=status.HTTP_200_OK)
+        except Owner.DoesNotExist:
+            return Response({'result': False, 'message': OWNER_NOT_FOUND_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def patch(self, request):
+        try:
+            serializer = OwnerProfileSerializer(request.user, data=request.data, partial=True)
+            if serializer.is_valid():
+
+                email = serializer.validated_data.get('email', None)
+                phone_number = serializer.validated_data.get('phone_number', None)
+
+                if phone_number and Owner.objects.filter(phone_number=phone_number):
+                    return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                if email and Owner.objects.filter(email=email):
+                    return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+
+                serializer.save()
+                return Response({"result": True,
+                                "data": serializer.data,
+                                'message': PROFILE_UPDATE_MESSAGE},status=status.HTTP_201_CREATED)
+            else:
+                return Response({"result": False,
+                                "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+       
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
