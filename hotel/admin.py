@@ -7,11 +7,11 @@ admin.site.unregister(Group)
 
 class OwnerAdmin(admin.ModelAdmin):
     list_display = ['first_name','last_name','email','phone_number','government_id','is_verified',]
-    search_fields = ['first_name','last_name', ]
+    search_fields = ['first_name','last_name',]
     list_per_page = 20
 
 class PropertyTypeAdmin(admin.ModelAdmin):
-    list_display = ['property_type','time_duration',]
+    list_display = ['property_type','bid_time_duration',]
     search_fields = ['property_type',]
     list_per_page = 20
 

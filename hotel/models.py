@@ -55,7 +55,7 @@ class FCMToken(models.Model):
     
 class PropertyType(models.Model):
     property_type = models.CharField(max_length=255, null=True, blank=True)
-    time_duration = models.IntegerField()
+    bid_time_duration = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
