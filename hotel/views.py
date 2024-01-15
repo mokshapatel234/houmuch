@@ -7,6 +7,7 @@ from .utils import generate_token
 from hotel_app_backend.messages import *
 from .authentication import JWTAuthentication
 
+
 class HotelRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
@@ -120,6 +121,6 @@ class OwnerProfileView(APIView):
             else:
                 return Response({"result": False,
                                 "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-       
+
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
