@@ -37,7 +37,7 @@ class CustomerRegisterView(APIView):
                 response_data = {
                     'result': True,
                     'data': {
-                        'first_name': serializer.data['first_name'],
+                        **serializer.data,
                         'token': token,
                     },
                     'message': REGISTRATION_SUCCESS_MESSAGE
@@ -65,10 +65,11 @@ class CustomerLoginView(APIView):
                     FCMToken.objects.create(user_id=customer.id, fcm_token=fcm_token)
 
                     token = generate_token(customer.id)
+                    customer_data = serializer.to_representation(customer)
                     response_data = {
                         'result': True,
                         'data': {
-                            'PhoneNumber': phone,
+                            **customer_data,
                             'token': token,
                         },
                         'message': LOGIN_SUCCESS_MESSAGE

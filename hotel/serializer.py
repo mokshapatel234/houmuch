@@ -7,15 +7,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = Owner
         fields = '__all__'
 
-    is_verified = serializers.CharField(required=False)
-    is_active = serializers.CharField(required=False)
-    bidding_mode = serializers.CharField(required=False)
+    read_only_fields = ('is_verified', 'is_active', 'bidding_mode')
 
 
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Owner
-        fields = ('phone_number',)
+        model=Owner
+        fields = '__all__'
+        read_only_fields = ('first_name', 'last_name', 'email', 'profile_image', 'address', 'government_id', 'is_verified', 'is_active', 'bidding_mode', 'created_at', 'updated_at', 'deleted_at')
 
 
 class OwnerProfileSerializer(serializers.ModelSerializer):
