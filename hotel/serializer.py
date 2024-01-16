@@ -14,7 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.ModelSerializer):
     class Meta:
-        model=Owner
+        model = Owner
         fields = ('phone_number',)
 
 

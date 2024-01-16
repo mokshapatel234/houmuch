@@ -2,6 +2,8 @@ from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
 from django.contrib.gis.db import models as geo_models
+from django.contrib.gis.geos import Point
+
 
 class Owner(models.Model):
     first_name = models.CharField(('First Name'), max_length=30 , null=False)
@@ -170,7 +172,7 @@ class ExperienceSlot(models.Model):
     
 class UpdateInventoryPeriod(models.Model):
     update_duration = models.CharField(('Update Duration'), max_length=30)
-    common_amenities = models.ManyToManyField(CommonAmenities, on_delete=models.CASCADE, related_name='updated_common_amenities')
+    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
     default_price = models.IntegerField(('Default Price'))
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
@@ -198,11 +200,11 @@ class Property(models.Model):
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
     check_in_datetime = models.DateTimeField('Check-in Datetime')
     check_out_datetime = models.DateTimeField('Check-out Datetime')
-    location = geo_models.PointField('Location')
+    location = geo_models.PointField(('Location'), geography=True, default=Point(0.0, 0.0))
     nearby_popular_landmark = models.CharField('Nearby Popular Landmark', max_length=255)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_property')
     property_type = models.ForeignKey(PropertyType, on_delete=models.CASCADE, related_name='owner_property_type')
-    room_types = models.ManyToManyField(RoomType, on_delete=models.CASCADE, related_name='owner_room_type')
+    room_types = models.ManyToManyField(RoomType, related_name='owner_room_type')
     cancellation_days = models.IntegerField('Cancellation Days', default=False)
     cancellation_policy = models.TextField('Cancellation Policy')
     pet_friendly = models.BooleanField('Pet Friendly', default=False)
@@ -233,8 +235,8 @@ class RoomInventory(models.Model):
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
     bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_room_type')
     bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_room_type')
-    room_features = models.ManyToManyField(RoomFeature, on_delete=models.CASCADE, related_name='property_room_features')
-    common_amenities = models.ManyToManyField(CommonAmenities, on_delete=models.CASCADE, related_name='property_common_amenities')
+    room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
+    common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
     is_updated_period = models.BooleanField('Updated Period', default=False)
     updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
     adult_capacity = models.IntegerField(("Adult Capacity"))

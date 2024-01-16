@@ -80,12 +80,12 @@ WSGI_APPLICATION = 'hotel_app_backend.wsgi.application'
 
 DATABASES = {
    'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': os.getenv('DATABASE_NAME','mydatabase'),
-       'USER': os.getenv('DATABASE_USER','myuser'),
-       'PASSWORD': os.getenv('DATABASE_PASSWORD','mypassword'),
-       'HOST': os.getenv('DATABASE_HOST','db'),
-       'PORT': os.getenv('DATABASE_PORT','5432'),
+       'ENGINE': 'django.contrib.gis.db.backends.postgis',
+       'NAME': os.getenv('DATABASE_NAME'),
+       'USER': os.getenv('DATABASE_USER'),
+       'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+       'HOST': os.getenv('DATABASE_HOST'),
+       'PORT': os.getenv('DATABASE_PORT'),
    }
 }
 
