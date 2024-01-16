@@ -2,7 +2,7 @@ from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
 from django.contrib.gis.db import models as geo_models
-from django.contrib.postgres.fields import ArrayField
+
 class Owner(models.Model):
     first_name = models.CharField(('First Name'), max_length=30 , null=False)
     last_name = models.CharField(('Last Name'), max_length=20, null=False)
@@ -169,13 +169,24 @@ class ExperienceSlot(models.Model):
         return self.slot
     
 class UpdateInventoryPeriod(models.Model):
-    common_amenities = models.ForeignKey(CommonAmenities, on_delete=models.CASCADE, related_name='updated_common_amenities')
+    update_duration = models.CharField(('Update Duration'), max_length=30)
+    common_amenities = models.ManyToManyField(CommonAmenities, on_delete=models.CASCADE, related_name='updated_common_amenities')
     default_price = models.IntegerField(('Default Price'))
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def delete(self, hard=False, **kwargs):
+        if hard:
+            super(UpdateInventoryPeriod, self).delete()
+        else:
+            self.deleted_at = now()
+            self.save()
+
+    def __str__(self):
+        return self.update_duration
 
 
 class Property(models.Model):
@@ -191,7 +202,7 @@ class Property(models.Model):
     nearby_popular_landmark = models.CharField('Nearby Popular Landmark', max_length=255)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_property')
     property_type = models.ForeignKey(PropertyType, on_delete=models.CASCADE, related_name='owner_property_type')
-    room_types = ArrayField(models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='owner_room_type'))
+    room_types = models.ManyToManyField(RoomType, on_delete=models.CASCADE, related_name='owner_room_type')
     cancellation_days = models.IntegerField('Cancellation Days', default=False)
     cancellation_policy = models.TextField('Cancellation Policy')
     pet_friendly = models.BooleanField('Pet Friendly', default=False)
@@ -218,12 +229,12 @@ class RoomInventory(models.Model):
     room_name = models.CharField(('Room Name'), max_length=30)
     floor = models.IntegerField(('Floor'))
     room_view = models.CharField(('Room View'), max_length=30)
-    area_sqft = models.DecimalField(('Area sqft'))
+    area_sqft = models.FloatField(('Area sqft'))
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
     bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_room_type')
     bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_room_type')
-    room_features = models.ForeignKey(RoomFeature, on_delete=models.CASCADE, related_name='property_room_features')
-    common_amenities = models.ForeignKey(CommonAmenities, on_delete=models.CASCADE, related_name='property_common_amenities')
+    room_features = models.ManyToManyField(RoomFeature, on_delete=models.CASCADE, related_name='property_room_features')
+    common_amenities = models.ManyToManyField(CommonAmenities, on_delete=models.CASCADE, related_name='property_common_amenities')
     is_updated_period = models.BooleanField('Updated Period', default=False)
     updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
     adult_capacity = models.IntegerField(("Adult Capacity"))
@@ -238,10 +249,10 @@ class RoomInventory(models.Model):
 
     def delete(self, hard=False, **kwargs):
         if hard:
-            super(Property, self).delete()
+            super(RoomInventory, self).delete()
         else:
             self.deleted_at = now()
             self.save()
 
     def __str__(self):
-        return self.hotel_name
+        return self.room_name
