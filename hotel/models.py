@@ -54,7 +54,8 @@ class FCMToken(models.Model):
     
     def __str__(self):
         return self.first_name
-    
+
+
 class PropertyType(models.Model):
     property_type = models.CharField(max_length=255, null=True, blank=True)
     bid_time_duration = models.IntegerField()
@@ -71,7 +72,8 @@ class PropertyType(models.Model):
     
     def __str__(self):
         return self.property_type
-    
+
+
 class RoomType(models.Model):
     room_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -87,7 +89,8 @@ class RoomType(models.Model):
     
     def __str__(self):
         return self.room_type
-    
+
+
 class BedType(models.Model):
     bed_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -120,7 +123,7 @@ class BathroomType(models.Model):
     
     def __str__(self):
         return self.bathroom_type
-    
+
 
 class RoomFeature(models.Model):
     room_feature = models.CharField(max_length=255, null=True, blank=True)
@@ -137,7 +140,8 @@ class RoomFeature(models.Model):
     
     def __str__(self):
         return self.room_feature
-    
+
+
 class CommonAmenities(models.Model):
     common_ameninity = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -153,7 +157,8 @@ class CommonAmenities(models.Model):
     
     def __str__(self):
         return self.common_ameninity
-    
+
+
 class ExperienceSlot(models.Model):
     slot = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -169,7 +174,8 @@ class ExperienceSlot(models.Model):
     
     def __str__(self):
         return self.slot
-    
+
+
 class UpdateInventoryPeriod(models.Model):
     update_duration = models.CharField(('Update Duration'), max_length=30)
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
@@ -226,6 +232,7 @@ class Property(models.Model):
     def __str__(self):
         return self.hotel_name
     
+
 class RoomInventory(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_room')
     room_name = models.CharField(('Room Name'), max_length=30)
