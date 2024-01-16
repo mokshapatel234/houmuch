@@ -5,6 +5,9 @@ from django.contrib.auth.models import Group
 # Register your models here.
 admin.site.unregister(Group)
 
+class UserAdmin(admin.ModelAdmin):
+    admin.site.site_header = 'Hotel App'
+
 class OwnerAdmin(admin.ModelAdmin):
     list_display = ['first_name','last_name','email','phone_number','government_id','is_verified',]
     search_fields = ['first_name','last_name',]
