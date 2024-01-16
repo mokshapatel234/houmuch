@@ -1,6 +1,7 @@
 from rest_framework import serializers 
-from .models import Owner,Property
 from django.contrib.gis.geos import Point
+from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -51,3 +52,37 @@ class PropertySerializer(serializers.ModelSerializer):
             instance.room_types.set(room_types_data)
 
         return instance
+class PropertyTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyType
+        fields = '__all__'
+
+
+class RoomTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomType
+        fields = '__all__'
+
+
+class BedTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BedType
+        fields = '__all__'
+
+
+class BathroomTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BathroomType
+        fields = '__all__'
+
+
+class RoomFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomFeature
+        fields = '__all__'
+
+
+class CommonAmenitiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommonAmenities
+        fields = '__all__'
