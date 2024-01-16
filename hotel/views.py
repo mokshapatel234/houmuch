@@ -1,11 +1,12 @@
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import Owner, FCMToken
+from .models import Owner, FCMToken, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities
 from .serializer import *
-from .utils import generate_token
+from .utils import generate_token, model_name_to_snake_case
 from hotel_app_backend.messages import *
 from .authentication import JWTAuthentication
+from rest_framework.generics import ListAPIView
 
 
 class HotelRegisterView(APIView):
@@ -101,7 +102,6 @@ class OwnerProfileView(APIView):
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
-
     def patch(self, request):
         try:
             serializer = OwnerProfileSerializer(request.user, data=request.data, partial=True)
@@ -125,3 +125,27 @@ class OwnerProfileView(APIView):
 
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MasterRetrieveView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def list(self, request, *args, **kwargs):
+        models_and_serializers = {
+            PropertyType: PropertyTypeSerializer,
+            RoomType: RoomTypeSerializer,
+            BedType: BedTypeSerializer,
+            BathroomType: BathroomTypeSerializer,
+            RoomFeature: RoomFeatureSerializer,
+            CommonAmenities: CommonAmenitiesSerializer,
+        }
+
+        data = {}
+        for model, serializer_class in models_and_serializers.items():
+            queryset = model.objects.all()
+            serializer = serializer_class(queryset, many=True)
+            model_name = model_name_to_snake_case(model.__name__)
+            data[model_name] = serializer.data
+
+        return Response(data)
