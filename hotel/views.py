@@ -92,10 +92,13 @@ class OwnerProfileView(APIView):
     def get(self,request):
         try:
             serializer = OwnerProfileSerializer(request.user)
-    
-            return Response({"result": True,
-                            "data": serializer.data,
-                            "message": PROFILE_MESSAGE}, status=status.HTTP_200_OK)
+
+            response_data = {
+                'result': True,
+                'data': serializer.data,
+                'message': PROFILE_MESSAGE,
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
         except Owner.DoesNotExist:
             return Response({'result': False, 'message': OWNER_NOT_FOUND_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
@@ -116,12 +119,39 @@ class OwnerProfileView(APIView):
                     return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
                 serializer.save()
-                return Response({"result": True,
-                                "data": serializer.data,
-                                'message': PROFILE_UPDATE_MESSAGE},status=status.HTTP_201_CREATED)
+                response_data = {
+                    'result': True,
+                    'data': serializer.data,
+                    'message': PROFILE_UPDATE_MESSAGE,
+                }
+                return Response(response_data, status=status.HTTP_201_CREATED)
             else:
-                return Response({"result": False,
-                                "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"result": False, "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PropertyCreateView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def post(self, request):
+        try:
+            serializer = PropertySerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            owner = request.user
+
+            # Add the owner to the data before saving
+            serializer.validated_data['owner'] = owner
+            serializer.save()
+
+            response_data = {
+                'result': True,
+                'data': serializer.data,
+                'message': PROPERTY_CREATION_MESSAGE,
+            }
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)

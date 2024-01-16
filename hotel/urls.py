@@ -5,4 +5,5 @@ urlpatterns = [
     path('register', HotelRegisterView.as_view()),
     path('login', HotelLoginView.as_view()),
     path('ownerProfile', OwnerProfileView.as_view(), name="owner_profile"),
+    path('addProperty', PropertyCreateView.as_view(), name="add_property")
 ]
