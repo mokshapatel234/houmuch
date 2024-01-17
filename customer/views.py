@@ -3,10 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from hotel.models import FCMToken
-from .serializer import *
+from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
-from hotel_app_backend.messages import *
-from .authentication import JWTAuthentication 
+from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
+    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
+    PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, PROFILE_ERROR_MESSAGE
+from .authentication import JWTAuthentication
+
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -91,7 +94,7 @@ class CustomerProfileView(APIView):
     def get(self, request):
 
         try:
-            serializer = ProfileSerializer(request.user)
+            serializer = self.serializer_class(request.user)
 
             response_data = {
                 'result': True,
@@ -105,7 +108,7 @@ class CustomerProfileView(APIView):
 
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+
     def patch(self, request):
         try:
             serializer = ProfileSerializer(request.user, data=request.data, partial=True)

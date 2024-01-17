@@ -6,7 +6,7 @@ from django.contrib.gis.geos import Point
 
 
 class Owner(models.Model):
-    first_name = models.CharField(('First Name'), max_length=30 , null=False)
+    first_name = models.CharField(('First Name'), max_length=30, null=False)
     last_name = models.CharField(('Last Name'), max_length=20, null=False)
     email = models.EmailField(max_length=100, null=False)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
@@ -16,12 +16,12 @@ class Owner(models.Model):
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     bidding_mode = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True,blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True,blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
 
     def is_authenticated(self):
-        return True  
+        return True
 
     def is_anonymous(self):
         return False
@@ -32,7 +32,7 @@ class Owner(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.first_name
 
@@ -51,7 +51,7 @@ class FCMToken(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.first_name
 
@@ -69,7 +69,7 @@ class PropertyType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.property_type
 
@@ -86,7 +86,7 @@ class RoomType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.room_type
 
@@ -103,7 +103,7 @@ class BedType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.bed_type
 
@@ -120,7 +120,7 @@ class BathroomType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.bathroom_type
 
@@ -137,7 +137,7 @@ class RoomFeature(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.room_feature
 
@@ -154,7 +154,7 @@ class CommonAmenities(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.common_ameninity
 
@@ -171,7 +171,7 @@ class ExperienceSlot(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.slot
 
@@ -231,7 +231,7 @@ class Property(models.Model):
 
     def __str__(self):
         return self.hotel_name
-    
+
 
 class RoomInventory(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_room')
