@@ -1,7 +1,7 @@
 from rest_framework import serializers 
 from django.contrib.gis.geos import Point
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property
-
+from hotel_app_backend.messages import *
 
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -26,6 +26,16 @@ class OwnerProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['government_id']
 
 
+class RoomTypeSerilizer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomType
+        fields = ('id','room_type')
+
+class PropertyTypeSerilizer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyType
+        fields = ('id','property_type')
+
 class PropertySerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
@@ -39,19 +49,10 @@ class PropertySerializer(serializers.ModelSerializer):
         }
         return representation
 
-    def create(self, validated_data):
-        location_data = validated_data.pop('location', None)
-        if location_data:
-            validated_data['location'] = Point(location_data['coordinates'])
-
-        room_types_data = validated_data.pop('room_types', None)
-
-        instance = Property.objects.create(**validated_data)
-
-        if room_types_data:
-            instance.room_types.set(room_types_data)
-
-        return instance
+class PropertyOutSerializer(PropertySerializer):
+    room_types = RoomTypeSerilizer(many=True)
+    property_type = PropertyTypeSerilizer()
+    
 class PropertyTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyType

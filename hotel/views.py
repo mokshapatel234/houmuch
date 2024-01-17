@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, FCMToken, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities
 from .serializer import *
-from .utils import generate_token, model_name_to_snake_case
+from .utils import generate_token, model_name_to_snake_case, generate_response
 from hotel_app_backend.messages import *
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
@@ -138,12 +138,53 @@ class PropertyViewSet(ModelViewSet):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
     serializer_class = PropertySerializer
-    queryset = Property.objects.all()
+    queryset = Property.objects.all().order_by('-id')
     pagination_class = CustomPagination
 
-    def perform_create(self, serializer):
-        # Add the owner to the data before saving
-        serializer.save(owner=self.request.user)
+    def create(self, request):
+        location_data = request.data.pop('location', None)
+        room_types_data = request.data.get('room_types', None)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save(owner=self.request.user)
+
+        if location_data:
+            instance.location = Point(location_data['coordinates'])
+            instance.save()
+
+        if room_types_data:
+            instance.room_types.set(room_types_data)
+
+        return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
+ 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        location_data = request.data.pop('location', None)
+        room_types_data = request.data.get('room_types', None)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated_instance = serializer.save()
+
+        if location_data:
+            updated_instance.location = Point(location_data['coordinates'])
+            updated_instance.save()
+
+        if room_types_data:
+            updated_instance.room_types.set(room_types_data)
+
+        return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
+    
+    def list(self, request):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        serializer = PropertyOutSerializer(page, many=True)  
+        return self.get_paginated_response(serializer.data)
 
 
 class MasterRetrieveView(ListAPIView):
