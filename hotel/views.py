@@ -181,7 +181,7 @@ class PropertyViewSet(ModelViewSet):
         return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
     
     def list(self, request):
-        queryset = self.get_queryset()
+        queryset = Property.objects.filter(owner=request.user).order_by('-id')
         page = self.paginate_queryset(queryset)
         serializer = PropertyOutSerializer(page, many=True)  
         return self.get_paginated_response(serializer.data)
