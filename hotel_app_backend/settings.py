@@ -79,14 +79,14 @@ WSGI_APPLICATION = 'hotel_app_backend.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-   'default': {
-       'ENGINE': 'django.contrib.gis.db.backends.postgis',
-       'NAME': os.getenv('DATABASE_NAME'),
-       'USER': os.getenv('DATABASE_USER'),
-       'PASSWORD': os.getenv('DATABASE_PASSWORD'),
-       'HOST': os.getenv('DATABASE_HOST'),
-       'PORT': os.getenv('DATABASE_PORT'),
-   }
+    'default': {
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'NAME': os.getenv('DATABASE_NAME'),
+        'USER': os.getenv('DATABASE_USER'),
+        'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+        'HOST': os.getenv('DATABASE_HOST'),
+        'PORT': os.getenv('DATABASE_PORT'),
+    }
 }
 
 
@@ -115,7 +115,7 @@ AUTH_PASSWORD_VALIDATORS = [
 #     'DEFAULT_PERMISSION_CLASSES': (
 #         'rest_framework.permissions.IsAuthenticated',
 #     ),
-   
+
 # }
 
 # Internationalization
@@ -123,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 LANGUAGES = [
-    ('en', _('English')), 
+    ('en', _('English')),
 ]
 
 TIME_ZONE = 'UTC'

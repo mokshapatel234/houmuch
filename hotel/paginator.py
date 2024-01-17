@@ -1,7 +1,8 @@
-from rest_framework.pagination import BasePagination
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
-from hotel_app_backend.messages import *
+from hotel_app_backend.messages import DATA_RETRIEVAL_MESSAGE
+
+
 class CustomPagination(PageNumberPagination):
     page_size_query_param = 'per_page'
     page_size = 5
