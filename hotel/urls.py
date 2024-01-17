@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import *
+from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, MasterRetrieveView
+
 
 router = DefaultRouter()
 router.register(r'properties', PropertyViewSet, basename='property')
