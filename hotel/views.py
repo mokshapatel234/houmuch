@@ -2,13 +2,20 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .models import Owner, FCMToken, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities
-from .serializer import *
+from .models import Owner, FCMToken, PropertyType, RoomType, BedType, \
+    BathroomType, RoomFeature, CommonAmenities, Property
+from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
+    PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
+    BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response
-from hotel_app_backend.messages import *
+from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
+    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, OWNER_NOT_VERIFIED_MESSAGE, \
+    NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
+    PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
+from django.contrib.gis.geos import Point
 
 
 class HotelRegisterView(APIView):
@@ -24,10 +31,8 @@ class HotelRegisterView(APIView):
 
             if not phone_number:
                 return Response({'result': False, 'message': PHONE_REQUIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-             
             else:
                 serializer.save()
                 user_id = serializer.instance.id
@@ -60,30 +65,27 @@ class HotelLoginView(APIView):
             serializer.is_valid(raise_exception=True)
             phone = serializer.validated_data.get('phone_number')
             fcm_token = request.data.get('fcm_token')
+            hotel_owner = Owner.objects.get(phone_number=phone)
+            if hotel_owner.is_verified:
+                if fcm_token:
+                    FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
 
-            try:
-                hotel_owner = Owner.objects.get(phone_number=phone)
-                if hotel_owner.is_verified:
-                    if fcm_token:
-                        FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
+                token = generate_token(hotel_owner.id)
+                owner_data = serializer.to_representation(hotel_owner)
+                response_data = {
+                    'result': True,
+                    'data': {
+                        **owner_data,
+                        'token': token,
+                    },
+                    'message': LOGIN_SUCCESS_MESSAGE
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            else:
+                return Response({'result': False, 'message': OWNER_NOT_VERIFIED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
-                    token = generate_token(hotel_owner.id)
-                    owner_data = serializer.to_representation(hotel_owner)
-                    response_data = {
-                        'result': True,
-                        'data': {
-                            **owner_data,
-                            'token': token,
-                        },
-                        'message': LOGIN_SUCCESS_MESSAGE
-                    }
-                    return Response(response_data, status=status.HTTP_200_OK)
-                else:
-                    return Response({'result': False, 'message': OWNER_NOT_VERIFIED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
-            except Owner.DoesNotExist:
-                return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
+        except Owner.DoesNotExist:
+            return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -92,10 +94,9 @@ class OwnerProfileView(APIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
-    def get(self,request):
+    def get(self, request):
         try:
             serializer = OwnerProfileSerializer(request.user)
-
             response_data = {
                 'result': True,
                 'data': serializer.data,
@@ -111,15 +112,12 @@ class OwnerProfileView(APIView):
         try:
             serializer = OwnerProfileSerializer(request.user, data=request.data, partial=True)
             if serializer.is_valid():
-
                 email = serializer.validated_data.get('email', None)
                 phone_number = serializer.validated_data.get('phone_number', None)
-
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
                     return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
                 if email and Owner.objects.filter(email=email):
                     return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
                 serializer.save()
                 response_data = {
                     'result': True,
@@ -129,7 +127,6 @@ class OwnerProfileView(APIView):
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 return Response({"result": False, "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -156,8 +153,8 @@ class PropertyViewSet(ModelViewSet):
         if room_types_data:
             instance.room_types.set(room_types_data)
 
-        return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
- 
+        return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
@@ -179,11 +176,11 @@ class PropertyViewSet(ModelViewSet):
             updated_instance.room_types.set(room_types_data)
 
         return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
-    
+
     def list(self, request):
         queryset = Property.objects.filter(owner=request.user).order_by('-id')
         page = self.paginate_queryset(queryset)
-        serializer = PropertyOutSerializer(page, many=True)  
+        serializer = PropertyOutSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
 
 
@@ -200,7 +197,6 @@ class MasterRetrieveView(ListAPIView):
             RoomFeature: RoomFeatureSerializer,
             CommonAmenities: CommonAmenitiesSerializer,
         }
-
         data = {}
         for model, serializer_class in models_and_serializers.items():
             queryset = model.objects.all()
@@ -212,5 +208,4 @@ class MasterRetrieveView(ListAPIView):
                 'data': data,
                 'message': DATA_RETRIEVAL_MESSAGE,
             }
-
         return Response(response_data, status=status.HTTP_200_OK)
