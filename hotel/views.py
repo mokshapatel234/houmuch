@@ -2,7 +2,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .models import Owner, FCMToken, PropertyType, RoomType, BedType, \
+from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
@@ -37,9 +37,6 @@ class HotelRegisterView(APIView):
                 serializer.save()
                 user_id = serializer.instance.id
 
-                if fcm_token:
-                    FCMToken.objects.create(user_id=user_id, fcm_token=fcm_token, is_owner=True)
-
                 token = generate_token(user_id)
 
                 response_data = {
@@ -67,9 +64,6 @@ class HotelLoginView(APIView):
             fcm_token = request.data.get('fcm_token')
             hotel_owner = Owner.objects.get(phone_number=phone)
             if hotel_owner.is_verified:
-                if fcm_token:
-                    FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
-
                 token = generate_token(hotel_owner.id)
                 owner_data = serializer.to_representation(hotel_owner)
                 response_data = {

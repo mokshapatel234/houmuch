@@ -2,7 +2,6 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
-from hotel.models import FCMToken
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -31,10 +30,6 @@ class CustomerRegisterView(APIView):
             else:
                 serializer.save()
                 user_id = serializer.instance.id
-
-                if fcm_token:
-                    FCMToken.objects.create(user_id=user_id, fcm_token=fcm_token)
-
                 token = generate_token(user_id)
 
                 response_data = {
@@ -63,21 +58,17 @@ class CustomerLoginView(APIView):
 
             try:
                 customer = Customer.objects.get(phone_number=phone)
-                print(customer)
-                if fcm_token:
-                    FCMToken.objects.create(user_id=customer.id, fcm_token=fcm_token)
-
-                    token = generate_token(customer.id)
-                    customer_data = serializer.to_representation(customer)
-                    response_data = {
-                        'result': True,
-                        'data': {
-                            **customer_data,
-                            'token': token,
-                        },
-                        'message': LOGIN_SUCCESS_MESSAGE
-                    }
-                    return Response(response_data, status=status.HTTP_200_OK)
+                token = generate_token(customer.id)
+                customer_data = serializer.to_representation(customer)
+                response_data = {
+                    'result': True,
+                    'data': {
+                        **customer_data,
+                        'token': token,
+                    },
+                    'message': LOGIN_SUCCESS_MESSAGE
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
 
             except Customer.DoesNotExist:
                 return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)

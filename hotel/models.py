@@ -15,6 +15,7 @@ class Owner(models.Model):
     government_id = models.TextField(verbose_name='gov_id')
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
+    fcm_token = models.CharField(max_length=255, null=True, blank=True)
     bidding_mode = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
@@ -37,23 +38,23 @@ class Owner(models.Model):
         return self.first_name
 
 
-class FCMToken(models.Model):
-    user_id = models.IntegerField()
-    fcm_token = models.CharField(max_length=255, null=True, blank=True)
-    is_owner = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+# class FCMToken(models.Model):
+#     user_id = models.IntegerField()
+#     fcm_token = models.CharField(max_length=255, null=True, blank=True)
+#     is_owner = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+#     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+#     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
 
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(FCMToken, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
+#     def delete(self, hard=False, **kwargs):
+#         if hard:
+#             super(FCMToken, self).delete()
+#         else:
+#             self.deleted_at = now()
+#             self.save()
 
-    def __str__(self):
-        return self.first_name
+#     def __str__(self):
+#         return self.first_name
 
 
 class PropertyType(models.Model):
