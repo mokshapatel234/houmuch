@@ -9,7 +9,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
-    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, OWNER_NOT_VERIFIED_MESSAGE, \
+    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE
 from .authentication import JWTAuthentication
@@ -70,7 +70,7 @@ class HotelLoginView(APIView):
                 'message': LOGIN_SUCCESS_MESSAGE
             }
             return Response(response_data, status=status.HTTP_200_OK)
-        
+
         except Owner.DoesNotExist:
             return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
