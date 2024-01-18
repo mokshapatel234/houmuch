@@ -1,10 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, MasterRetrieveView
+from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, MasterRetrieveView, RoomInventoryViewSet
 
 
 router = DefaultRouter()
 router.register(r'properties', PropertyViewSet, basename='property')
+router.register(r'roomInventories', RoomInventoryViewSet, basename='room_inventory')
 
 urlpatterns = [
     path('register/', HotelRegisterView.as_view()),

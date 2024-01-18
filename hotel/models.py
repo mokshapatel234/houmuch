@@ -245,7 +245,7 @@ class RoomInventory(models.Model):
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
     is_updated_period = models.BooleanField('Updated Period', default=False)
-    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
+    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period', null=True, blank=True)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))

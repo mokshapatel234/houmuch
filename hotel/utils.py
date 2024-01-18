@@ -26,3 +26,11 @@ def generate_response(instance, message, status_code, serializer_class):
         'message': message,
     }
     return Response(response_data, status=status_code)
+
+
+def error_response(message, status_code):
+    response_data = {
+        'result': False,
+        'message': message,
+    }
+    return Response(response_data, status=status_code)
