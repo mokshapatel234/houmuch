@@ -6,7 +6,8 @@ from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
-    PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, PROFILE_ERROR_MESSAGE
+    PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
 from .authentication import JWTAuthentication
 
 
@@ -19,14 +20,10 @@ class CustomerRegisterView(APIView):
             serializer.is_valid(raise_exception=True)
 
             phone_number = serializer.validated_data.get('phone_number')
-            fcm_token = request.data.get('fcm_token')
-
             if not phone_number:
                 return Response({'result': False, 'message': PHONE_REQUIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
             if Customer.objects.filter(phone_number=phone_number).exists():
                 return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
             else:
                 serializer.save()
                 user_id = serializer.instance.id
@@ -54,10 +51,15 @@ class CustomerLoginView(APIView):
             serializer = LoginSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone = serializer.validated_data.get('phone_number')
-            fcm_token = request.data.get('fcm_token')
-
+            device_id = serializer.validated_data.get('device_id')
+            fcm_token = serializer.validated_data.get('fcm_token')
             try:
                 customer = Customer.objects.get(phone_number=phone)
+                if device_id and fcm_token:
+                    customer.device_id = device_id
+                    customer.fcm_token = fcm_token
+                else:
+                    return Response({'result': False, 'message': ENTITY_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
                 token = generate_token(customer.id)
                 customer_data = serializer.to_representation(customer)
                 response_data = {
@@ -72,7 +74,6 @@ class CustomerLoginView(APIView):
 
             except Customer.DoesNotExist:
                 return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-
         except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
