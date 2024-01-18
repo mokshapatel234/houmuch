@@ -2,14 +2,14 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .models import Owner, FCMToken, PropertyType, RoomType, BedType, \
+from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
-    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, OWNER_NOT_VERIFIED_MESSAGE, \
+    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE
 from .authentication import JWTAuthentication
@@ -25,10 +25,7 @@ class HotelRegisterView(APIView):
         try:
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-
             phone_number = serializer.validated_data.get('phone_number')
-            fcm_token = request.data.get('fcm_token')
-
             if not phone_number:
                 return Response({'result': False, 'message': PHONE_REQUIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
@@ -36,12 +33,7 @@ class HotelRegisterView(APIView):
             else:
                 serializer.save()
                 user_id = serializer.instance.id
-
-                if fcm_token:
-                    FCMToken.objects.create(user_id=user_id, fcm_token=fcm_token, is_owner=True)
-
                 token = generate_token(user_id)
-
                 response_data = {
                     'result': True,
                     'data': {
@@ -66,23 +58,18 @@ class HotelLoginView(APIView):
             phone = serializer.validated_data.get('phone_number')
             fcm_token = request.data.get('fcm_token')
             hotel_owner = Owner.objects.get(phone_number=phone)
-            if hotel_owner.is_verified:
-                if fcm_token:
-                    FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
-
-                token = generate_token(hotel_owner.id)
-                owner_data = serializer.to_representation(hotel_owner)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        **owner_data,
-                        'token': token,
-                    },
-                    'message': LOGIN_SUCCESS_MESSAGE
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-            else:
-                return Response({'result': False, 'message': OWNER_NOT_VERIFIED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            hotel_owner.fcm_token = fcm_token
+            token = generate_token(hotel_owner.id)
+            owner_data = serializer.to_representation(hotel_owner)
+            response_data = {
+                'result': True,
+                'data': {
+                    **owner_data,
+                    'token': token,
+                },
+                'message': LOGIN_SUCCESS_MESSAGE
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Owner.DoesNotExist:
             return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
