@@ -11,12 +11,14 @@ class Customer(models.Model):
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address', null=True, blank=True)
     government_id = models.TextField(verbose_name='gov_id', null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True,blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True,blank=True, null=True)
+    fcm_token = models.CharField(max_length=255, null=True, blank=True)
+    device_id = models.CharField(max_length=255, default=None, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
 
     def is_authenticated(self):
-        return True  
+        return True
 
     def is_anonymous(self):
         return False
@@ -27,6 +29,6 @@ class Customer(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.first_name
