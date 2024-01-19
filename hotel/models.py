@@ -6,8 +6,7 @@ from django.contrib.gis.geos import Point
 
 
 class Owner(models.Model):
-    first_name = models.CharField(('First Name'), max_length=30, null=False)
-    last_name = models.CharField(('Last Name'), max_length=20, null=False)
+    hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
     email = models.EmailField(max_length=100, null=False)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
@@ -37,7 +36,7 @@ class Owner(models.Model):
             self.save()
 
     def __str__(self):
-        return self.first_name
+        return self.hotel_name
 
 
 # class FCMToken(models.Model):
@@ -201,9 +200,9 @@ class UpdateInventoryPeriod(models.Model):
 
 
 class Property(models.Model):
-    hotel_name = models.CharField(('Hotel Name'), max_length=30)
+    parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
     hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
-    manager_name = models.CharField(('Hotel Name'), max_length=30)
+    manager_name = models.CharField(('Manager Name'), max_length=30)
     hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
