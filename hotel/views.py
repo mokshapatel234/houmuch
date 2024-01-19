@@ -3,15 +3,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
-    BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response
+    BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, OTPVerificationSerializer
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE
+    PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
+    EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, INVALID_INPUT_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -103,8 +104,15 @@ class OwnerProfileView(APIView):
                 phone_number = serializer.validated_data.get('phone_number', None)
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
                     return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                
                 if email and Owner.objects.filter(email=email):
                     return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    otp = generate_otp()
+                    OTP.objects.create(user=request.user, otp=otp)
+                    # Send OTP email
+                    send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+
                 serializer.save()
                 response_data = {
                     'result': True,
@@ -114,7 +122,7 @@ class OwnerProfileView(APIView):
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 return Response({"result": False, "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -196,3 +204,28 @@ class MasterRetrieveView(ListAPIView):
                 'message': DATA_RETRIEVAL_MESSAGE,
             }
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class OTPVerificationView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def post(self, request):
+        try:
+            serializer = OTPVerificationSerializer(data=request.data)
+            if serializer.is_valid():
+                user = request.user
+                otp_value = serializer.validated_data.get('otp')
+                latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+                if latest_otp and latest_otp.otp == otp_value:
+                    user.is_verified = True
+                    user.save()
+                    OTP.objects.filter(user=user).delete()
+
+                    return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)

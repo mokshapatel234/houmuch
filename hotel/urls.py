@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, MasterRetrieveView
+from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, MasterRetrieveView, OTPVerificationView
 
 
 router = DefaultRouter()
@@ -12,5 +12,6 @@ urlpatterns = [
     path('ownerProfile/', OwnerProfileView.as_view(), name="owner_profile"),
     # path('addProperty', PropertyCreateView.as_view(), name="add_property"),
     path('masterRetrieve/', MasterRetrieveView.as_view(), name="master_retrieve"),
+    path('verifyOtp/', OTPVerificationView.as_view(), name='otp-verification'),
     path('', include(router.urls)),  # Include the router URLs
 ]

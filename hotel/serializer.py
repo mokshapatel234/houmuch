@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property
+from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property, OTP
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -92,3 +92,9 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
     class Meta:
         model = CommonAmenities
         fields = '__all__'
+
+
+class OTPVerificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OTP
+        fields = ('otp',)
