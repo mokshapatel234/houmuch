@@ -4,7 +4,6 @@ from rest_framework.response import Response
 import random
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from django.conf import settings
 from hotel_app_backend.messages import EXCEPTION_MESSAGE
 
 
@@ -40,11 +39,9 @@ def generate_otp():
 def send_otp_email(email, otp, subject, template_name):
     try:
         html_message = render_to_string(template_name, {'otp': otp})
-
-        from_email = settings.DEFAULT_FROM_EMAIL
         to_email = [email]
 
-        email_message = EmailMultiAlternatives(subject, body=None, from_email=from_email, to=to_email)
+        email_message = EmailMultiAlternatives(subject, body=None, to=to_email)
         email_message.attach_alternative(html_message, "text/html")
         email_message.send()
 
