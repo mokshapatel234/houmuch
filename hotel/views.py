@@ -105,7 +105,6 @@ class OwnerProfileView(APIView):
                 phone_number = serializer.validated_data.get('phone_number', None)
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
                     return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-                
                 if email and Owner.objects.filter(email=email):
                     return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
                 else:
@@ -123,7 +122,7 @@ class OwnerProfileView(APIView):
                 return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 return Response({"result": False, "message": PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -228,5 +227,5 @@ class OTPVerificationView(APIView):
                     return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
             return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)

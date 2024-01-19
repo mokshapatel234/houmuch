@@ -48,7 +48,7 @@ def send_otp_email(email, otp, subject, template_name):
         email_message.attach_alternative(html_message, "text/html")
         email_message.send()
 
-    except Exception as e:
+    except Exception:
         response_data = {
             "result": False,
             "message": EXCEPTION_MESSAGE,
