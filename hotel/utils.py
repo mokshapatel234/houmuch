@@ -5,6 +5,8 @@ import random
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
+from hotel_app_backend.messages import EXCEPTION_MESSAGE
+
 
 def generate_token(id):
     payload = {
@@ -46,16 +48,9 @@ def send_otp_email(email, otp, subject, template_name):
         email_message.attach_alternative(html_message, "text/html")
         email_message.send()
 
-        response_data = {
-            "result": True,
-            "message": "Email sent successfully",
-            "otp": otp,
-        }
-        return Response(response_data)
-
     except Exception as e:
         response_data = {
             "result": False,
-            "message": f"Something went wrong: {str(e)}",
+            "message": EXCEPTION_MESSAGE,
         }
         return Response(response_data, status=400)
