@@ -105,13 +105,14 @@ class OwnerProfileView(APIView):
                 phone_number = serializer.validated_data.get('phone_number', None)
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
                     return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-                if email and Owner.objects.filter(email=email):
-                    return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    otp = generate_otp()
-                    OTP.objects.create(user=request.user, otp=otp)
-                    # Send OTP email
-                    send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+                if email:
+                    if Owner.objects.filter(email=email):
+                        return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        otp = generate_otp()
+                        OTP.objects.create(user=request.user, otp=otp)
+                        # Send OTP email
+                        send_otp_email(email, otp, 'OTP Verification', 'otp.html')
 
                 serializer.save()
                 response_data = {
@@ -218,7 +219,7 @@ class OTPVerificationView(APIView):
                 otp_value = serializer.validated_data.get('otp')
                 latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
                 if latest_otp and latest_otp.otp == otp_value:
-                    user.is_verified = True
+                    user.is_email_verified = True
                     user.save()
                     OTP.objects.filter(user=user).delete()
 
