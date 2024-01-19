@@ -7,8 +7,8 @@ from django.contrib.gis.geos import Point
 
 class Owner(models.Model):
     hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
-    email = models.EmailField(max_length=100, null=False)
-    phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
+    email = models.EmailField(max_length=100, null=False, unique=True)
+    phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True, unique=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address', blank=True, null=True)
     government_id = models.TextField(verbose_name='gov_id', blank=True, null=True)
@@ -267,3 +267,11 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+
+class OTP(models.Model):
+    user = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
