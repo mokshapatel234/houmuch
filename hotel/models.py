@@ -6,9 +6,8 @@ from django.contrib.gis.geos import Point
 
 
 class Owner(models.Model):
-    first_name = models.CharField(('First Name'), max_length=30, null=False)
-    last_name = models.CharField(('Last Name'), max_length=20, null=False)
-    email = models.EmailField(max_length=100, null=False)
+    hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
+    email = models.EmailField(max_length=100, null=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address', blank=True, null=True)
@@ -37,7 +36,7 @@ class Owner(models.Model):
             self.save()
 
     def __str__(self):
-        return self.first_name
+        return self.hotel_name
 
 
 # class FCMToken(models.Model):
@@ -201,9 +200,9 @@ class UpdateInventoryPeriod(models.Model):
 
 
 class Property(models.Model):
-    hotel_name = models.CharField(('Hotel Name'), max_length=30)
+    parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
     hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
-    manager_name = models.CharField(('Hotel Name'), max_length=30)
+    manager_name = models.CharField(('Manager Name'), max_length=30)
     hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
@@ -248,7 +247,7 @@ class RoomInventory(models.Model):
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
     is_updated_period = models.BooleanField('Updated Period', default=False)
-    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
+    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period', null=True, blank=True)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))
@@ -268,3 +267,11 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+
+class OTP(models.Model):
+    user = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
