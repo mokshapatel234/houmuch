@@ -49,7 +49,7 @@ def deletion_success_response(message, status_code):
 
 
 def generate_otp():
-    return str(random.randint(100000, 999999))
+    return str(random.randint(1000, 9999))
 
 
 def send_otp_email(email, otp, subject, template_name):
