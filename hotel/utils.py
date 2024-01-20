@@ -32,6 +32,22 @@ def generate_response(instance, message, status_code, serializer_class):
     return Response(response_data, status=status_code)
 
 
+def error_response(message, status_code):
+    response_data = {
+        'result': False,
+        'message': message,
+    }
+    return Response(response_data, status=status_code)
+
+
+def deletion_success_response(message, status_code):
+    response_data = {
+        'result': True,
+        'message': message,
+    }
+    return Response(response_data, status=status_code)
+
+
 def generate_otp():
     return str(random.randint(100000, 999999))
 
