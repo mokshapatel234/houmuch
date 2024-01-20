@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
+from hotel.utils import error_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -21,9 +22,9 @@ class CustomerRegisterView(APIView):
 
             phone_number = serializer.validated_data.get('phone_number')
             if not phone_number:
-                return Response({'result': False, 'message': PHONE_REQUIRED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Customer.objects.filter(phone_number=phone_number).exists():
-                return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
                 serializer.save()
                 user_id = serializer.instance.id
@@ -40,7 +41,7 @@ class CustomerRegisterView(APIView):
                 return Response(response_data, status=status.HTTP_201_CREATED)
 
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class CustomerLoginView(APIView):
@@ -58,8 +59,9 @@ class CustomerLoginView(APIView):
                 if device_id and fcm_token:
                     customer.device_id = device_id
                     customer.fcm_token = fcm_token
+                    customer.save()
                 else:
-                    return Response({'result': False, 'message': ENTITY_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    return error_response(ENTITY_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
                 token = generate_token(customer.id)
                 customer_data = serializer.to_representation(customer)
                 response_data = {
@@ -73,9 +75,9 @@ class CustomerLoginView(APIView):
                 return Response(response_data, status=status.HTTP_200_OK)
 
             except Customer.DoesNotExist:
-                return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class CustomerProfileView(APIView):
@@ -96,10 +98,10 @@ class CustomerProfileView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Customer.DoesNotExist:
-            return Response({'result': False, 'message': CUSTOMER_NOT_FOUND_MESSAGE}, status=status.HTTP_404_NOT_FOUND)
+            return error_response(CUSTOMER_NOT_FOUND_MESSAGE, status.HTTP_404_NOT_FOUND)
 
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request):
         try:
@@ -110,10 +112,10 @@ class CustomerProfileView(APIView):
                 phone_number = serializer.validated_data.get('phone_number', None)
 
                 if email and Customer.objects.filter(email=email).exists():
-                    return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
                 if phone_number and Customer.objects.filter(phone_number=phone_number).exists():
-                    return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
                 serializer.save()
 
@@ -124,10 +126,10 @@ class CustomerProfileView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
-                return Response({'result': False, 'message': PROFILE_ERROR_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
         except Customer.DoesNotExist:
-            return Response({'result': False, 'message': CUSTOMER_NOT_FOUND_MESSAGE}, status=status.HTTP_404_NOT_FOUND)
+            return error_response(CUSTOMER_NOT_FOUND_MESSAGE, status.HTTP_404_NOT_FOUND)
 
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_500_INTERNAL_SERVER_ERROR)
