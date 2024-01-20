@@ -7,8 +7,8 @@ from django.contrib.gis.geos import Point
 
 class Owner(models.Model):
     hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
-    email = models.EmailField(max_length=100, null=True, unique=True)
-    phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True, unique=True)
+    email = models.EmailField(max_length=100, null=True)
+    phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address', blank=True, null=True)
     government_id = models.TextField(verbose_name='gov_id', blank=True, null=True)
@@ -247,7 +247,7 @@ class RoomInventory(models.Model):
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
     is_updated_period = models.BooleanField('Updated Period', default=False)
-    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
+    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period', null=True, blank=True)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))

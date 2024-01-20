@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property, OTP
+from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -27,16 +28,40 @@ class OwnerProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ('is_verified', 'is_active', 'is_email_verified')
 
 
-class RoomTypeSerilizer(serializers.ModelSerializer):
+class PropertyTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyType
+        fields = ('id', 'property_type')
+
+
+class RoomTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomType
         fields = ('id', 'room_type')
 
 
-class PropertyTypeSerilizer(serializers.ModelSerializer):
+class BedTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PropertyType
-        fields = ('id', 'property_type')
+        model = BedType
+        fields = ('id', 'bed_type')
+
+
+class BathroomTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BathroomType
+        fields = ('id', 'bathroom_type')
+
+
+class RoomFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomFeature
+        fields = ('id', 'room_feature')
+
+
+class CommonAmenitiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommonAmenities
+        fields = ('id', 'common_ameninity')
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -54,44 +79,31 @@ class PropertySerializer(serializers.ModelSerializer):
 
 
 class PropertyOutSerializer(PropertySerializer):
-    room_types = RoomTypeSerilizer(many=True)
-    property_type = PropertyTypeSerilizer()
+    room_types = RoomTypeSerializer(many=True)
+    property_type = PropertyTypeSerializer()
 
 
-class PropertyTypeSerializer(serializers.ModelSerializer):
+class UpdatedPeriodSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PropertyType
+        model = UpdateInventoryPeriod
         fields = '__all__'
 
 
-class RoomTypeSerializer(serializers.ModelSerializer):
+class RoomInventorySerializer(serializers.ModelSerializer):
+    updated_period = UpdatedPeriodSerializer(required=False)
+
     class Meta:
-        model = RoomType
-        fields = '__all__'
+        model = RoomInventory
+        exclude = ['property']
+    updated_period = serializers.CharField(required=False)
 
 
-class BedTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BedType
-        fields = '__all__'
-
-
-class BathroomTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BathroomType
-        fields = '__all__'
-
-
-class RoomFeatureSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RoomFeature
-        fields = '__all__'
-
-
-class CommonAmenitiesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommonAmenities
-        fields = '__all__'
+class RoomInventoryOutSerializer(RoomInventorySerializer):
+    room_type = RoomTypeSerializer()
+    bed_type = BedTypeSerializer()
+    bathroom_type = BathroomTypeSerializer()
+    room_features = RoomFeatureSerializer(many=True)
+    common_amenities = CommonAmenitiesSerializer(many=True)
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):
