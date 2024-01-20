@@ -7,7 +7,7 @@ from django.contrib.gis.geos import Point
 
 class Owner(models.Model):
     hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
-    email = models.EmailField(max_length=100, null=False, unique=True)
+    email = models.EmailField(max_length=100, null=True, unique=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True, unique=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
     address = models.TextField(verbose_name='address', blank=True, null=True)
