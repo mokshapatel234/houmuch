@@ -1,6 +1,10 @@
 import jwt
 from datetime import datetime, timedelta
 from rest_framework.response import Response
+import random
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from hotel_app_backend.messages import EXCEPTION_MESSAGE
 
 
 def generate_token(id):
@@ -34,3 +38,24 @@ def error_response(message, status_code):
         'message': message,
     }
     return Response(response_data, status=status_code)
+
+
+def generate_otp():
+    return str(random.randint(100000, 999999))
+
+
+def send_otp_email(email, otp, subject, template_name):
+    try:
+        html_message = render_to_string(template_name, {'otp': otp})
+        to_email = [email]
+
+        email_message = EmailMultiAlternatives(subject, body=None, to=to_email)
+        email_message.attach_alternative(html_message, "text/html")
+        email_message.send()
+
+    except Exception:
+        response_data = {
+            "result": False,
+            "message": EXCEPTION_MESSAGE,
+        }
+        return Response(response_data, status=400)

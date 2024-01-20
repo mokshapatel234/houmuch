@@ -2,18 +2,19 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from .models import Owner, FCMToken, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property, RoomInventory
+from .models import Owner, PropertyType, RoomType, BedType, \
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP, RoomInventory
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
-    RoomInventorySerializer, RoomInventoryOutSerializer, UpdatedPeriodSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, error_response
+    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, error_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
-    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, OWNER_NOT_VERIFIED_MESSAGE, \
+    REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, \
-    OBJECT_NOT_FOUND_MESSAGE
+    PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
+    EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
+    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -28,10 +29,7 @@ class HotelRegisterView(APIView):
         try:
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-
             phone_number = serializer.validated_data.get('phone_number')
-            fcm_token = request.data.get('fcm_token')
-
             if not phone_number:
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
@@ -39,12 +37,7 @@ class HotelRegisterView(APIView):
             else:
                 serializer.save()
                 user_id = serializer.instance.id
-
-                if fcm_token:
-                    FCMToken.objects.create(user_id=user_id, fcm_token=fcm_token, is_owner=True)
-
                 token = generate_token(user_id)
-
                 response_data = {
                     'result': True,
                     'data': {
@@ -69,28 +62,24 @@ class HotelLoginView(APIView):
             phone = serializer.validated_data.get('phone_number')
             fcm_token = request.data.get('fcm_token')
             hotel_owner = Owner.objects.get(phone_number=phone)
-            if hotel_owner.is_verified:
-                if fcm_token:
-                    FCMToken.objects.create(user_id=hotel_owner.id, fcm_token=fcm_token, is_owner=True)
-
-                token = generate_token(hotel_owner.id)
-                owner_data = serializer.to_representation(hotel_owner)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        **owner_data,
-                        'token': token,
-                    },
-                    'message': LOGIN_SUCCESS_MESSAGE
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-            else:
-                return error_response(OWNER_NOT_VERIFIED_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            hotel_owner.fcm_token = fcm_token
+            token = generate_token(hotel_owner.id)
+            owner_data = serializer.to_representation(hotel_owner)
+            response_data = {
+                'result': True,
+                'data': {
+                    **owner_data,
+                    'token': token,
+                },
+                'message': LOGIN_SUCCESS_MESSAGE
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Owner.DoesNotExist:
-            return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(e)
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OwnerProfileView(APIView):
@@ -119,8 +108,15 @@ class OwnerProfileView(APIView):
                 phone_number = serializer.validated_data.get('phone_number', None)
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
                     return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-                if email and Owner.objects.filter(email=email):
-                    return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                if email:
+                    if Owner.objects.filter(email=email):
+                        return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        otp = generate_otp()
+                        OTP.objects.create(user=request.user, otp=otp)
+                        # Send OTP email
+                        send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+
                 serializer.save()
                 response_data = {
                     'result': True,
@@ -274,3 +270,28 @@ class RoomInventoryViewSet(ModelViewSet):
             return self.get_paginated_response(serializer.data)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class OTPVerificationView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def post(self, request):
+        try:
+            serializer = OTPVerificationSerializer(data=request.data)
+            if serializer.is_valid():
+                user = request.user
+                otp_value = serializer.validated_data.get('otp')
+                latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+                if latest_otp and latest_otp.otp == otp_value:
+                    user.is_email_verified = True
+                    user.save()
+                    OTP.objects.filter(user=user).delete()
+
+                    return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
