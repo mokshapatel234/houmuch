@@ -8,13 +8,14 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, error_response
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
+    error_response, deletion_success_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
-    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE
+    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -89,9 +90,14 @@ class OwnerProfileView(APIView):
     def get(self, request):
         try:
             serializer = OwnerProfileSerializer(request.user)
+            property_count = Property.objects.filter(owner=request.user).count()
             response_data = {
                 'result': True,
-                'data': serializer.data,
+                'data': {
+                    **serializer.data,
+                    "is_property_added": True if property_count >= 1 else False,
+                    "property_count": property_count
+                },
                 'message': PROFILE_MESSAGE,
             }
             return Response(response_data, status=status.HTTP_200_OK)
@@ -128,6 +134,31 @@ class OwnerProfileView(APIView):
                 return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class OTPVerificationView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
+    def post(self, request):
+        try:
+            serializer = OTPVerificationSerializer(data=request.data)
+            if serializer.is_valid():
+                user = request.user
+                otp_value = serializer.validated_data.get('otp')
+                latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+                if latest_otp and latest_otp.otp == otp_value:
+                    user.is_email_verified = True
+                    user.save()
+                    OTP.objects.filter(user=user).delete()
+
+                    return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
+                else:
+                    return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MasterRetrieveView(ListAPIView):
@@ -252,7 +283,6 @@ class RoomInventoryViewSet(ModelViewSet):
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
@@ -271,27 +301,39 @@ class RoomInventoryViewSet(ModelViewSet):
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-
-class OTPVerificationView(APIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
-
-    def post(self, request):
+    def update(self, request, *args, **kwargs):
         try:
-            serializer = OTPVerificationSerializer(data=request.data)
-            if serializer.is_valid():
-                user = request.user
-                otp_value = serializer.validated_data.get('otp')
-                latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
-                if latest_otp and latest_otp.otp == otp_value:
-                    user.is_email_verified = True
-                    user.save()
-                    OTP.objects.filter(user=user).delete()
-
-                    return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
-                else:
-                    return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            instance = self.get_object()
+            room_features = request.data.get('room_features', None)
+            common_amenities = request.data.get('common_amenities', None)
+            updated_period_data = request.data.pop('updated_period', None)
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            updated_instance = serializer.save()
+            if updated_period_data:
+                updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
+                updated_period_serializer.is_valid(raise_exception=True)
+                updated_period_instance = updated_period_serializer.save()
+                updated_instance.updated_period = updated_period_instance
+                updated_instance.save()
+            if room_features:
+                updated_instance.room_features.set(room_features)
+            if common_amenities:
+                updated_instance.common_amenities.set(common_amenities)
+            return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
+        except Http404:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            instance.common_amenities.clear()
+            instance.room_features.clear()
+            RoomInventory.objects.filter(pk=instance.pk).delete()
+            return deletion_success_response(DATA_DELETE_MESSAGE, status.HTTP_200_OK)
+        except Http404:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

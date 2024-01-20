@@ -88,8 +88,10 @@ class UpdatedPeriodSerializer(serializers.ModelSerializer):
         model = UpdateInventoryPeriod
         fields = '__all__'
 
+
 class RoomInventorySerializer(serializers.ModelSerializer):
     updated_period = UpdatedPeriodSerializer(required=False)
+
     class Meta:
         model = RoomInventory
         exclude = ['property']
