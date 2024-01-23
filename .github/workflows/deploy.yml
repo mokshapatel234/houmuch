@@ -22,8 +22,6 @@ jobs:
           set -e 
           cd /home/ubuntu/hotel_app_backend
           git pull origin development
-          git config --global user.name "aditetester"
-          git config --global user.email "adite.tester@gmail.com"
           source venv/bin/activate
           pip3 install -r requirements.txt
           sudo systemctl restart gunicorn
