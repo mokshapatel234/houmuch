@@ -19,7 +19,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.EC2_PORT }}
         script: |
-          cd /home/ubantu/hotel_app_backend
+          cd /home/ubuntu/hotel_app_backend
           git pull origin development
           source venv/bin/activate
           pip install -r requirements.txt
@@ -43,7 +43,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.EC2_PORT }}
         script: |
-          cd /home/ubantu/hotel_app_backend
+          cd /home/ubuntu/hotel_app_backend
           git reset --hard HEAD^
           sudo systemctl restart gunicorn
 
