@@ -19,7 +19,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.EC2_PORT }}
         script: |
-          set -e 
+          set -e
           cd /home/ubuntu/hotel_app_backend
           git pull origin development
           source venv/bin/activate
