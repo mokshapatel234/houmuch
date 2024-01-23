@@ -11,16 +11,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-
-    - name: Set up Git
-      run: |
-        git config --global user.email "you@example.com"
-        git config --global user.name "Your Name"
-        git config --global credential.helper store
-      env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN_GITHUB }}
-        GITHUB_USERNAME: ${{ github.actor }}
-
     - name: Connect to EC2 instance
       uses: appleboy/ssh-action@master
       with:
@@ -29,8 +19,11 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.EC2_PORT }}
         script: |
+          set -e 
           cd /home/ubuntu/hotel_app_backend
           git pull origin development
+          git config --global user.name "aditetester"
+          git config --global user.email "adite.tester@gmail.com"
           source venv/bin/activate
           pip3 install -r requirements.txt
           sudo systemctl restart gunicorn
