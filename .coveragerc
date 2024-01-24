@@ -1,7 +1,5 @@
 [run]
 omit = 
     */migrations/*
-    */paginator.py
     */signals.py
     */authentication.py
-    */utils.py

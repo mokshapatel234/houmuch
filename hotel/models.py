@@ -233,7 +233,7 @@ class Property(models.Model):
             self.save()
 
     def __str__(self):
-        return self.hotel_name
+        return self.hotel_nick_name
 
 
 class RoomInventory(models.Model):
