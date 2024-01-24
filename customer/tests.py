@@ -90,6 +90,18 @@ class CustomerProfileViewTest(APITestCase):
 
     def test_customer_profile_view_patch(self):
         self.client.force_authenticate(user=self.customer, token=self.token)
-        update_data = {'first_name': 'Updated', 'last_name': 'Name'}
+        update_data = {'first_name': 'Updated', 'last_name': 'Name', 'email': 'customer@yopmail.com'}
         response = self.client.patch('/customer/profile/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_customer_profile_view_patch_invalid_phone(self):
+        self.client.force_authenticate(user=self.customer, token=self.token)
+        invalid_data = {'phone_number': '1234567890'}
+        response = self.client.patch('/customer/profile/', invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_customer_profile_view_patch_invalid_data(self):
+        self.client.force_authenticate(user=self.customer, token=self.token)
+        invalid_data = {'phone_number': '123456789@'}
+        response = self.client.patch('/customer/profile/', invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

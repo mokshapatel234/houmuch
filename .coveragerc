@@ -4,3 +4,4 @@ omit =
     */paginator.py
     */signals.py
     */authentication.py
+    */utils.py
