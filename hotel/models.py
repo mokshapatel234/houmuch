@@ -205,6 +205,7 @@ class Property(models.Model):
     manager_name = models.CharField(('Manager Name'), max_length=30)
     hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
+    image = models.CharField(max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
     check_in_datetime = models.DateTimeField('Check-in Datetime')
     check_out_datetime = models.DateTimeField('Check-out Datetime')
@@ -267,6 +268,17 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+
+class Image(models.Model):
+    room_image = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, blank=True, null=True)
+    image = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def __str__(self):
+        return self.image
 
 
 class OTP(models.Model):
