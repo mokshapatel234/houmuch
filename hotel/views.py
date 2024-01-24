@@ -298,7 +298,8 @@ class RoomInventoryViewSet(ModelViewSet):
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):

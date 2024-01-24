@@ -1,6 +1,20 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image
+
+
+class DynamicFieldsModelSerializer(serializers.ModelSerializer):
+
+    def __init__(self, *args, **kwargs):
+        fields = kwargs.pop('fields', None)
+
+        super().__init__(*args, **kwargs)
+
+        if fields is not None:
+            allowed = set(fields)
+            existing = set(self.fields)
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -98,12 +112,29 @@ class RoomInventorySerializer(serializers.ModelSerializer):
     updated_period = serializers.CharField(required=False)
 
 
-class RoomInventoryOutSerializer(RoomInventorySerializer):
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = ('image', 'created_at', 'updated_at')
+
+
+class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
     bed_type = BedTypeSerializer()
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)
+    images = serializers.SerializerMethodField()
+
+    def get_images(self, obj):
+        image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
+        return image_urls
+
+    class Meta:
+        model = RoomInventory
+        fields = ('id', 'updated_period', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
+                  'floor', 'room_view', 'area_sqft', 'is_updated_period', 'adult_capacity', 'children_capacity', 'default_price',
+                  'min_price', 'max_price', 'status', 'created_at', 'updated_at', 'deleted_at', 'images')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):
