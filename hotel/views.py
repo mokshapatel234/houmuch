@@ -79,7 +79,8 @@ class HotelLoginView(APIView):
 
         except Owner.DoesNotExist:
             return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -129,7 +130,7 @@ class OwnerProfileView(APIView):
                     'data': serializer.data,
                     'message': PROFILE_UPDATE_MESSAGE,
                 }
-                return Response(response_data, status=status.HTTP_200_OK)
+                return Response(response_data, status=status.HTTP_201_CREATED)
             else:
                 return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:

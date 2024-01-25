@@ -14,6 +14,7 @@ from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 import os
 import dotenv
+import boto3
 dotenv.load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'hotel.middleware.custom_middleware.CustomMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -162,3 +164,39 @@ EMAIL_PORT = os.getenv("EMAIL_PORT")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+
+
+boto3.setup_default_session(
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name='ap-south-1'  # Specify your AWS region here
+)
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': "[%(asctime)s.%(msecs)03d] %(levelname)s [%(name)s:%(lineno)s] [%(funcName)s] %(message)s",
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'cloudwatch': {
+            'level': 'INFO',  # Log both INFO and above
+            'class': 'watchtower.CloudWatchLogHandler',
+            'log_group': 'HouMuch',
+            'stream_name': 'HouMuchLogs',
+            'create_log_group': True,
+            'use_queues': False,  # Set to True if needed
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['cloudwatch'],
+            'level': 'INFO',  # Log both INFO and above
+            'propagate': True,
+        },
+    },
+}
