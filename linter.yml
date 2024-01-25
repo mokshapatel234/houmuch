@@ -1,0 +1,24 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: super-linter/super-linter@v4
+        with:
+          linters:
+            - flake8
+            - pylint
+          extensions:
+            - py
+      - name: Check for linting issues
+        run: |
+          if grep -q -R "Flake8" $GITHUB_WORKSPACE/linter-output.log; then
+            echo "Linting issues found. Fail the workflow."
+            exit 1
+          else
+            echo "No linting issues found."
+          fi
