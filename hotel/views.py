@@ -21,6 +21,9 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 
 class HotelRegisterView(APIView):
@@ -292,12 +295,19 @@ class RoomInventoryViewSet(ModelViewSet):
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
+    @method_decorator(cache_page(60 * 5))
     def list(self, request):
         try:
+            cache_key = f"room_inventory_list_{request.user.id}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
             queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serialized_data = serializer.data
+            cache.set(cache_key, serialized_data, timeout=60 * 5)
+            return self.get_paginated_response(serialized_data)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
