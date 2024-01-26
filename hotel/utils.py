@@ -5,6 +5,7 @@ import random
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from hotel_app_backend.messages import EXCEPTION_MESSAGE
+from django.core.cache import cache
 
 
 def generate_token(id):
@@ -68,3 +69,21 @@ def send_otp_email(email, otp, subject, template_name):
             "message": EXCEPTION_MESSAGE,
         }
         return Response(response_data, status=400)
+
+
+def remove_cache(name, user):
+    cache_key = f"{name}_{user.id}"
+    cache.delete(cache_key)
+
+
+def cache_response(name, user):
+    cache_key = f"{name}_{user.id}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        print("redis")
+        return Response(cached_data)
+
+
+def set_cache(name, user, data):
+    cache_key = f"{name}_{user.id}"
+    cache.set(cache_key, data, timeout=60 * 5)

@@ -109,7 +109,6 @@ class RoomInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomInventory
         exclude = ['property']
-    updated_period = serializers.CharField(required=False)
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -124,6 +123,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)
+    updated_period = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
 
     def get_images(self, obj):

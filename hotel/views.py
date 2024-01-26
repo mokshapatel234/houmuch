@@ -9,7 +9,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
-    error_response, deletion_success_response
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -21,7 +21,6 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
-from django.core.cache import cache
 
 
 class HotelRegisterView(APIView):
@@ -88,15 +87,8 @@ class OwnerProfileView(APIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
-    # @log_db_queries
     def get(self, request):
         try:
-            cache_key = f"profile_{request.user.id}"
-            cache_data = cache.get(cache_key)
-            if cache_key in cache:
-                print("redis")
-                cache_data = cache.get(cache_key)
-                return Response(cache_data)
             serializer = OwnerProfileSerializer(request.user)
             property_count = Property.objects.filter(owner=request.user).count()
             response_data = {
@@ -108,7 +100,6 @@ class OwnerProfileView(APIView):
                 },
                 'message': PROFILE_MESSAGE,
             }
-            cache.set(cache_key, response_data, timeout=60*5)
             return Response(response_data, status=status.HTTP_200_OK)
         except Owner.DoesNotExist:
             return error_response(OWNER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -176,6 +167,7 @@ class MasterRetrieveView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         try:
+            cache_response("master_list", request.user)
             models_and_serializers = {
                 PropertyType: PropertyTypeSerializer,
                 RoomType: RoomTypeSerializer,
@@ -195,6 +187,7 @@ class MasterRetrieveView(ListAPIView):
                     'data': data,
                     'message': DATA_RETRIEVAL_MESSAGE,
                 }
+                set_cache("master_list", request.user, response_data)
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -288,6 +281,7 @@ class RoomInventoryViewSet(ModelViewSet):
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -303,18 +297,14 @@ class RoomInventoryViewSet(ModelViewSet):
 
     def list(self, request):
         try:
-            cache_key = f"room_inventory_list_{request.user.id}"
-            cached_data = cache.get(cache_key)
-            if cached_data:
-                print("redis")
-                return Response(cached_data)
+            cache_response("room_inventory_list", request.user)
             queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
             serialized_data = serializer.data
-            
+
             response_data = self.get_paginated_response(serialized_data)
-            cache.set(cache_key, serialized_data, timeout=60 * 5)
+            set_cache("room_inventory_list", request.user, serialized_data)
             return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -338,6 +328,7 @@ class RoomInventoryViewSet(ModelViewSet):
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
