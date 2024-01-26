@@ -98,9 +98,11 @@ class PropertyOutSerializer(PropertySerializer):
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
+    common_amenities = CommonAmenitiesSerializer(many=True)
+
     class Meta:
         model = UpdateInventoryPeriod
-        fields = '__all__'
+        exclude = ['created_at', 'updated_at', 'deleted_at']
 
 
 class RoomInventorySerializer(serializers.ModelSerializer):
@@ -126,15 +128,20 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     updated_period = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
 
+    def get_updated_period(self, obj):
+        updated_priod = UpdateInventoryPeriod.objects.get(id=obj.updated_period.id)
+        obj = UpdatedPeriodSerializer(updated_priod)
+        return obj.data
+
     def get_images(self, obj):
         image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
         return image_urls
 
     class Meta:
         model = RoomInventory
-        fields = ('id', 'updated_period', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
-                  'floor', 'room_view', 'area_sqft', 'is_updated_period', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'status', 'created_at', 'updated_at', 'deleted_at', 'images')
+        fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
+                  'floor', 'room_view', 'area_sqft', 'adult_capacity', 'children_capacity', 'default_price',
+                  'min_price', 'max_price', 'status', 'images', 'is_updated_period', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):

@@ -9,7 +9,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, update_is_updated_period
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -289,10 +289,12 @@ class RoomInventoryViewSet(ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
+            update_is_updated_period(instance)
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def list(self, request):

@@ -1,9 +1,12 @@
 import jwt
+from django.utils import timezone
+
 from datetime import datetime, timedelta
 from rest_framework.response import Response
 import random
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from hotel.models import UpdateInventoryPeriod, RoomInventory
 from hotel_app_backend.messages import EXCEPTION_MESSAGE
 from django.core.cache import cache
 
@@ -87,3 +90,22 @@ def cache_response(name, user):
 def set_cache(name, user, data):
     cache_key = f"{name}_{user.id}"
     cache.set(cache_key, data, timeout=60 * 5)
+
+
+def update_is_updated_period(obj):
+    try:
+        update_period = UpdateInventoryPeriod.objects.get(id=obj.updated_period.id)
+        duration_mapping = {
+            'Today': timezone.timedelta(days=1),
+            'For a Week': timezone.timedelta(days=7),
+            'For a Month': timezone.timedelta(days=30),
+        }
+        if update_period.update_duration in duration_mapping and \
+                timezone.now() - update_period.created_at <= duration_mapping[update_period.update_duration]:
+            obj.is_updated_period = True
+        else:
+            obj.is_updated_period = False
+        obj.save()
+    except UpdateInventoryPeriod.DoesNotExist:
+        obj.is_updated_period = False
+        obj.save()
