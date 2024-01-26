@@ -22,8 +22,6 @@ from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
 from django.core.cache import cache
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 
 
 class HotelRegisterView(APIView):
@@ -90,8 +88,15 @@ class OwnerProfileView(APIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
+    # @log_db_queries
     def get(self, request):
         try:
+            cache_key = f"profile_{request.user.id}"
+            cache_data = cache.get(cache_key)
+            if cache_key in cache:
+                print("redis")
+                cache_data = cache.get(cache_key)
+                return Response(cache_data)
             serializer = OwnerProfileSerializer(request.user)
             property_count = Property.objects.filter(owner=request.user).count()
             response_data = {
@@ -103,6 +108,7 @@ class OwnerProfileView(APIView):
                 },
                 'message': PROFILE_MESSAGE,
             }
+            cache.set(cache_key, response_data, timeout=60*5)
             return Response(response_data, status=status.HTTP_200_OK)
         except Owner.DoesNotExist:
             return error_response(OWNER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -295,19 +301,21 @@ class RoomInventoryViewSet(ModelViewSet):
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-    @method_decorator(cache_page(60 * 5))
     def list(self, request):
         try:
             cache_key = f"room_inventory_list_{request.user.id}"
             cached_data = cache.get(cache_key)
             if cached_data:
+                print("redis")
                 return Response(cached_data)
             queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
             serialized_data = serializer.data
+            
+            response_data = self.get_paginated_response(serialized_data)
             cache.set(cache_key, serialized_data, timeout=60 * 5)
-            return self.get_paginated_response(serialized_data)
+            return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
