@@ -133,7 +133,7 @@ LANGUAGES = [
     ('en', _('English')),
 ]
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -169,9 +169,10 @@ AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 boto3.setup_default_session(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name='ap-south-1'  # Specify your AWS region here
+    region_name='ap-south-1'
 )
 
+LOGGING_CONFIG = None
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -183,19 +184,19 @@ LOGGING = {
     },
     'handlers': {
         'cloudwatch': {
-            'level': 'INFO',  # Log both INFO and above
+            'level': 'INFO',
             'class': 'watchtower.CloudWatchLogHandler',
             'log_group': 'HouMuch',
             'stream_name': 'HouMuchLogs',
             'create_log_group': True,
-            'use_queues': False,  # Set to True if needed
+            'use_queues': False,
             'formatter': 'simple',
         },
     },
     'loggers': {
         'django': {
             'handlers': ['cloudwatch'],
-            'level': 'INFO',  # Log both INFO and above
+            'level': 'INFO',
             'propagate': True,
         },
     },
