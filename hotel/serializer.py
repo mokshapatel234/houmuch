@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image
+from django.utils import timezone
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -98,11 +99,14 @@ class PropertyOutSerializer(PropertySerializer):
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
-    common_amenities = CommonAmenitiesSerializer(many=True)
 
     class Meta:
         model = UpdateInventoryPeriod
-        exclude = ['created_at', 'updated_at', 'deleted_at']
+        exclude = ['created_at', 'updated_at', 'deleted_at', 'room_inventory']
+
+
+class UpdatedPeriodOutSerializer(UpdatedPeriodSerializer):
+    common_amenities = CommonAmenitiesSerializer(many=True)
 
 
 class RoomInventorySerializer(serializers.ModelSerializer):
@@ -129,9 +133,20 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     images = serializers.SerializerMethodField()
 
     def get_updated_period(self, obj):
-        updated_priod = UpdateInventoryPeriod.objects.get(id=obj.updated_period.id)
-        obj = UpdatedPeriodSerializer(updated_priod)
-        return obj.data
+        duration_mapping = {
+            'today': timezone.timedelta(days=1),
+            'for a week': timezone.timedelta(days=7),
+            'for a month': timezone.timedelta(days=30),
+        }
+
+        for update_period in UpdateInventoryPeriod.objects.filter(room_inventory=obj):
+            if (
+                update_period.update_duration.lower() in duration_mapping
+                and timezone.now() - update_period.created_at <= duration_mapping[update_period.update_duration.lower()]
+            ):
+                return UpdatedPeriodOutSerializer(update_period).data
+
+        return None
 
     def get_images(self, obj):
         image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
@@ -141,7 +156,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
         model = RoomInventory
         fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
                   'floor', 'room_view', 'area_sqft', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'status', 'images', 'is_updated_period', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
+                  'min_price', 'max_price', 'status', 'images', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):
