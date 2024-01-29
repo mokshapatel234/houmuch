@@ -10,6 +10,12 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
 from .authentication import JWTAuthentication
+from hotel.models import Property
+from hotel.serializer import PropertyOutSerializer
+from hotel.paginator import CustomPagination
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import PropertyFilter
 
 
 class CustomerRegisterView(APIView):
@@ -133,3 +139,12 @@ class CustomerProfileView(APIView):
 
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class HotelRetrieveView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    queryset = Property.objects.all().order_by('-id')
+    serializer_class = PropertyOutSerializer
+    pagination_class = CustomPagination
+    filterset_class = PropertyFilter
