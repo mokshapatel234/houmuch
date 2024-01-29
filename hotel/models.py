@@ -178,27 +178,6 @@ class ExperienceSlot(models.Model):
         return self.slot
 
 
-class UpdateInventoryPeriod(models.Model):
-    update_duration = models.CharField(('Update Duration'), max_length=30)
-    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
-    default_price = models.IntegerField(('Default Price'))
-    min_price = models.IntegerField(('Min Price'))
-    max_price = models.IntegerField(('Max Price'))
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(UpdateInventoryPeriod, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
-
-    def __str__(self):
-        return self.update_duration
-
-
 class Property(models.Model):
     parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
     hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
@@ -243,12 +222,10 @@ class RoomInventory(models.Model):
     room_view = models.CharField(('Room View'), max_length=30)
     area_sqft = models.FloatField(('Area sqft'))
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
-    bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_room_type')
-    bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_room_type')
+    bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_bed_type')
+    bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_bathroom_type')
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
-    is_updated_period = models.BooleanField('Updated Period', default=False)
-    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period', null=True, blank=True)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))
@@ -268,6 +245,28 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+
+class UpdateInventoryPeriod(models.Model):
+    update_duration = models.CharField(('Update Duration'), max_length=30)
+    room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
+    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
+    default_price = models.IntegerField(('Default Price'))
+    min_price = models.IntegerField(('Min Price'))
+    max_price = models.IntegerField(('Max Price'))
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def delete(self, hard=False, **kwargs):
+        if hard:
+            super(UpdateInventoryPeriod, self).delete()
+        else:
+            self.deleted_at = now()
+            self.save()
+
+    def __str__(self):
+        return self.update_duration
 
 
 class Image(models.Model):
