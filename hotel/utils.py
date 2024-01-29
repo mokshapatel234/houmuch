@@ -22,11 +22,12 @@ def model_name_to_snake_case(name):
     return ''.join(['_' + i.lower() if i.isupper() else i for i in name]).lstrip('_')
 
 
-def generate_response(instance, message, status_code, serializer_class):
-    serializer = serializer_class(instance)
+def generate_response(instance, message, status_code, serializer_class=None):
+    if serializer_class:
+        serializer = serializer_class(instance)
     response_data = {
         'result': True,
-        'data': serializer.data,
+        'data': serializer.data if serializer_class else instance,
         'message': message,
     }
     return Response(response_data, status=status_code)
@@ -49,7 +50,7 @@ def deletion_success_response(message, status_code):
 
 
 def generate_otp():
-    return str(random.randint(100000, 999999))
+    return str(random.randint(1000, 9999))
 
 
 def send_otp_email(email, otp, subject, template_name):

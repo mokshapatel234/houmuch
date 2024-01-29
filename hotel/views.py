@@ -64,6 +64,7 @@ class HotelLoginView(APIView):
             fcm_token = request.data.get('fcm_token')
             hotel_owner = Owner.objects.get(phone_number=phone)
             hotel_owner.fcm_token = fcm_token
+            hotel_owner.save()
             token = generate_token(hotel_owner.id)
             owner_data = serializer.to_representation(hotel_owner)
             response_data = {
@@ -77,10 +78,9 @@ class HotelLoginView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Owner.DoesNotExist:
-            return Response({'result': False, 'message': NOT_REGISTERED_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class OwnerProfileView(APIView):
@@ -113,10 +113,10 @@ class OwnerProfileView(APIView):
                 email = serializer.validated_data.get('email', None)
                 phone_number = serializer.validated_data.get('phone_number', None)
                 if phone_number and Owner.objects.filter(phone_number=phone_number):
-                    return Response({'result': False, 'message': PHONE_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
                 if email:
                     if Owner.objects.filter(email=email):
-                        return Response({'result': False, 'message': EMAIL_ALREADY_PRESENT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                        return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
                     else:
                         otp = generate_otp()
                         OTP.objects.create(user=request.user, otp=otp)
@@ -129,7 +129,7 @@ class OwnerProfileView(APIView):
                     'data': serializer.data,
                     'message': PROFILE_UPDATE_MESSAGE,
                 }
-                return Response(response_data, status=status.HTTP_201_CREATED)
+                return Response(response_data, status=status.HTTP_200_OK)
             else:
                 return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
@@ -154,11 +154,11 @@ class OTPVerificationView(APIView):
 
                     return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
                 else:
-                    return Response({'result': False, 'message': OTP_VERIFICATION_INVALID_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                    return error_response(OTP_VERIFICATION_INVALID_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
-                return Response({'result': False, 'message': INVALID_INPUT_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(INVALID_INPUT_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
-            return Response({'result': False, 'message': EXCEPTION_MESSAGE}, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class MasterRetrieveView(ListAPIView):
