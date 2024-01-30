@@ -148,3 +148,4 @@ class HotelRetrieveView(ListAPIView):
     serializer_class = PropertyOutSerializer
     pagination_class = CustomPagination
     filterset_class = PropertyFilter
+    filter_backends = [DjangoFilterBackend]
