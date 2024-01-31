@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property, OTP, RoomInventory
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
+    RoomInventory, Image
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -21,6 +22,7 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
+from datetime import datetime
 
 
 class HotelRegisterView(APIView):
@@ -267,6 +269,7 @@ class RoomInventoryViewSet(ModelViewSet):
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
@@ -279,6 +282,9 @@ class RoomInventoryViewSet(ModelViewSet):
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            if images:
+                for image in images:
+                    Image.objects.create(room_image=instance, image=image)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:
@@ -313,6 +319,7 @@ class RoomInventoryViewSet(ModelViewSet):
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -324,6 +331,14 @@ class RoomInventoryViewSet(ModelViewSet):
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            if images:
+                stored_images = Image.objects.filter(room_image=instance)
+                stored_images.exclude(image__in=images).update(deleted_at=datetime.now())
+                new_images = [
+                    Image(room_image=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                Image.objects.bulk_create(new_images)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
