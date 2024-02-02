@@ -2,7 +2,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
-from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
+from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer
 from .utils import generate_token
 from hotel.utils import error_response
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -145,7 +145,7 @@ class HotelRetrieveView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
     queryset = Property.objects.all().order_by('-id')
-    serializer_class = PropertyOutSerializer
+    serializer_class = PopertyListOutSerializer
     pagination_class = CustomPagination
     filterset_class = PropertyFilter
     filter_backends = [DjangoFilterBackend]

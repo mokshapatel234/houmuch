@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
+from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
+from hotel.models import RoomInventory
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -24,3 +26,11 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ('first_name', 'last_name', 'phone_number', 'email', 'address', 'government_id', 'profile_image')
+
+
+class PopertyListOutSerializer(PropertyOutSerializer):
+    price = serializers.SerializerMethodField()
+
+    def get_price(self, obj):
+        room_inventory_instance = RoomInventory.objects.filter(property=obj).order_by('default_price').first()
+        return room_inventory_instance.default_price
