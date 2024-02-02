@@ -111,6 +111,7 @@ class UpdatedPeriodOutSerializer(UpdatedPeriodSerializer):
 
 class RoomInventorySerializer(serializers.ModelSerializer):
     updated_period = UpdatedPeriodSerializer(required=False)
+    images = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:
         model = RoomInventory
@@ -149,7 +150,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
         return None
 
     def get_images(self, obj):
-        image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
+        image_urls = [image.image for image in Image.objects.filter(room_image=obj, deleted_at__isnull=True) if image.room_image is not None]
         return image_urls
 
     class Meta:
