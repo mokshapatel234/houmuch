@@ -22,7 +22,7 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
-from datetime import datetime
+from hotel_app_backend.utils import delete_image_from_s3
 
 
 class HotelRegisterView(APIView):
@@ -320,6 +320,7 @@ class RoomInventoryViewSet(ModelViewSet):
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
+            removed_images = request.data.pop('removed_images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -333,12 +334,16 @@ class RoomInventoryViewSet(ModelViewSet):
                 updated_instance.common_amenities.set(common_amenities)
             if images:
                 stored_images = Image.objects.filter(room_image=instance)
-                stored_images.exclude(image__in=images).update(deleted_at=datetime.now())
+                stored_images.exclude(image__in=images)
                 new_images = [
                     Image(room_image=instance, image=image_url)
                     for image_url in set(images) - set(stored_images.values_list('image', flat=True))
                 ]
                 Image.objects.bulk_create(new_images)
+            if removed_images:
+                for removed_image_url in removed_images:
+                    delete_image_from_s3(removed_image_url)
+                    Image.objects.filter(room_image=instance, image=removed_image_url).delete()
             # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
