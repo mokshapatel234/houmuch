@@ -232,6 +232,7 @@ class PropertyViewSet(ModelViewSet):
             instance = self.get_object()
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
+            removed_image = request.data.get('removed_image', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -240,6 +241,8 @@ class PropertyViewSet(ModelViewSet):
                 updated_instance.save()
             if room_types_data:
                 updated_instance.room_types.set(room_types_data)
+            if removed_image:
+                delete_image_from_s3(removed_image)
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Property.DoesNotExist:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
