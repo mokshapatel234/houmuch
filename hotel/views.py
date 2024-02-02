@@ -3,13 +3,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property, OTP, RoomInventory
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
+    RoomInventory, Image
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
-    error_response, deletion_success_response
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -21,6 +22,7 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
+from datetime import datetime
 
 
 class HotelRegisterView(APIView):
@@ -167,6 +169,7 @@ class MasterRetrieveView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         try:
+            # cache_response("master_list", request.user)
             models_and_serializers = {
                 PropertyType: PropertyTypeSerializer,
                 RoomType: RoomTypeSerializer,
@@ -186,6 +189,7 @@ class MasterRetrieveView(ListAPIView):
                     'data': data,
                     'message': DATA_RETRIEVAL_MESSAGE,
                 }
+                # set_cache("master_list", request.user, response_data)
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -265,6 +269,7 @@ class RoomInventoryViewSet(ModelViewSet):
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
@@ -272,13 +277,15 @@ class RoomInventoryViewSet(ModelViewSet):
             if updated_period_data:
                 updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
                 updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_instance = updated_period_serializer.save()
-                instance.updated_period = updated_period_instance
-                instance.save()
+                updated_period_serializer.save(room_inventory=instance)
             if room_features:
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            if images:
+                for image in images:
+                    Image.objects.create(room_image=instance, image=image)
+            # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -294,10 +301,15 @@ class RoomInventoryViewSet(ModelViewSet):
 
     def list(self, request):
         try:
+            # cache_response("room_inventory_list", request.user)
             queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serialized_data = serializer.data
+
+            response_data = self.get_paginated_response(serialized_data)
+            # set_cache("room_inventory_list", request.user, serialized_data)
+            return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -307,19 +319,27 @@ class RoomInventoryViewSet(ModelViewSet):
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
             if updated_period_data:
                 updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
                 updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_instance = updated_period_serializer.save()
-                updated_instance.updated_period = updated_period_instance
-                updated_instance.save()
+                updated_period_serializer.save(room_inventory=instance)
             if room_features:
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            if images:
+                stored_images = Image.objects.filter(room_image=instance)
+                stored_images.exclude(image__in=images).update(deleted_at=datetime.now())
+                new_images = [
+                    Image(room_image=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                Image.objects.bulk_create(new_images)
+            # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
