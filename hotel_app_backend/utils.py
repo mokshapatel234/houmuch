@@ -56,6 +56,5 @@ def get_presigned_url(request):
             except Exception:
                 raise error_response(FAILED_PRESIGNED_RESPONSE, status.HTTP_400_BAD_REQUEST)
         return generate_response(presigned_urls, DATA_CREATE_MESSAGE, status.HTTP_200_OK)
-    except Exception as e:
-        print(e)
+    except Exception:
         return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
