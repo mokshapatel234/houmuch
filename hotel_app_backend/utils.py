@@ -17,6 +17,17 @@ s3_client = boto3.client(
 )
 
 
+def delete_image_from_s3(image_url):
+    try:
+        bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+        s3_base_url = settings.AWS_BASE_URL
+        key = image_url.replace(s3_base_url + bucket_name + '/', '')
+        s3_client.delete_object(Bucket=bucket_name, Key=key)
+        return True
+    except Exception:
+        error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
 def get_presigned_key(filename, user_type, image_type, user_id):
     key = int(datetime.timestamp(datetime.now()))
     if user_type == 'owner':
