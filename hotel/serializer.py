@@ -96,10 +96,14 @@ class PropertySerializer(serializers.ModelSerializer):
 class PropertyOutSerializer(PropertySerializer):
     room_types = RoomTypeSerializer(many=True)
     property_type = PropertyTypeSerializer()
+    address = serializers.SerializerMethodField()
+
+    def get_address(self, instance):
+        owner = instance.owner
+        return owner.address if owner and hasattr(owner, 'address') else None
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = UpdateInventoryPeriod
         exclude = ['created_at', 'updated_at', 'deleted_at', 'room_inventory']
