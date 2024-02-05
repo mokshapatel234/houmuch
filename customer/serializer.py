@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Customer
-from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
+from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer, RoomInventoryOutSerializer
 from hotel.models import RoomInventory
 
 
@@ -29,8 +29,15 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PopertyListOutSerializer(PropertyOutSerializer):
-    price = serializers.SerializerMethodField()
+    room_inventory = serializers.SerializerMethodField()
 
-    def get_price(self, obj):
-        room_inventory_instance = RoomInventory.objects.filter(property=obj).order_by('default_price').first()
-        return room_inventory_instance.default_price
+
+    def get_room_inventory(self, obj):
+        num_of_rooms = self.context.get('num_of_rooms', None)
+        room_inventory_instances = RoomInventory.objects.filter(property=obj).order_by('default_price')
+        
+        if num_of_rooms is not None and num_of_rooms > 0:
+            room_inventory_instances = list(room_inventory_instances[:num_of_rooms])
+        else:
+            room_inventory_instances = room_inventory_instances[:1]
+        return [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]

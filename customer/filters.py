@@ -5,18 +5,18 @@ from hotel.models import Property, RoomInventory
 from django.db.models import Subquery, OuterRef
 
 
-
 class PropertyFilter(filters.FilterSet):
-    latitude = filters.NumberFilter(field_name='location', method='filter_by_distance', label='Latitude')
-    longitude = filters.NumberFilter(method='filter_by_distance', label='Longitude')
+    # latitude = filters.NumberFilter(field_name='location', method='filter_by_distance', label='Latitude')
+    # longitude = filters.NumberFilter(method='filter_by_distance', label='Longitude')
     nearby_popular_landmark = filters.CharFilter(lookup_expr='icontains', label='Nearby Popular Landmark')
     room_type = filters.CharFilter(field_name='room_types__room_type', lookup_expr='exact', label='Room Type')
     min_price = filters.NumberFilter(method='filter_by_price', lookup_expr='exact', label='Min Price')
     max_price = filters.NumberFilter(method='filter_by_price', lookup_expr='exact', label='Max Price')
+    # num_of_rooms = filters.NumberFilter(method='filter_by_num_of_rooms', label='Number of Rooms')
 
     class Meta:
         model = Property
-        fields = ['latitude', 'longitude', 'nearby_popular_landmark', 'room_type', 'min_price', 'max_price']
+        fields = ['nearby_popular_landmark', 'room_type', 'min_price', 'max_price']
 
     def filter_by_distance(self, queryset, name, value):
         if self.data.get('latitude') and self.data.get('longitude'):
@@ -32,3 +32,4 @@ class PropertyFilter(filters.FilterSet):
             queryset = queryset.annotate(lowest_price=Subquery(subquery))
             queryset = queryset.filter(lowest_price__gte=self.data.get('min_price'), lowest_price__lte=self.data.get('max_price'))
         return queryset
+        
