@@ -183,6 +183,8 @@ class HotelRetrieveView(generics.GenericAPIView):
         room_type = self.request.query_params.get('room_type')
         min_price = self.request.query_params.get('min_price')
         max_price = self.request.query_params.get('max_price')
+        num_of_adults = self.request.query_params.get('num_of_adults')
+        num_of_children = self.request.query_params.get('num_of_children')
         if nearby_popular_landmark is not None:
             queryset = self.queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
         if location_param is not None or num_of_rooms is not None:
@@ -194,10 +196,12 @@ class HotelRetrieveView(generics.GenericAPIView):
             if num_of_rooms is not None:
                 num_of_rooms = int(num_of_rooms)
             if room_type is not None:
-                queryset = queryset.filter(room_types__room_type__in=room_type)
+                queryset = queryset.filter(room_types__room_type=room_type)
             property_list = []
             for property in queryset:
-                rooms = RoomInventory.objects.filter(property=property).order_by('default_price')[:num_of_rooms]
+                num_of_children=int(num_of_children) if num_of_children is not None else 0
+                num_of_adults=int(num_of_adults) if num_of_adults is not None else 0
+                rooms = RoomInventory.objects.filter(property=property, adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children).order_by('default_price')[:num_of_rooms]
                 if min_price is not None and max_price is not None:
                     rooms = [
                         room for room in rooms 
