@@ -22,8 +22,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
         fields = '__all__'
-    email = serializers.EmailField(required=False)
-    address = serializers.CharField(required=False)
+    email = serializers.EmailField()
     government_id = serializers.CharField(required=False)
     profile_image = serializers.CharField(required=False)
     read_only_fields = ('is_verified', 'is_active', 'bidding_mode')
@@ -96,10 +95,14 @@ class PropertySerializer(serializers.ModelSerializer):
 class PropertyOutSerializer(PropertySerializer):
     room_types = RoomTypeSerializer(many=True)
     property_type = PropertyTypeSerializer()
+    address = serializers.SerializerMethodField()
+
+    def get_address(self, instance):
+        owner = instance.owner
+        return owner.address if owner and hasattr(owner, 'address') else None
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = UpdateInventoryPeriod
         exclude = ['created_at', 'updated_at', 'deleted_at', 'room_inventory']
@@ -111,6 +114,8 @@ class UpdatedPeriodOutSerializer(UpdatedPeriodSerializer):
 
 class RoomInventorySerializer(serializers.ModelSerializer):
     updated_period = UpdatedPeriodSerializer(required=False)
+    images = serializers.ListField(child=serializers.CharField(), required=False)
+    removed_images = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:
         model = RoomInventory
@@ -125,7 +130,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
-    bed_type = BedTypeSerializer()
+    bed_type = BedTypeSerializer(many=True)
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)

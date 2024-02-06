@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property, OTP, RoomInventory
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
+    RoomInventory, Image
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -21,6 +22,7 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
+from hotel_app_backend.utils import delete_image_from_s3
 
 
 class HotelRegisterView(APIView):
@@ -31,12 +33,17 @@ class HotelRegisterView(APIView):
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone_number = serializer.validated_data.get('phone_number')
+            email = serializer.validated_data.get('email', None)
             if not phone_number:
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
-                serializer.save()
+                user = serializer.save()
+                if email:
+                    otp = generate_otp()
+                    OTP.objects.create(user=user, otp=otp)
+                    send_otp_email(email, otp, 'OTP Verification', 'otp.html')
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
                 response_data = {
@@ -230,6 +237,7 @@ class PropertyViewSet(ModelViewSet):
             instance = self.get_object()
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
+            removed_image = request.data.get('removed_image', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -238,6 +246,8 @@ class PropertyViewSet(ModelViewSet):
                 updated_instance.save()
             if room_types_data:
                 updated_instance.room_types.set(room_types_data)
+            if removed_image:
+                delete_image_from_s3(removed_image)
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Property.DoesNotExist:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -264,9 +274,11 @@ class RoomInventoryViewSet(ModelViewSet):
     def create(self, request):
         try:
             property_id = request.GET.get('property_id')
+            bed_type = request.data.get('bed_type', None)
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
@@ -279,6 +291,11 @@ class RoomInventoryViewSet(ModelViewSet):
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
+            if images:
+                for image in images:
+                    Image.objects.create(room_image=instance, image=image)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:
@@ -311,8 +328,11 @@ class RoomInventoryViewSet(ModelViewSet):
         try:
             instance = self.get_object()
             room_features = request.data.get('room_features', None)
+            bed_type = request.data.get('bed_type', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
+            removed_images = request.data.pop('removed_images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -324,6 +344,20 @@ class RoomInventoryViewSet(ModelViewSet):
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
+            if images:
+                stored_images = Image.objects.filter(room_image=instance)
+                stored_images.exclude(image__in=images)
+                new_images = [
+                    Image(room_image=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                Image.objects.bulk_create(new_images)
+            if removed_images:
+                for removed_image_url in removed_images:
+                    delete_image_from_s3(removed_image_url)
+                    Image.objects.filter(room_image=instance, image=removed_image_url).delete()
             # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
