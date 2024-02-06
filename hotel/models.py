@@ -6,22 +6,24 @@ from django.contrib.gis.geos import Point
 
 
 class Owner(models.Model):
-    first_name = models.CharField(('First Name'), max_length=30 , null=False)
-    last_name = models.CharField(('Last Name'), max_length=20, null=False)
-    email = models.EmailField(max_length=100, null=False)
+    hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
+    email = models.EmailField(max_length=100, null=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
-    address = models.TextField(verbose_name='address')
-    government_id = models.TextField(verbose_name='gov_id')
+    address = models.TextField(verbose_name='address', blank=True, null=True)
+    government_id = models.TextField(verbose_name='gov_id', blank=True, null=True)
+    gst = models.CharField(max_length=20, default=None, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+    is_email_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
+    fcm_token = models.CharField(max_length=255, null=True, blank=True)
     bidding_mode = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True,blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True,blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
 
     def is_authenticated(self):
-        return True  
+        return True
 
     def is_anonymous(self):
         return False
@@ -32,28 +34,28 @@ class Owner(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
-        return self.first_name
+        return self.hotel_name
 
 
-class FCMToken(models.Model):
-    user_id = models.IntegerField()
-    fcm_token = models.CharField(max_length=255, null=True, blank=True)
-    is_owner = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+# class FCMToken(models.Model):
+#     user_id = models.IntegerField()
+#     fcm_token = models.CharField(max_length=255, null=True, blank=True)
+#     is_owner = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+#     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+#     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
 
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(FCMToken, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
-    
-    def __str__(self):
-        return self.first_name
+#     def delete(self, hard=False, **kwargs):
+#         if hard:
+#             super(FCMToken, self).delete()
+#         else:
+#             self.deleted_at = now()
+#             self.save()
+
+#     def __str__(self):
+#         return self.first_name
 
 
 class PropertyType(models.Model):
@@ -69,7 +71,7 @@ class PropertyType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.property_type
 
@@ -86,7 +88,7 @@ class RoomType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.room_type
 
@@ -103,7 +105,7 @@ class BedType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.bed_type
 
@@ -120,7 +122,7 @@ class BathroomType(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.bathroom_type
 
@@ -137,7 +139,7 @@ class RoomFeature(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.room_feature
 
@@ -154,7 +156,7 @@ class CommonAmenities(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.common_ameninity
 
@@ -171,38 +173,18 @@ class ExperienceSlot(models.Model):
         else:
             self.deleted_at = now()
             self.save()
-    
+
     def __str__(self):
         return self.slot
 
 
-class UpdateInventoryPeriod(models.Model):
-    update_duration = models.CharField(('Update Duration'), max_length=30)
-    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
-    default_price = models.IntegerField(('Default Price'))
-    min_price = models.IntegerField(('Min Price'))
-    max_price = models.IntegerField(('Max Price'))
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(UpdateInventoryPeriod, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
-
-    def __str__(self):
-        return self.update_duration
-
-
 class Property(models.Model):
-    hotel_name = models.CharField(('Hotel Name'), max_length=30)
+    parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
     hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
-    manager_name = models.CharField(('Hotel Name'), max_length=30)
+    manager_name = models.CharField(('Manager Name'), max_length=30)
     hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
+    image = models.CharField(max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
     check_in_datetime = models.DateTimeField('Check-in Datetime')
     check_out_datetime = models.DateTimeField('Check-out Datetime')
@@ -230,8 +212,8 @@ class Property(models.Model):
             self.save()
 
     def __str__(self):
-        return self.hotel_name
-    
+        return self.hotel_nick_name
+
 
 class RoomInventory(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_room')
@@ -240,12 +222,10 @@ class RoomInventory(models.Model):
     room_view = models.CharField(('Room View'), max_length=30)
     area_sqft = models.FloatField(('Area sqft'))
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
-    bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_room_type')
-    bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_room_type')
+    bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_bed_type')
+    bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_bathroom_type')
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
-    is_updated_period = models.BooleanField('Updated Period', default=False)
-    updated_period = models.ForeignKey(UpdateInventoryPeriod, on_delete=models.CASCADE, related_name='property_updated_period')
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))
@@ -265,3 +245,44 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+
+class UpdateInventoryPeriod(models.Model):
+    update_duration = models.CharField(('Update Duration'), max_length=30)
+    room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
+    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
+    default_price = models.IntegerField(('Default Price'))
+    min_price = models.IntegerField(('Min Price'))
+    max_price = models.IntegerField(('Max Price'))
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def delete(self, hard=False, **kwargs):
+        if hard:
+            super(UpdateInventoryPeriod, self).delete()
+        else:
+            self.deleted_at = now()
+            self.save()
+
+    def __str__(self):
+        return self.update_duration
+
+
+class Image(models.Model):
+    room_image = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, blank=True, null=True)
+    image = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def __str__(self):
+        return self.image
+
+
+class OTP(models.Model):
+    user = models.ForeignKey(Owner, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
