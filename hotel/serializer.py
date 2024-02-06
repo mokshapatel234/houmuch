@@ -22,8 +22,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
         fields = '__all__'
-    email = serializers.EmailField(required=False)
-    address = serializers.CharField(required=False)
+    email = serializers.EmailField()
     government_id = serializers.CharField(required=False)
     profile_image = serializers.CharField(required=False)
     read_only_fields = ('is_verified', 'is_active', 'bidding_mode')
@@ -131,7 +130,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
-    bed_type = BedTypeSerializer()
+    bed_type = BedTypeSerializer(many=True)
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)

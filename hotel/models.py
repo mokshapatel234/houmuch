@@ -223,7 +223,7 @@ class RoomInventory(models.Model):
     room_view = models.CharField(('Room View'), max_length=30)
     area_sqft = models.FloatField(('Area sqft'))
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
-    bed_type = models.ForeignKey(BedType, on_delete=models.CASCADE, related_name='property_bed_type')
+    bed_type = models.ManyToManyField(BedType, related_name='property_bed_type')
     bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_bathroom_type')
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
