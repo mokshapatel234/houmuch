@@ -1,5 +1,21 @@
 from rest_framework import serializers
-from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, CommonAmenities, Property
+from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image
+from django.utils import timezone
+
+
+class DynamicFieldsModelSerializer(serializers.ModelSerializer):
+
+    def __init__(self, *args, **kwargs):
+        fields = kwargs.pop('fields', None)
+
+        super().__init__(*args, **kwargs)
+
+        if fields is not None:
+            allowed = set(fields)
+            existing = set(self.fields)
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -27,16 +43,40 @@ class OwnerProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ('is_verified', 'is_active', 'is_email_verified')
 
 
-class RoomTypeSerilizer(serializers.ModelSerializer):
+class PropertyTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyType
+        fields = ('id', 'property_type')
+
+
+class RoomTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomType
         fields = ('id', 'room_type')
 
 
-class PropertyTypeSerilizer(serializers.ModelSerializer):
+class BedTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PropertyType
-        fields = ('id', 'property_type')
+        model = BedType
+        fields = ('id', 'bed_type')
+
+
+class BathroomTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BathroomType
+        fields = ('id', 'bathroom_type')
+
+
+class RoomFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomFeature
+        fields = ('id', 'room_feature')
+
+
+class CommonAmenitiesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CommonAmenities
+        fields = ('id', 'common_ameninity')
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -54,41 +94,78 @@ class PropertySerializer(serializers.ModelSerializer):
 
 
 class PropertyOutSerializer(PropertySerializer):
-    room_types = RoomTypeSerilizer(many=True)
-    property_type = PropertyTypeSerilizer()
+    room_types = RoomTypeSerializer(many=True)
+    property_type = PropertyTypeSerializer()
+    address = serializers.SerializerMethodField()
+
+    def get_address(self, instance):
+        owner = instance.owner
+        return owner.address if owner and hasattr(owner, 'address') else None
 
 
-class PropertyTypeSerializer(serializers.ModelSerializer):
+class UpdatedPeriodSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PropertyType
-        fields = '__all__'
+        model = UpdateInventoryPeriod
+        exclude = ['created_at', 'updated_at', 'deleted_at', 'room_inventory']
 
 
-class RoomTypeSerializer(serializers.ModelSerializer):
+class UpdatedPeriodOutSerializer(UpdatedPeriodSerializer):
+    common_amenities = CommonAmenitiesSerializer(many=True)
+
+
+class RoomInventorySerializer(serializers.ModelSerializer):
+    updated_period = UpdatedPeriodSerializer(required=False)
+    images = serializers.ListField(child=serializers.CharField(), required=False)
+    removed_images = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
-        model = RoomType
-        fields = '__all__'
+        model = RoomInventory
+        exclude = ['property']
 
 
-class BedTypeSerializer(serializers.ModelSerializer):
+class ImageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = BedType
-        fields = '__all__'
+        model = Image
+        fields = ('image', 'created_at', 'updated_at')
 
 
-class BathroomTypeSerializer(serializers.ModelSerializer):
+class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
+    room_type = RoomTypeSerializer()
+    bed_type = BedTypeSerializer()
+    bathroom_type = BathroomTypeSerializer()
+    room_features = RoomFeatureSerializer(many=True)
+    common_amenities = CommonAmenitiesSerializer(many=True)
+    updated_period = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+
+    def get_updated_period(self, obj):
+        duration_mapping = {
+            'today': timezone.timedelta(days=1),
+            'for a week': timezone.timedelta(days=7),
+            'for a month': timezone.timedelta(days=30),
+        }
+
+        for update_period in UpdateInventoryPeriod.objects.filter(room_inventory=obj):
+            if (
+                update_period.update_duration.lower() in duration_mapping
+                and timezone.now() - update_period.created_at <= duration_mapping[update_period.update_duration.lower()]
+            ):
+                return UpdatedPeriodOutSerializer(update_period).data
+
+        return None
+
+    def get_images(self, obj):
+        image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
+        return image_urls
+
     class Meta:
-        model = BathroomType
-        fields = '__all__'
+        model = RoomInventory
+        fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
+                  'floor', 'room_view', 'area_sqft', 'adult_capacity', 'children_capacity', 'default_price',
+                  'min_price', 'max_price', 'status', 'images', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
 
 
-class RoomFeatureSerializer(serializers.ModelSerializer):
+class OTPVerificationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RoomFeature
-        fields = '__all__'
-
-
-class CommonAmenitiesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommonAmenities
-        fields = '__all__'
+        model = OTP
+        fields = ('otp',)

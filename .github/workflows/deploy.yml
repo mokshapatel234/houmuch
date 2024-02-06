@@ -1,0 +1,27 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Connect to EC2 instance
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.EC2_PORT }}
+        script: |
+          cd /home/ubuntu/hotel_app_backend
+          git pull origin development
+          source venv/bin/activate
+          pip3 install -r requirements.txt
+          python3 manage.py migrate
+          sudo systemctl restart gunicorn
