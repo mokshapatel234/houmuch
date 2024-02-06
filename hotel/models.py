@@ -206,8 +206,8 @@ class Property(models.Model):
     hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
-    check_in_datetime = models.DateTimeField('Check-in Datetime')
-    check_out_datetime = models.DateTimeField('Check-out Datetime')
+    check_in_time = models.CharField('Check-in time', null=True, blank=True)
+    check_out_time = models.CharField('Check-out time', null=True, blank=True)
     location = geo_models.PointField(('Location'), geography=True, default=Point(0.0, 0.0))
     nearby_popular_landmark = models.CharField('Nearby Popular Landmark', max_length=255)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_property')
@@ -232,7 +232,7 @@ class Property(models.Model):
             self.save()
 
     def __str__(self):
-        return self.hotel_name
+        return self.hotel_nick_name
 
 
 class RoomInventory(models.Model):

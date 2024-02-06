@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import Owner, RoomType, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, ExperienceSlot
+from .models import Owner, RoomType, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, ExperienceSlot, Property
 from django.contrib.auth.models import Group
+from django.utils.html import format_html
 
 
 # Register your models here.
@@ -59,6 +60,13 @@ class ExperienceSlotAdmin(admin.ModelAdmin):
     list_per_page = 20
 
 
+class PropertyAdmin(admin.ModelAdmin):
+    list_display = ['get_image','parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number', 'hotel_website']
+
+    @admin.display(description='Image')
+    def get_image(self, obj):
+        return format_html('<img src="{}" width=80px height=75px/>'.format(f'https://houmuch.s3.amazonaws.com/{obj.image}'))
+
 admin.site.register(Owner, OwnerAdmin)
 admin.site.register(PropertyType, PropertyTypeAdmin)
 admin.site.register(RoomType, RoomTypeAdmin)
@@ -67,3 +75,4 @@ admin.site.register(BathroomType, BathroomTypeAdmin)
 admin.site.register(BedType, BedTypeAdmin)
 admin.site.register(CommonAmenities, CommonAmenitiesAdmin)
 admin.site.register(ExperienceSlot, ExperienceSlotAdmin)
+admin.site.register(Property, PropertyAdmin)
