@@ -201,7 +201,7 @@ class HotelRetrieveView(generics.GenericAPIView):
             for property in queryset:
                 num_of_children=int(num_of_children) if num_of_children is not None else 0
                 num_of_adults=int(num_of_adults) if num_of_adults is not None else 0
-                rooms = RoomInventory.objects.filter(property=property, adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children).order_by('default_price')[:num_of_rooms]
+                rooms = RoomInventory.objects.filter(property=property).order_by('default_price')[:num_of_rooms]
                 if min_price is not None and max_price is not None:
                     rooms = [
                         room for room in rooms 
