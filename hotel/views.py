@@ -33,12 +33,17 @@ class HotelRegisterView(APIView):
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone_number = serializer.validated_data.get('phone_number')
+            email = serializer.validated_data.get('email', None)
             if not phone_number:
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
-                serializer.save()
+                user = serializer.save()
+                if email:
+                    otp = generate_otp()
+                    OTP.objects.create(user=user, otp=otp)
+                    send_otp_email(email, otp, 'OTP Verification', 'otp.html')
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
                 response_data = {
@@ -269,6 +274,7 @@ class RoomInventoryViewSet(ModelViewSet):
     def create(self, request):
         try:
             property_id = request.GET.get('property_id')
+            bed_type = request.data.get('bed_type', None)
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
@@ -285,6 +291,8 @@ class RoomInventoryViewSet(ModelViewSet):
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
             if images:
                 for image in images:
                     Image.objects.create(room_image=instance, image=image)
@@ -320,6 +328,7 @@ class RoomInventoryViewSet(ModelViewSet):
         try:
             instance = self.get_object()
             room_features = request.data.get('room_features', None)
+            bed_type = request.data.get('bed_type', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
@@ -335,6 +344,8 @@ class RoomInventoryViewSet(ModelViewSet):
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
             if images:
                 stored_images = Image.objects.filter(room_image=instance)
                 stored_images.exclude(image__in=images)
