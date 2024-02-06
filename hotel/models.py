@@ -15,6 +15,7 @@ class Owner(models.Model):
     gst = models.CharField(max_length=20, default=None, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
+    welcome_mail_sent = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     fcm_token = models.CharField(max_length=255, null=True, blank=True)
     bidding_mode = models.BooleanField(default=False)
