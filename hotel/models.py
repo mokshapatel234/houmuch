@@ -59,9 +59,26 @@ class Owner(models.Model):
 #         return self.first_name
 
 
+class Category(models.Model):
+    category = models.CharField(max_length=255, null=True, blank=True)
+    bid_time_duration = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def delete(self, hard=False, **kwargs):
+        if hard:
+            super(PropertyType, self).delete()
+        else:
+            self.deleted_at = now()
+            self.save()
+
+    def __str__(self):
+        return self.category
+
+
 class PropertyType(models.Model):
     property_type = models.CharField(max_length=255, null=True, blank=True)
-    bid_time_duration = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)

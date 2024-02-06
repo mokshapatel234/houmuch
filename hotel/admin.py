@@ -1,8 +1,9 @@
 from django.contrib import admin
-from .models import Owner, RoomType, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, ExperienceSlot, Property
+from .models import Owner, RoomType, Category, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, \
+    ExperienceSlot, Property, RoomInventory
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
-
+from .forms import PropertyForm
 
 # Register your models here.
 admin.site.unregister(Group)
@@ -18,8 +19,14 @@ class OwnerAdmin(admin.ModelAdmin):
     list_per_page = 20
 
 
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['category', 'bid_time_duration']
+    search_fields = ['category',]
+    list_per_page = 20
+
+
 class PropertyTypeAdmin(admin.ModelAdmin):
-    list_display = ['property_type', 'bid_time_duration',]
+    list_display = ['property_type',]
     search_fields = ['property_type',]
     list_per_page = 20
 
@@ -61,13 +68,18 @@ class ExperienceSlotAdmin(admin.ModelAdmin):
 
 
 class PropertyAdmin(admin.ModelAdmin):
-    list_display = ['get_image','parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number', 'hotel_website']
+    form = PropertyForm
+    list_display = ['hotel_nick_name', 'get_image', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website',]
+    list_per_page = 20
 
     @admin.display(description='Image')
     def get_image(self, obj):
-        return format_html('<img src="{}" width=80px height=75px/>'.format(f'https://houmuch.s3.amazonaws.com/{obj.image}'))
+        if obj.image:
+            return format_html('<img src="{}" width=80px height=75px/>'.format(f'https://houmuch.s3.amazonaws.com/{obj.image}'))
+        return '-'
 
 admin.site.register(Owner, OwnerAdmin)
+admin.site.register(Category, CategoryAdmin)
 admin.site.register(PropertyType, PropertyTypeAdmin)
 admin.site.register(RoomType, RoomTypeAdmin)
 admin.site.register(RoomFeature, RoomFeatureAdmin)
