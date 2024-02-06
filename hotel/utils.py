@@ -11,7 +11,7 @@ from django.core.cache import cache
 def generate_token(id):
     payload = {
         'user_id': id,
-        'exp': datetime.utcnow() + timedelta(days=1)
+        'exp': datetime.utcnow() + timedelta(days=30)
     }
 
     jwt_token = jwt.encode(payload, 'secret', algorithm='HS256')
