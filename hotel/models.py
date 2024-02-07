@@ -5,8 +5,30 @@ from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
 
 
+class Category(models.Model):
+    category = models.CharField(max_length=255, null=True, blank=True)
+    bid_time_duration = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def delete(self, hard=False, **kwargs):
+        if hard:
+            super(PropertyType, self).delete()
+        else:
+            self.deleted_at = now()
+            self.save()
+
+    def __str__(self):
+        return self.category
+
+    class Meta:
+        verbose_name_plural = "Categories"
+
+
 class Owner(models.Model):
     hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="owner_category", null=True, blank=True)
     email = models.EmailField(max_length=100, null=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
@@ -61,7 +83,6 @@ class Owner(models.Model):
 
 class PropertyType(models.Model):
     property_type = models.CharField(max_length=255, null=True, blank=True)
-    bid_time_duration = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
@@ -161,6 +182,9 @@ class CommonAmenities(models.Model):
     def __str__(self):
         return self.common_ameninity
 
+    class Meta:
+        verbose_name_plural = "Common amenities"
+
 
 class ExperienceSlot(models.Model):
     slot = models.CharField(max_length=255, null=True, blank=True)
@@ -187,8 +211,8 @@ class Property(models.Model):
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     image = models.CharField(max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
-    check_in_datetime = models.DateTimeField('Check-in Datetime')
-    check_out_datetime = models.DateTimeField('Check-out Datetime')
+    check_in_time = models.CharField('Check-in time', null=True, blank=True)
+    check_out_time = models.CharField('Check-out time', null=True, blank=True)
     location = geo_models.PointField(('Location'), geography=True, default=Point(0.0, 0.0))
     nearby_popular_landmark = models.CharField('Nearby Popular Landmark', max_length=255)
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_property')
@@ -215,6 +239,9 @@ class Property(models.Model):
     def __str__(self):
         return self.hotel_nick_name
 
+    class Meta:
+        verbose_name_plural = "Properties"
+
 
 class RoomInventory(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_room')
@@ -232,6 +259,7 @@ class RoomInventory(models.Model):
     default_price = models.IntegerField(('Default Price'))
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
+    is_verified = models.BooleanField(default=False)
     status = models.BooleanField('Status', default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
@@ -246,6 +274,9 @@ class RoomInventory(models.Model):
 
     def __str__(self):
         return self.room_name
+
+    class Meta:
+        verbose_name_plural = "Room inventories"
 
 
 class UpdateInventoryPeriod(models.Model):

@@ -4,11 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, Image
+    RoomInventory, Image, Category
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
-    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
+    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
+    CategorySerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -168,6 +169,21 @@ class OTPVerificationView(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class CategoryRetrieveView(ListAPIView):
+    permission_classes = (permissions.AllowAny,)
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def list(self, request, *args, **kwargs):
+        serializer = super().list(request, *args, **kwargs)
+        response_data = {
+            'result': True,
+            'data': serializer.data,
+            'message': DATA_RETRIEVAL_MESSAGE,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
 class MasterRetrieveView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
@@ -176,6 +192,7 @@ class MasterRetrieveView(ListAPIView):
         try:
             # cache_response("master_list", request.user)
             models_and_serializers = {
+                Category: CategorySerializer,
                 PropertyType: PropertyTypeSerializer,
                 RoomType: RoomTypeSerializer,
                 BedType: BedTypeSerializer,
@@ -249,7 +266,7 @@ class PropertyViewSet(ModelViewSet):
             if removed_image:
                 delete_image_from_s3(removed_image)
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
-        except Property.DoesNotExist:
+        except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
