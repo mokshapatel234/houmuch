@@ -71,7 +71,7 @@ class ExperienceSlotAdmin(admin.ModelAdmin):
 
 class PropertyAdmin(admin.ModelAdmin):
     form = PropertyForm
-    list_display = ['hotel_nick_name', 'get_image', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website',]
+    list_display = ['hotel_nick_name', 'get_image', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website', 'get_owner_name',]
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -82,6 +82,10 @@ class PropertyAdmin(admin.ModelAdmin):
         if obj.image:
             return format_html('<img src="{}" width=80px height=75px/>'.format(f'https://houmuch.s3.amazonaws.com/{obj.image}'))
         return '-'
+
+    @admin.display(description='Owner Name')
+    def get_owner_name(self, obj):
+        return obj.owner.hotel_name
 
 
 class ImageInline(admin.TabularInline):
