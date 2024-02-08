@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-
-
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8">
   	<meta name="viewport" content="width=device-width, initial-scale=1.0;">
  	<meta name="format-detection" content="telephone=no"/>
+
+
 	<style>
 /* Reset styles */ 
 body { margin: 0; padding: 0; min-width: 100%; width: 100% !important; height: 100% !important;}
@@ -32,7 +31,7 @@ a, a:hover {
  	</style>
 
 	<!-- MESSAGE SUBJECT -->
-	<title>Welcome</title>
+	<title>Room Verfication</title>
 
 </head>
 
@@ -51,26 +50,7 @@ a, a:hover {
 
 <!-- WRAPPER -->
 <!-- Set wrapper width (twice) -->
-<table border="0" cellpadding="0" cellspacing="0" align="center"
-	width="560" style="border-collapse: collapse; border-spacing: 0; padding: 0; ;
-	max-width: 560px;" class="wrapper">
 
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 6.25%; padding-right: 6.25%; width: 87.5%;
-			padding-top: 20px;
-			padding-bottom: 20px;">
-
-			<!-- PREHEADER -->
-			<!-- Set text color to background color -->
-
-			<!-- LOGO -->
-			
-			
-		</td>
-	</tr>
-
-<!-- End of WRAPPER -->
-</table>
 
 <!-- WRAPPER / CONTEINER -->
 <!-- Set conteiner background color -->
@@ -81,7 +61,6 @@ a, a:hover {
 
 	<!-- HEADER -->
 	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
-	
 
 	<tr>
 		<td align="center" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 24px; font-weight: bold; line-height: 130%;
@@ -89,8 +68,8 @@ a, a:hover {
 			color: #000000;
 			font-family: sans-serif;" class="header">
 			<img border="0" vspace="0" hspace="0"
-			src="https://d3u1baow9deq5h.cloudfront.net/static/images/templates/verification.jpg"
-			width="302" height="213"
+			src="https://d3u1baow9deq5h.cloudfront.net/static/images/templates/lights.png"
+			width="210" height="157"
 			alt="Logo" title="Logo" style="
 			color: #000000;
 			font-size: 10px; margin: 0; padding: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; border: none; display: block;" />
@@ -102,30 +81,61 @@ a, a:hover {
 			padding-top: 50px;
 			color: #000000;
 			font-family: sans-serif;" class="header">
-				Hello {{hotel_name}}!
+            Attention Admin Team
 				
 		</td>
 	</tr>
 	
-	<!-- SUBHEADER -->
-	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
+
 	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
 			padding-top: 20px;
 			color: #000000;
 			font-family: sans-serif;" class="subheader">
-			Welcome to our community of business owners! Your account has been successfully verified and is now partially activated. <br>
-			We're thrilled to have you with us! <br>
-			To fully unlock all the features of your account, please complete the email verification process.
+            A new room has been created on our platform. We kindly request that you conduct the necessary verification process to ensure it meets our community and quality standards. Your prompt attention to this matter will help us maintain the integrity and safety of our environment for all members. <br><br>
+		</td>
+	</tr>
+
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
+			color: #000000;
+			font-family: sans-serif;" class="header">
+            Room Detail:
+		</td>
+	</tr>
+
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+			padding-top: 20px;
+			color: #000000;
+			font-family: sans-serif;" class="subheader">
+            Room Name: {{room_name}} <br>
+            Property Name: {{property_name}} <br>
+            Floor: {{floor}} <br>
+            Address: {{address}}
+		</td>
+	</tr>
+
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%;
+			padding-top: 15px;
+			padding-bottom: 5px;" class="button"><a
+			href="#" target="_blank" style="text-decoration: none;">
+				<table border="0" cellpadding="0" cellspacing="0" align="left" style="width: 100%; border-collapse: collapse; border-spacing: 0; padding: 0;"><tr><td align="center" valign="middle" style="padding: 12px 24px; margin: 0; text-decoration: none; border-collapse: collapse; border-spacing: 0; border-radius: 100px; -webkit-border-radius: 100px; -moz-border-radius: 100px; -khtml-border-radius: 100px;"
+					bgcolor="#E5C243"><a target="_blank" style="text-decoration: none;
+					color: #000000; font-family: sans-serif; font-size: 17px; font-weight: 700; line-height: 120%;"
+					href="http://65.0.180.215/admin/hotel/roominventory/{room_id}/change/">
+					Admin Dashboard
+					</a>
+			</td></tr></table></a>
 		</td>
 	</tr>
 
 
 
 	<!-- BUTTON -->
-
-
-	<tr>
+	
+    <tr>
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
 			padding-top: 20px;
 			color: #000000;
