@@ -71,7 +71,7 @@ class ExperienceSlotAdmin(admin.ModelAdmin):
 
 class PropertyAdmin(admin.ModelAdmin):
     form = PropertyForm
-    list_display = ['hotel_nick_name', 'get_image', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website',]
+    list_display = ['hotel_nick_name', 'get_image', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website', 'get_owner_name',]
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -82,6 +82,10 @@ class PropertyAdmin(admin.ModelAdmin):
         if obj.image:
             return format_html('<img src="{}" width=80px height=75px/>'.format(f'https://houmuch.s3.amazonaws.com/{obj.image}'))
         return '-'
+
+    @admin.display(description='Owner Name')
+    def get_owner_name(self, obj):
+        return obj.owner.hotel_name
 
 
 class ImageInline(admin.TabularInline):
@@ -105,6 +109,7 @@ class ImageInline(admin.TabularInline):
 class RoomAdmin(admin.ModelAdmin):
     inlines = [ImageInline,]
     list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity',]
+    search_fields = ['room_name', 'property__owner__hotel_name',]
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -112,7 +117,7 @@ class RoomAdmin(admin.ModelAdmin):
 
     @admin.display(description='Property Name')
     def get_property_name(self, obj):
-        return obj.property.hotel_nick_name
+        return obj.property.owner.hotel_name
 
 
 admin.site.register(Owner, OwnerAdmin)
