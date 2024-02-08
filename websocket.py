@@ -77,10 +77,13 @@ class ConnectionManager(Singleton):
         if websocket.application_state == WebSocketState.CONNECTED:
             await websocket.send_text(message)
 
-    async def send_personal_message(self, message: str, receiver_id: int, room_id):
+    async def send_personal_message(self, message: str, receiver_id: int, user_info, room_id):
         for connection in self.room_clients[room_id]:
             if id(connection) == receiver_id:
-                await connection.send_text(message)
+                image_url = user_info.hotel_name
+                combined_message = f"{message} Image URL: {image_url}"
+                await connection.send_text(combined_message)
+
 
 
     async def broadcast_to_room(self, room_id: str, message: str):
@@ -102,7 +105,7 @@ class JWTAuthentication:
     async def authenticate(self, request, token, user_type):
         if token:
             try:
-                payload = jwt.decode(token, 'secret', algorithms=['HS256'])  # Specify algorithms argument
+                payload = jwt.decode(token, 'secret', algorithms=['HS256'])
             except (jwt.DecodeError, jwt.ExpiredSignatureError) as e:
                 print(e)
                 raise exceptions.AuthenticationFailed('Token is invalid')
@@ -115,7 +118,7 @@ class JWTAuthentication:
             user_id = payload.get('user_id')
             if user_type == 'owner':
                 user = await self.get_business_owner(user_id)
-                print(user)
+                print(user,"this is test")
             elif user_type == 'customer':
                 user = await self.get_customer(user_id)
             else:
@@ -170,7 +173,11 @@ async def get_current_user(token: str, user_type: str):
         return user_info
     except HTTPException as e:
         raise e
-    
+
+owner_id = None
+active_rooms = {}
+
+
 @app.websocket("/ws/room_connection")
 async def room_connection(
     websocket: WebSocket,
@@ -178,40 +185,42 @@ async def room_connection(
     room_id: str = Query(None),
     token: str = Query(None)
 ):
+    global owner_id
+    
     user_info = await get_current_user(token, user_type)
     if not user_info:
         await websocket.close(code=1008, reason="Unauthorized")
         return
     
-    if isinstance(user_info, Owner):
-        owner_id = id(websocket)
-        business_owner_id = user_info.id
-        await manager.connect(websocket)
-        
-    
-    if user_type == "customer":
+    try:
+        if isinstance(user_info, Customer):
+            owner_id = id(websocket)
+            await manager.connect(websocket)
+
         if room_id:
-            await websocket.close(code=1008, reason="Room ID should not be provided by customers.")
-            return
+            if room_id in active_rooms and active_rooms[room_id] == owner_id:
+                if isinstance(user_info, Owner):
+                    await manager.connect(websocket)
+                    try:
+                        await manager.update_active_room(websocket, room_id)
+                        await websocket.send_text(f"You are now connected to room {room_id}.")
+                    except Exception as e:
+                        print("this is error")
+                    message = f"Owner {user_info.hotel_name} entered the room."
+                    await manager.send_personal_message(message, owner_id, user_info, room_id)
+                else:
+                    await websocket.close(code=1008, reason="Owner ID not found.")
+            else:
+                await websocket.close(code=1008, reason="Invalid Room ID or Room not found.")
         else:
             room_id = generate_unique_room_id()
             await manager.save_active_room(websocket, room_id)
-            active_rooms[room_id] = websocket
-            await websocket.accept()  # Accept the WebSocket connection
+            active_rooms[room_id] = owner_id
             await websocket.send_text(f"Room ID: {room_id}")
             await websocket.send_text("You are now connected to the room.")
-
-    elif user_type == "owner":
-        if room_id and room_id in active_rooms:
-            await manager.connect(websocket)
-            await manager.update_active_room(websocket, room_id)
-            await websocket.send_text(f"You are now connected to room {room_id}.")
-            message = f"Student {user_info.hotel_name} entered the room."
-            await manager.send_personal_message(message, owner_id, room_id)
-        else:
-            await websocket.close(code=1008, reason="Invalid Room ID or Room not found.")
-    else:
-        await websocket.close(code=1008, reason="Invalid User Type.")
+                 
+    except Exception as e:
+        print("An error occurred:", e)
 
 
 if __name__ == '__main__':
