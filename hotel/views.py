@@ -64,9 +64,8 @@ class HotelRegisterView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-            exception_msg = f"{EXCEPTION_MESSAGE}. Error Details: {str(e)}"
-            return error_response(exception_msg, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class HotelLoginView(APIView):
@@ -155,9 +154,8 @@ class OwnerProfileView(APIView):
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
                 return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            exception_msg = f"{EXCEPTION_MESSAGE}. Error Details: {str(e)}"
-            return error_response(exception_msg, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class OTPVerificationView(APIView):
