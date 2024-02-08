@@ -12,10 +12,11 @@ from rest_framework import exceptions
 import os
 from django import setup
 import django
+from typing import List
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
 django.setup()
 
-from hotel.models import Owner
+from hotel.models import Owner, BiddingSession, Property, PropertyDeal
 from customer.models import Customer
 
 
@@ -93,11 +94,61 @@ class ConnectionManager(Singleton):
             except Exception as e:
                 print(f"Failed to send message to client : {e}")
 
+    # async def create_bidding_session():
+    #     print("Creating bidding session...")
+    #     try:
+    #         await save_bidding_session(is_open=True)
+    #     except Exception as e:
+    #         print("An error occurred while creating bidding session:", e)
+    #         return None
+
 manager = ConnectionManager() 
 
-def generate_unique_room_id():
-    return str(random.randint(1000000000, 9999999999))
+@sync_to_async
+def save_bidding_session():
+    result_instance =BiddingSession.objects.create(
+        is_open=True,
+    )
+    return result_instance.id 
 
+@sync_to_async
+def save_property_deal(session_id, customer_id, property_id):
+    try:
+        bidding_session = BiddingSession.objects.get(id=session_id)
+        customer = Customer.objects.get(id=customer_id)
+        property = Property.objects.get(id=property_id)
+        
+        property_deal = PropertyDeal.objects.create(
+            session_id=bidding_session,
+            customer_id=customer,
+            property_id=property,
+            is_winning_bid=False
+        )
+        
+        print(f"Property deal created with ID: {property_deal.id}")
+        return property_deal.id
+    except Exception as e:
+        print("An error occurred while creating property deal:", e)
+        return None
+
+async def create_bidding_session():
+    print("Creating bidding session...")
+    try:
+        bidding_session_id = await save_bidding_session()
+        print("Bidding session created with ID:", bidding_session_id)
+        return bidding_session_id
+    except Exception as e:
+        print("An error occurred while creating bidding session:", e)
+        return None
+
+async def create_property_deal(session_id, customer_id, property_id):
+    try:
+
+        await save_property_deal(session_id, customer_id, property_id)
+                                 
+    except Exception as e:
+        print("An error occurred while creating property deal:", e)
+        return None
 
 active_rooms = {}
 
@@ -183,7 +234,8 @@ async def room_connection(
     websocket: WebSocket,
     user_type: str = Query(None),
     room_id: str = Query(None),
-    token: str = Query(None)
+    token: str = Query(None),
+    property_ids: str = Query(None) 
 ):
     global owner_id
     
@@ -213,11 +265,17 @@ async def room_connection(
             else:
                 await websocket.close(code=1008, reason="Invalid Room ID or Room not found.")
         else:
-            room_id = generate_unique_room_id()
-            await manager.save_active_room(websocket, room_id)
-            active_rooms[room_id] = owner_id
-            await websocket.send_text(f"Room ID: {room_id}")
-            await websocket.send_text("You are now connected to the room.")
+            if property_ids:  
+                customer_id = user_info.id
+                room_id = await create_bidding_session()
+                property_ids_list = [int(prop_id) for prop_id in property_ids.split(",")]
+                for property_id in property_ids_list:
+                    await create_property_deal(room_id, customer_id, property_id)
+                # await create_property_deal(room_id,customer_id)
+                await manager.save_active_room(websocket, room_id)
+                active_rooms[room_id] = owner_id
+                await websocket.send_text(f"Room ID: {room_id}")
+                await websocket.send_text("You are now connected to the room.")
                  
     except Exception as e:
         print("An error occurred:", e)

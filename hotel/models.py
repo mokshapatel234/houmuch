@@ -3,6 +3,7 @@ from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
 from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
+from customer.models import Customer
 
 
 class Category(models.Model):
@@ -315,6 +316,23 @@ class Image(models.Model):
 class OTP(models.Model):
     user = models.ForeignKey(Owner, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+
+class BiddingSession(models.Model):
+    is_open = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+
+class PropertyDeal(models.Model):
+    session = models.ForeignKey(BiddingSession, on_delete=models.CASCADE, related_name='session_id')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_id')
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_id')
+    is_winning_bid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
