@@ -108,7 +108,7 @@ class ImageInline(admin.TabularInline):
 
 class RoomAdmin(admin.ModelAdmin):
     inlines = [ImageInline,]
-    list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity',]
+    list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity', 'is_verified',]
     search_fields = ['room_name', 'property__owner__hotel_name',]
     list_per_page = 20
 

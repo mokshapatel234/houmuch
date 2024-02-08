@@ -35,7 +35,7 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
     def get_room_inventory(self, obj):
         num_of_rooms = self.context.get('num_of_rooms', None)
-        room_inventory_instances = RoomInventory.objects.filter(property=obj).order_by('default_price')
+        room_inventory_instances = RoomInventory.objects.filter(property=obj, is_verified=True).order_by('default_price')
         
         if num_of_rooms is not None and num_of_rooms > 0:
             room_inventory_instances = list(room_inventory_instances[:num_of_rooms])

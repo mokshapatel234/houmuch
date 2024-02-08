@@ -20,6 +20,9 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from rest_framework import status, generics
 from django.db.models import Subquery
+from django.db.models import Q
+from django.http import JsonResponse
+
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -192,8 +195,6 @@ class HotelRetrieveView(generics.GenericAPIView):
         max_price = self.request.query_params.get('max_price')
         num_of_adults = self.request.query_params.get('num_of_adults')
         num_of_children = self.request.query_params.get('num_of_children')
-        if nearby_popular_landmark is not None:
-            queryset = self.queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
         if location_param is not None or num_of_rooms is not None:
             if location_param is not None:
                 longitude, latitude = map(float, location_param.split(','))
@@ -206,25 +207,46 @@ class HotelRetrieveView(generics.GenericAPIView):
                 queryset = queryset.filter(room_types__room_type=room_type)
             property_list = []
             for property in queryset:
-                num_of_children=int(num_of_children) if num_of_children is not None else 0
-                num_of_adults=int(num_of_adults) if num_of_adults is not None else 0
-                rooms = RoomInventory.objects.filter(property=property).order_by('default_price')[:num_of_rooms]
-                if min_price is not None and max_price is not None:
-                    rooms = [
-                        room for room in rooms 
-                        if (min_price is None or room.default_price >= float(min_price)) and 
-                        (max_price is None or room.default_price <= float(max_price))
-                    ]
-                    property.room_inventory = rooms
-                else:
-                    property.room_inventory = rooms
+                rooms = RoomInventory.objects.filter(
+                    property=property, is_verified=True
+                ).order_by('default_price')
+
+                if min_price or max_price:
+                    rooms = rooms.filter(default_price__gte=float(min_price) if min_price else 0,
+                                        default_price__lte=float(max_price) if max_price else float('inf'))
+
+                selected_rooms = list(rooms[:num_of_rooms])
+                total_adult_capacity = sum(room.adult_capacity for room in selected_rooms)
+                total_children_capacity = sum(room.children_capacity for room in selected_rooms)
+
+                additional_rooms_needed = 0
+                # Check if additional rooms are needed to meet capacity requirements
+                while total_adult_capacity < int(num_of_adults) or total_children_capacity < int(num_of_children):
+                    additional_rooms_needed += 1
+                    additional_rooms = list(rooms[num_of_rooms:num_of_rooms + additional_rooms_needed])
+                    if not additional_rooms:  # Break if no more rooms are available to add
+                        break
+                    for room in additional_rooms:
+                        total_adult_capacity += room.adult_capacity
+                        total_children_capacity += room.children_capacity
+                        selected_rooms.append(room)
+
+                    if total_adult_capacity >= int(num_of_adults) and total_children_capacity >= int(num_of_children):
+                        break  # Stop if requirements are met
+
+                property.room_inventory = selected_rooms
                 property_list.append(property)
 
+            # Pagination and serialization
             page = self.paginate_queryset(property_list)
-            serializer = self.serializer_class(page, many=True, context={'num_of_rooms': num_of_rooms})
+            context = {'request': request, 'num_of_rooms': num_of_rooms}
+            serializer = self.serializer_class(page, many=True, context=context)
             return self.get_paginated_response(serializer.data)
         else:
-            queryset = self.filter_queryset(self.get_queryset())
+            if nearby_popular_landmark is not None:
+                queryset = self.queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
+            else:
+                queryset = self.get_queryset()
             page = self.paginate_queryset(queryset)
             serializer = self.serializer_class(page, many=True)
             return self.get_paginated_response(serializer.data)
