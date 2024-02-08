@@ -109,6 +109,7 @@ class ImageInline(admin.TabularInline):
 class RoomAdmin(admin.ModelAdmin):
     inlines = [ImageInline,]
     list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity',]
+    search_fields = ['room_name', 'property__owner__hotel_name',]
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -116,7 +117,7 @@ class RoomAdmin(admin.ModelAdmin):
 
     @admin.display(description='Property Name')
     def get_property_name(self, obj):
-        return obj.property.hotel_nick_name
+        return obj.property.owner.hotel_name
 
 
 admin.site.register(Owner, OwnerAdmin)
