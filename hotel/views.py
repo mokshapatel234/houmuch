@@ -111,8 +111,8 @@ class OwnerProfileView(APIView):
                 'data': {
                     **serializer.data,
                     "is_property_added": True if property.count() >= 1 else False,
-                    "property_count": property.count(),
-                    "image": property.first().image
+                    "property_count": property.count() if property.count() >= 1 else 0,
+                    "image": property.first().image if property.count() >= 1 else None
                 },
                 'message': PROFILE_MESSAGE,
             }
