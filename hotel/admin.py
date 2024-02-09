@@ -117,7 +117,7 @@ class RoomAdmin(admin.ModelAdmin):
 
     @admin.display(description='Property Name')
     def get_property_name(self, obj):
-        return obj.property.owner.hotel_name
+        return obj.property.hotel_nick_name
 
 
 admin.site.register(Owner, OwnerAdmin)

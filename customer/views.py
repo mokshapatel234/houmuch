@@ -218,28 +218,26 @@ class HotelRetrieveView(generics.GenericAPIView):
                 selected_rooms = list(rooms[:num_of_rooms])
                 total_adult_capacity = sum(room.adult_capacity for room in selected_rooms)
                 total_children_capacity = sum(room.children_capacity for room in selected_rooms)
-
                 additional_rooms_needed = 0
-                # Check if additional rooms are needed to meet capacity requirements
                 while total_adult_capacity < int(num_of_adults) or total_children_capacity < int(num_of_children):
                     additional_rooms_needed += 1
-                    additional_rooms = list(rooms[num_of_rooms:num_of_rooms + additional_rooms_needed])
-                    if not additional_rooms:  # Break if no more rooms are available to add
+                    total_rooms_for_property = num_of_rooms + additional_rooms_needed
+                    additional_rooms = list(rooms[:total_rooms_for_property])
+                    if not additional_rooms:
                         break
                     for room in additional_rooms:
                         total_adult_capacity += room.adult_capacity
                         total_children_capacity += room.children_capacity
-                        selected_rooms.append(room)
+                        if room not in selected_rooms:
+                            selected_rooms.append(room)
 
                     if total_adult_capacity >= int(num_of_adults) and total_children_capacity >= int(num_of_children):
-                        break  # Stop if requirements are met
-
+                        break
                 property.room_inventory = selected_rooms
                 property_list.append(property)
 
-            # Pagination and serialization
             page = self.paginate_queryset(property_list)
-            context = {'request': request, 'num_of_rooms': num_of_rooms}
+            context = {'request': request, 'num_of_rooms': num_of_rooms, 'total_rooms_for_property': total_rooms_for_property}
             serializer = self.serializer_class(page, many=True, context=context)
             return self.get_paginated_response(serializer.data)
         else:

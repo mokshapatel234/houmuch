@@ -35,12 +35,17 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
     def get_room_inventory(self, obj):
         num_of_rooms = self.context.get('num_of_rooms', None)
+        total_rooms_for_property = self.context.get('total_rooms_for_property', None)
         room_inventory_instances = RoomInventory.objects.filter(property=obj, is_verified=True).order_by('default_price')
-        
-        if num_of_rooms is not None and num_of_rooms > 0:
-            room_inventory_instances = list(room_inventory_instances[:num_of_rooms])
+
+        if total_rooms_for_property is not None and total_rooms_for_property > 0:
+            num_to_fetch = total_rooms_for_property
+        elif num_of_rooms is not None and num_of_rooms > 0:
+            num_to_fetch = num_of_rooms
         else:
-            room_inventory_instances = room_inventory_instances[:1]
+            num_to_fetch = 1
+        room_inventory_instances = list(room_inventory_instances[:num_to_fetch])
+
         return [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
 
     def get_capacity_issue_message(self, obj):
