@@ -177,6 +177,7 @@ class CustomerProfileView(APIView):
 #             return self.get_paginated_response(serializer.data)
 #         return super().list(request, *args, **kwargs)
 
+
 class HotelRetrieveView(generics.GenericAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
