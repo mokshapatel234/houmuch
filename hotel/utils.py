@@ -6,6 +6,8 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from hotel_app_backend.messages import EXCEPTION_MESSAGE
 from django.core.cache import cache
+from hotel_app_backend.boto_utils import ses_client
+from django.conf import settings
 
 
 def generate_token(id):
@@ -54,21 +56,25 @@ def generate_otp():
     return str(random.randint(1000, 9999))
 
 
-def send_otp_email(email, otp, subject, template_name):
-    try:
-        html_message = render_to_string(template_name, {'otp': otp})
-        to_email = [email]
-
-        email_message = EmailMultiAlternatives(subject, body=None, to=to_email)
-        email_message.attach_alternative(html_message, "text/html")
-        email_message.send()
-
-    except Exception:
-        response_data = {
-            "result": False,
-            "message": EXCEPTION_MESSAGE,
+def send_mail(data):
+    html_message = render_to_string(data["template"], data["context"])
+    response = ses_client.send_email(
+        Source=settings.DEFAULT_FROM_EMAIL,
+        Destination={
+            'ToAddresses': [data["email"]]
+        },
+        Message={
+            'Subject': {
+                'Data': data["subject"],
+            },
+            'Body': {
+                'Html': {
+                    'Data': html_message,
+                }
+            }
         }
-        return Response(response_data, status=400)
+    )
+    return response
 
 
 def remove_cache(name, user):

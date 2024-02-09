@@ -10,7 +10,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
     CategorySerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
@@ -24,6 +24,7 @@ from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3
+from django.contrib.auth.models import User
 
 
 class HotelRegisterView(APIView):
@@ -44,7 +45,13 @@ class HotelRegisterView(APIView):
                 if email:
                     otp = generate_otp()
                     OTP.objects.create(user=user, otp=otp)
-                    send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+                    data = {
+                        "subject": 'OTP Verification',
+                        "email": email,
+                        "template": "otp.html",
+                        "context": {'otp': otp}
+                    }
+                    send_mail(data)
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
                 response_data = {
@@ -98,13 +105,14 @@ class OwnerProfileView(APIView):
     def get(self, request):
         try:
             serializer = OwnerProfileSerializer(request.user)
-            property_count = Property.objects.filter(owner=request.user).count()
+            property = Property.objects.filter(owner=request.user)
             response_data = {
                 'result': True,
                 'data': {
                     **serializer.data,
-                    "is_property_added": True if property_count >= 1 else False,
-                    "property_count": property_count
+                    "is_property_added": True if property.count() >= 1 else False,
+                    "property_count": property.count() if property.count() >= 1 else 0,
+                    "image": property.first().image if property.count() >= 1 else None
                 },
                 'message': PROFILE_MESSAGE,
             }
@@ -129,7 +137,13 @@ class OwnerProfileView(APIView):
                         otp = generate_otp()
                         OTP.objects.create(user=request.user, otp=otp)
                         # Send OTP email
-                        send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+                        data = {
+                            "subject": 'OTP Verification',
+                            "email": email,
+                            "template": "otp.html",
+                            "context": {'otp': otp}
+                        }
+                        send_mail(data)
 
                 serializer.save()
                 response_data = {
@@ -313,6 +327,20 @@ class RoomInventoryViewSet(ModelViewSet):
             if images:
                 for image in images:
                     Image.objects.create(room_image=instance, image=image)
+            admin_email = User.objects.filter(is_superuser=True).first().email
+            data = {
+                "subject": 'Room Verification',
+                "email": admin_email,
+                "template": "room_verify.html",
+                "context": {
+                    'room_name': instance.room_name,
+                    'property_name': property_instance.owner.hotel_name,
+                    'floor': instance.floor,
+                    'address': property_instance.owner.address,
+                    'room_id': instance.id
+                }
+            }
+            send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:

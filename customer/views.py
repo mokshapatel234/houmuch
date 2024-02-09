@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
-from hotel.utils import error_response
+from hotel.utils import error_response, send_mail
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -117,12 +117,19 @@ class CustomerProfileView(APIView):
                 email = serializer.validated_data.get('email', None)
                 phone_number = serializer.validated_data.get('phone_number', None)
 
-                if email and Customer.objects.filter(email=email).exists():
-                    return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
                 if phone_number and Customer.objects.filter(phone_number=phone_number).exists():
                     return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
+                if email:
+                    if Customer.objects.filter(email=email).exists():
+                        return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                    else:
+                        data = {
+                            "subject": f'Welcome {request.user.first_name}',
+                            "email": email,
+                            "template": "welcome_customer.html",
+                            "context": {'first_name': request.user.first_name, 'last_name': request.user.last_name}
+                        }
+                        send_mail(data)
                 serializer.save()
 
                 response_data = {
