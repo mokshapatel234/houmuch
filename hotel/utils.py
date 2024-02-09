@@ -2,9 +2,7 @@ import jwt
 from datetime import datetime, timedelta
 from rest_framework.response import Response
 import random
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from hotel_app_backend.messages import EXCEPTION_MESSAGE
 from django.core.cache import cache
 from hotel_app_backend.boto_utils import ses_client
 from django.conf import settings
