@@ -64,7 +64,7 @@ class ConnectionManager(Singleton):
 
     async def save_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id] = [websocket]
-        print(self.room_clients)
+        print(self.room_clients,"this is print of active room")
     
     async def update_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id].append(websocket)
@@ -220,7 +220,7 @@ async def get_current_user(token: str, user_type: str):
     except HTTPException as e:
         raise e
 
-owner_id = None
+customer_socket_id = None
 active_rooms = {}
 
 
@@ -232,7 +232,7 @@ async def room_connection(
     token: str = Query(None),
     property_ids: str = Query(None) 
 ):
-    global owner_id
+    global customer_socket_id
     
     user_info = await get_current_user(token, user_type)
     if not user_info:
@@ -241,11 +241,12 @@ async def room_connection(
     
     try:
         if isinstance(user_info, Customer):
-            owner_id = id(websocket)
+            customer_socket_id = id(websocket)
             await manager.connect(websocket)
 
         if room_id:
-            if room_id in active_rooms and active_rooms[room_id] == owner_id:
+            print(room_id)
+            if room_id in active_rooms and active_rooms[room_id] == customer_socket_id:
                 if isinstance(user_info, Owner):
                     await manager.connect(websocket)
                     try:
@@ -254,7 +255,7 @@ async def room_connection(
                     except Exception as e:
                         print("this is error")
                     message = f"Owner {user_info.hotel_name} entered the room."
-                    await manager.send_personal_message(message, owner_id, user_info, room_id)
+                    await manager.send_personal_message(message, customer_socket_id, user_info, room_id)
                 else:
                     await websocket.close(code=1008, reason="Owner ID not found.")
             else:
@@ -262,13 +263,12 @@ async def room_connection(
         else:
             if property_ids:  
                 customer_id = user_info.id
-                room_id = await create_bidding_session()
+                room_id = str(await create_bidding_session())
                 property_ids_list = [int(prop_id) for prop_id in property_ids.split(",")]
                 for property_id in property_ids_list:
                     await create_property_deal(room_id, customer_id, property_id)
-                # await create_property_deal(room_id,customer_id)
                 await manager.save_active_room(websocket, room_id)
-                active_rooms[room_id] = owner_id
+                active_rooms[room_id] = customer_socket_id
                 await websocket.send_text(f"Room ID: {room_id}")
                 await websocket.send_text("You are now connected to the room.")
                  
