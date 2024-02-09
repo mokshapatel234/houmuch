@@ -207,7 +207,7 @@ class Property(models.Model):
     parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
     hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
     manager_name = models.CharField(('Manager Name'), max_length=30)
-    hotel_phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=10, blank=True)
+    hotel_phone_number = models.CharField(max_length=20, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     image = models.CharField(max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
