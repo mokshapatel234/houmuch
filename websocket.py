@@ -113,33 +113,28 @@ def save_bidding_session():
 
 @sync_to_async
 def save_property_deal(session_id, customer_id, property_id):
-    try:
-        bidding_session = BiddingSession.objects.get(id=session_id)
-        customer = Customer.objects.get(id=customer_id)
-        property = Property.objects.get(id=property_id)
-        
+    try:        
         property_deal = PropertyDeal.objects.create(
-            session_id=bidding_session,
-            customer_id=customer,
-            property_id=property,
+            session_id=session_id,
+            customer_id=customer_id,  
+            property_id=property_id,
             is_winning_bid=False
         )
-        
-        print(f"Property deal created with ID: {property_deal.id}")
         return property_deal.id
     except Exception as e:
         print("An error occurred while creating property deal:", e)
         return None
+    
 
 async def create_bidding_session():
     print("Creating bidding session...")
     try:
         bidding_session_id = await save_bidding_session()
-        print("Bidding session created with ID:", bidding_session_id)
         return bidding_session_id
     except Exception as e:
         print("An error occurred while creating bidding session:", e)
         return None
+
 
 async def create_property_deal(session_id, customer_id, property_id):
     try:
