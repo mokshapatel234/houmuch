@@ -30,7 +30,6 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class PopertyListOutSerializer(PropertyOutSerializer):
     room_inventory = serializers.SerializerMethodField()
-    capacity_issue_message = serializers.SerializerMethodField()
 
 
     def get_room_inventory(self, obj):
@@ -47,9 +46,3 @@ class PopertyListOutSerializer(PropertyOutSerializer):
         room_inventory_instances = list(room_inventory_instances[:num_to_fetch])
 
         return [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
-
-    def get_capacity_issue_message(self, obj):
-        meets_capacity = self.context.get('meets_capacity', True)
-        if not meets_capacity:
-            return 'This property does not meet the required capacity for your search criteria.'
-        return ''  # or None, depending on how you want to handle properties that meet the criteria
