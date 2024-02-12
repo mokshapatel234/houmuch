@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image, Category
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, Category, PropertyImage
 from django.utils import timezone
 
 
@@ -113,6 +113,8 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    images = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = Property
         exclude = ['owner']
@@ -126,14 +128,23 @@ class PropertySerializer(serializers.ModelSerializer):
         return representation
 
 
-class PropertyOutSerializer(PropertySerializer):
+class PropertyOutSerializer(DynamicFieldsModelSerializer):
     room_types = RoomTypeSerializer(many=True)
     property_type = PropertyTypeSerializer()
     address = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     def get_address(self, instance):
         owner = instance.owner
         return owner.address if owner and hasattr(owner, 'address') else None
+
+    def get_images(self, obj):
+        image_urls = [image.image for image in PropertyImage.objects.filter(property=obj) if image.property is not None]
+        return image_urls
+
+    class Meta:
+        model = Property
+        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number', 'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location', 'nearby_popular_landmark', 'property_type', 'room_types', 'cancellation_days', 'cancellation_policy', 'pet_friendly', 'breakfast_included', 'is_cancellation', 'status', 'is_online', 'created_at', 'updated_at', 'address', 'images']
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
@@ -154,12 +165,6 @@ class RoomInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomInventory
         exclude = ['property']
-
-
-class ImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Image
-        fields = ('image', 'created_at', 'updated_at')
 
 
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
@@ -188,7 +193,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
         return None
 
     def get_images(self, obj):
-        image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
+        image_urls = [image.image for image in RoomImage.objects.filter(room=obj) if image.room is not None]
         return image_urls
 
     class Meta:
