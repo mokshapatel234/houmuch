@@ -64,7 +64,7 @@ class ConnectionManager(Singleton):
 
     async def save_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id] = [websocket]
-        print(self.room_clients,"this is print of active room")
+        print(self.room_clients)
     
     async def update_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id].append(websocket)
@@ -145,6 +145,7 @@ async def create_property_deal(session_id, customer_id, property_id):
         print("An error occurred while creating property deal:", e)
         return None
 
+
 active_rooms = {}
 
 class JWTAuthentication:
@@ -164,7 +165,6 @@ class JWTAuthentication:
             user_id = payload.get('user_id')
             if user_type == 'owner':
                 user = await self.get_business_owner(user_id)
-                print(user,"this is test")
             elif user_type == 'customer':
                 user = await self.get_customer(user_id)
             else:
@@ -245,15 +245,11 @@ async def room_connection(
             await manager.connect(websocket)
 
         if room_id:
-            print(room_id)
             if room_id in active_rooms and active_rooms[room_id] == customer_socket_id:
                 if isinstance(user_info, Owner):
                     await manager.connect(websocket)
-                    try:
-                        await manager.update_active_room(websocket, room_id)
-                        await websocket.send_text(f"You are now connected to room {room_id}.")
-                    except Exception as e:
-                        print("this is error")
+                    await manager.update_active_room(websocket, room_id)
+                    await websocket.send_text(f"You are now connected to room {room_id}.")
                     message = f"Owner {user_info.hotel_name} entered the room."
                     await manager.send_personal_message(message, customer_socket_id, user_info, room_id)
                 else:
