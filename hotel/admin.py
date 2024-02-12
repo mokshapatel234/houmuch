@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Owner, RoomType, Category, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, \
-    ExperienceSlot, Property, RoomInventory, Image
+    ExperienceSlot, Property, RoomInventory, RoomImage
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
 from .forms import PropertyForm
@@ -89,7 +89,7 @@ class PropertyAdmin(admin.ModelAdmin):
 
 
 class ImageInline(admin.TabularInline):
-    model = Image
+    model = RoomImage
     extra = 1
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
