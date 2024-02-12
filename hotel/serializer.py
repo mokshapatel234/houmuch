@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image, Category
 from django.utils import timezone
 
 
@@ -18,15 +18,29 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
                 self.fields.pop(field_name)
 
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'category', 'bid_time_duration')
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
         fields = '__all__'
-    email = serializers.EmailField(required=False)
-    address = serializers.CharField(required=False)
+    email = serializers.EmailField()
     government_id = serializers.CharField(required=False)
     profile_image = serializers.CharField(required=False)
     read_only_fields = ('is_verified', 'is_active', 'bidding_mode')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -35,12 +49,31 @@ class LoginSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('hotel_name', 'email', 'profile_image', 'address', 'government_id', 'gst', 'is_verified', 'is_email_verified', 'is_active', 'bidding_mode', 'created_at', 'updated_at', 'deleted_at')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
+
 
 class OwnerProfileSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Owner
-        fields = ('hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
-        read_only_fields = ('is_verified', 'is_active', 'is_email_verified')
+        fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
+        read_only_fields = ('id', 'is_verified', 'is_active', 'is_email_verified')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
 
 
 class PropertyTypeSerializer(serializers.ModelSerializer):
@@ -131,7 +164,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
-    bed_type = BedTypeSerializer()
+    bed_type = BedTypeSerializer(many=True)
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)
