@@ -210,7 +210,6 @@ class Property(models.Model):
     manager_name = models.CharField(('Manager Name'), max_length=30)
     hotel_phone_number = models.CharField(max_length=20, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
-    image = models.CharField(max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
     check_in_time = models.CharField('Check-in time', null=True, blank=True)
     check_out_time = models.CharField('Check-out time', null=True, blank=True)
@@ -302,8 +301,19 @@ class UpdateInventoryPeriod(models.Model):
         return self.update_duration
 
 
-class Image(models.Model):
-    room_image = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, blank=True, null=True)
+class RoomImage(models.Model):
+    room = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, blank=True, null=True)
+    image = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
+
+    def __str__(self):
+        return self.image
+
+
+class PropertyImage(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, blank=True, null=True)
     image = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)

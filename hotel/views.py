@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, Image, Category
+    RoomInventory, RoomImage, Category, PropertyImage
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -242,6 +242,7 @@ class PropertyViewSet(ModelViewSet):
         try:
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instance = serializer.save(owner=self.request.user)
@@ -250,6 +251,9 @@ class PropertyViewSet(ModelViewSet):
                 instance.save()
             if room_types_data:
                 instance.room_types.set(room_types_data)
+            if images:
+                for image in images:
+                    PropertyImage.objects.create(property=instance, image=image)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -268,7 +272,8 @@ class PropertyViewSet(ModelViewSet):
             instance = self.get_object()
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
-            removed_image = request.data.get('removed_image', None)
+            removed_images = request.data.pop('removed_images', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -277,8 +282,18 @@ class PropertyViewSet(ModelViewSet):
                 updated_instance.save()
             if room_types_data:
                 updated_instance.room_types.set(room_types_data)
-            if removed_image:
-                delete_image_from_s3(removed_image)
+            if images:
+                stored_images = PropertyImage.objects.filter(property=instance)
+                stored_images.exclude(image__in=images)
+                new_images = [
+                    PropertyImage(property=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                PropertyImage.objects.bulk_create(new_images)
+            if removed_images:
+                for removed_image_url in removed_images:
+                    delete_image_from_s3(removed_image_url)
+                    PropertyImage.objects.filter(property=instance, image=removed_image_url).delete()
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -326,7 +341,7 @@ class RoomInventoryViewSet(ModelViewSet):
                 instance.bed_type.set(bed_type)
             if images:
                 for image in images:
-                    Image.objects.create(room_image=instance, image=image)
+                    RoomImage.objects.create(room=instance, image=image)
             admin_email = User.objects.filter(is_superuser=True).first().email
             data = {
                 "subject": 'Room Verification',
@@ -392,17 +407,17 @@ class RoomInventoryViewSet(ModelViewSet):
             if bed_type:
                 instance.bed_type.set(bed_type)
             if images:
-                stored_images = Image.objects.filter(room_image=instance)
+                stored_images = RoomImage.objects.filter(room=instance)
                 stored_images.exclude(image__in=images)
                 new_images = [
-                    Image(room_image=instance, image=image_url)
+                    RoomImage(room=instance, image=image_url)
                     for image_url in set(images) - set(stored_images.values_list('image', flat=True))
                 ]
-                Image.objects.bulk_create(new_images)
+                RoomImage.objects.bulk_create(new_images)
             if removed_images:
                 for removed_image_url in removed_images:
                     delete_image_from_s3(removed_image_url)
-                    Image.objects.filter(room_image=instance, image=removed_image_url).delete()
+                    RoomImage.objects.filter(room=instance, image=removed_image_url).delete()
             # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
