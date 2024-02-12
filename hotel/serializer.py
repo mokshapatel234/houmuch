@@ -119,14 +119,6 @@ class PropertySerializer(serializers.ModelSerializer):
         model = Property
         exclude = ['owner']
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['location'] = {
-            'type': 'Point',
-            'coordinates': [instance.location.x, instance.location.y]
-        }
-        return representation
-
 
 class PropertyOutSerializer(DynamicFieldsModelSerializer):
     room_types = RoomTypeSerializer(many=True)
@@ -141,6 +133,14 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
     def get_images(self, obj):
         image_urls = [image.image for image in PropertyImage.objects.filter(property=obj) if image.property is not None]
         return image_urls
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['location'] = {
+            'type': 'Point',
+            'coordinates': [instance.location.x, instance.location.y]
+        }
+        return representation
 
     class Meta:
         model = Property
