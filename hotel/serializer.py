@@ -114,6 +114,7 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
 
 class PropertySerializer(serializers.ModelSerializer):
     images = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = Property
         exclude = ['owner']
