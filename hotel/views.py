@@ -106,13 +106,15 @@ class OwnerProfileView(APIView):
         try:
             serializer = OwnerProfileSerializer(request.user)
             property = Property.objects.filter(owner=request.user)
+            images = PropertyImage.objects.filter(property=property.first())
+
             response_data = {
                 'result': True,
                 'data': {
                     **serializer.data,
                     "is_property_added": True if property.count() >= 1 else False,
                     "property_count": property.count() if property.count() >= 1 else 0,
-                    "image": property.first().image if property.count() >= 1 else None
+                    "images": images
                 },
                 'message': PROFILE_MESSAGE,
             }
