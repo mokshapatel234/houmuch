@@ -9,7 +9,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer
+    CategorySerializer, PropertyImageSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -107,14 +107,14 @@ class OwnerProfileView(APIView):
             serializer = OwnerProfileSerializer(request.user)
             property = Property.objects.filter(owner=request.user)
             images = PropertyImage.objects.filter(property=property.first())
-
+            image_serializer = PropertyImageSerializer(images, many=True)
             response_data = {
                 'result': True,
                 'data': {
                     **serializer.data,
                     "is_property_added": True if property.count() >= 1 else False,
                     "property_count": property.count() if property.count() >= 1 else 0,
-                    "images": images
+                    "images": image_serializer.data
                 },
                 'message': PROFILE_MESSAGE,
             }
@@ -171,6 +171,7 @@ class OTPVerificationView(APIView):
                 user = request.user
                 otp_value = serializer.validated_data.get('otp')
                 latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+                print(latest_otp)
                 if latest_otp and latest_otp.otp == otp_value:
                     user.is_email_verified = True
                     user.save()

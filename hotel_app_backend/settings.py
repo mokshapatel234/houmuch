@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 import os
+from corsheaders.defaults import default_headers
 import dotenv
 dotenv.load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -35,7 +36,9 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = True
-
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'device-id',
+]
 # Application definition
 
 INSTALLED_APPS = [
