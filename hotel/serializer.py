@@ -76,6 +76,12 @@ class OwnerProfileSerializer(serializers.ModelSerializer):
         return ret
 
 
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = ('image',)
+
+
 class PropertyTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyType
