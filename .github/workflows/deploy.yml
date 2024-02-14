@@ -19,11 +19,6 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.EC2_PORT }}
         script: |
-          if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "EC2_HOST is empty"
-          else
-            echo "EC2_HOST is set"
-          fi
           cd /home/ubuntu/hotel_app_backend
           git pull origin development
           source venv/bin/activate
