@@ -2,15 +2,16 @@ import jwt
 from datetime import datetime, timedelta
 from rest_framework.response import Response
 import random
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
-from hotel_app_backend.messages import EXCEPTION_MESSAGE
+from django.core.cache import cache
+from hotel_app_backend.boto_utils import ses_client
+from django.conf import settings
 
 
 def generate_token(id):
     payload = {
         'user_id': id,
-        'exp': datetime.utcnow() + timedelta(days=1)
+        'exp': datetime.utcnow() + timedelta(days=30)
     }
 
     jwt_token = jwt.encode(payload, 'secret', algorithm='HS256')
@@ -53,18 +54,39 @@ def generate_otp():
     return str(random.randint(1000, 9999))
 
 
-def send_otp_email(email, otp, subject, template_name):
-    try:
-        html_message = render_to_string(template_name, {'otp': otp})
-        to_email = [email]
-
-        email_message = EmailMultiAlternatives(subject, body=None, to=to_email)
-        email_message.attach_alternative(html_message, "text/html")
-        email_message.send()
-
-    except Exception:
-        response_data = {
-            "result": False,
-            "message": EXCEPTION_MESSAGE,
+def send_mail(data):
+    html_message = render_to_string(data["template"], data["context"])
+    response = ses_client.send_email(
+        Source=settings.DEFAULT_FROM_EMAIL,
+        Destination={
+            'ToAddresses': [data["email"]]
+        },
+        Message={
+            'Subject': {
+                'Data': data["subject"],
+            },
+            'Body': {
+                'Html': {
+                    'Data': html_message,
+                }
+            }
         }
-        return Response(response_data, status=400)
+    )
+    return response
+
+
+def remove_cache(name, user):
+    cache_key = f"{name}_{user.id}"
+    cache.delete(cache_key)
+
+
+def cache_response(name, user):
+    cache_key = f"{name}_{user.id}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data)
+
+
+def set_cache(name, user, data):
+    cache_key = f"{name}_{user.id}"
+    cache.set(cache_key, data, timeout=60 * 5)

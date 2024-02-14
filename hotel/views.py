@@ -3,13 +3,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
-    BathroomType, RoomFeature, CommonAmenities, Property, OTP, RoomInventory
+    BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
+    RoomInventory, RoomImage, Category, PropertyImage
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
-    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_otp_email, \
-    error_response, deletion_success_response
+    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
+    CategorySerializer, PropertyImageSerializer
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -21,6 +23,8 @@ from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
+from hotel_app_backend.utils import delete_image_from_s3
+from django.contrib.auth.models import User
 
 
 class HotelRegisterView(APIView):
@@ -31,12 +35,23 @@ class HotelRegisterView(APIView):
             serializer = RegisterSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             phone_number = serializer.validated_data.get('phone_number')
+            email = serializer.validated_data.get('email', None)
             if not phone_number:
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
-                serializer.save()
+                user = serializer.save()
+                if email:
+                    otp = generate_otp()
+                    OTP.objects.create(user=user, otp=otp)
+                    data = {
+                        "subject": 'OTP Verification',
+                        "email": email,
+                        "template": "otp.html",
+                        "context": {'otp': otp}
+                    }
+                    send_mail(data)
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
                 response_data = {
@@ -79,8 +94,7 @@ class HotelLoginView(APIView):
 
         except Owner.DoesNotExist:
             return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -91,13 +105,16 @@ class OwnerProfileView(APIView):
     def get(self, request):
         try:
             serializer = OwnerProfileSerializer(request.user)
-            property_count = Property.objects.filter(owner=request.user).count()
+            property = Property.objects.filter(owner=request.user)
+            images = PropertyImage.objects.filter(property=property.first())
+            image_serializer = PropertyImageSerializer(images, many=True)
             response_data = {
                 'result': True,
                 'data': {
                     **serializer.data,
-                    "is_property_added": True if property_count >= 1 else False,
-                    "property_count": property_count
+                    "is_property_added": True if property.count() >= 1 else False,
+                    "property_count": property.count() if property.count() >= 1 else 0,
+                    "images": image_serializer.data
                 },
                 'message': PROFILE_MESSAGE,
             }
@@ -122,7 +139,13 @@ class OwnerProfileView(APIView):
                         otp = generate_otp()
                         OTP.objects.create(user=request.user, otp=otp)
                         # Send OTP email
-                        send_otp_email(email, otp, 'OTP Verification', 'otp.html')
+                        data = {
+                            "subject": 'OTP Verification',
+                            "email": email,
+                            "template": "otp.html",
+                            "context": {'otp': otp}
+                        }
+                        send_mail(data)
 
                 serializer.save()
                 response_data = {
@@ -130,7 +153,7 @@ class OwnerProfileView(APIView):
                     'data': serializer.data,
                     'message': PROFILE_UPDATE_MESSAGE,
                 }
-                return Response(response_data, status=status.HTTP_201_CREATED)
+                return Response(response_data, status=status.HTTP_200_OK)
             else:
                 return error_response(PROFILE_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
@@ -148,6 +171,7 @@ class OTPVerificationView(APIView):
                 user = request.user
                 otp_value = serializer.validated_data.get('otp')
                 latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
+                print(latest_otp)
                 if latest_otp and latest_otp.otp == otp_value:
                     user.is_email_verified = True
                     user.save()
@@ -162,13 +186,30 @@ class OTPVerificationView(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class CategoryRetrieveView(ListAPIView):
+    permission_classes = (permissions.AllowAny,)
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+    def list(self, request, *args, **kwargs):
+        serializer = super().list(request, *args, **kwargs)
+        response_data = {
+            'result': True,
+            'data': serializer.data,
+            'message': DATA_RETRIEVAL_MESSAGE,
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
 class MasterRetrieveView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
     def list(self, request, *args, **kwargs):
         try:
+            # cache_response("master_list", request.user)
             models_and_serializers = {
+                Category: CategorySerializer,
                 PropertyType: PropertyTypeSerializer,
                 RoomType: RoomTypeSerializer,
                 BedType: BedTypeSerializer,
@@ -187,6 +228,7 @@ class MasterRetrieveView(ListAPIView):
                     'data': data,
                     'message': DATA_RETRIEVAL_MESSAGE,
                 }
+                # set_cache("master_list", request.user, response_data)
             return Response(response_data, status=status.HTTP_200_OK)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -203,6 +245,7 @@ class PropertyViewSet(ModelViewSet):
         try:
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instance = serializer.save(owner=self.request.user)
@@ -211,6 +254,9 @@ class PropertyViewSet(ModelViewSet):
                 instance.save()
             if room_types_data:
                 instance.room_types.set(room_types_data)
+            if images:
+                for image in images:
+                    PropertyImage.objects.create(property=instance, image=image)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -229,6 +275,8 @@ class PropertyViewSet(ModelViewSet):
             instance = self.get_object()
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
+            removed_images = request.data.pop('removed_images', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -237,8 +285,20 @@ class PropertyViewSet(ModelViewSet):
                 updated_instance.save()
             if room_types_data:
                 updated_instance.room_types.set(room_types_data)
+            if images:
+                stored_images = PropertyImage.objects.filter(property=instance)
+                stored_images.exclude(image__in=images)
+                new_images = [
+                    PropertyImage(property=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                PropertyImage.objects.bulk_create(new_images)
+            if removed_images:
+                for removed_image_url in removed_images:
+                    delete_image_from_s3(removed_image_url)
+                    PropertyImage.objects.filter(property=instance, image=removed_image_url).delete()
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
-        except Property.DoesNotExist:
+        except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -263,9 +323,11 @@ class RoomInventoryViewSet(ModelViewSet):
     def create(self, request):
         try:
             property_id = request.GET.get('property_id')
+            bed_type = request.data.get('bed_type', None)
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
@@ -273,13 +335,31 @@ class RoomInventoryViewSet(ModelViewSet):
             if updated_period_data:
                 updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
                 updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_instance = updated_period_serializer.save()
-                instance.updated_period = updated_period_instance
-                instance.save()
+                updated_period_serializer.save(room_inventory=instance)
             if room_features:
                 instance.room_features.set(room_features)
             if common_amenities:
                 instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
+            if images:
+                for image in images:
+                    RoomImage.objects.create(room=instance, image=image)
+            admin_email = User.objects.filter(is_superuser=True).first().email
+            data = {
+                "subject": 'Room Verification',
+                "email": admin_email,
+                "template": "room_verify.html",
+                "context": {
+                    'room_name': instance.room_name,
+                    'property_name': property_instance.owner.hotel_name,
+                    'floor': instance.floor,
+                    'address': property_instance.owner.address,
+                    'room_id': instance.id
+                }
+            }
+            send_mail(data)
+            # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -295,10 +375,15 @@ class RoomInventoryViewSet(ModelViewSet):
 
     def list(self, request):
         try:
+            # cache_response("room_inventory_list", request.user)
             queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            serialized_data = serializer.data
+
+            response_data = self.get_paginated_response(serialized_data)
+            # set_cache("room_inventory_list", request.user, serialized_data)
+            return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -306,21 +391,37 @@ class RoomInventoryViewSet(ModelViewSet):
         try:
             instance = self.get_object()
             room_features = request.data.get('room_features', None)
+            bed_type = request.data.get('bed_type', None)
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
+            images = request.data.pop('images', None)
+            removed_images = request.data.pop('removed_images', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
             if updated_period_data:
                 updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
                 updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_instance = updated_period_serializer.save()
-                updated_instance.updated_period = updated_period_instance
-                updated_instance.save()
+                updated_period_serializer.save(room_inventory=instance)
             if room_features:
                 updated_instance.room_features.set(room_features)
             if common_amenities:
                 updated_instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
+            if images:
+                stored_images = RoomImage.objects.filter(room=instance)
+                stored_images.exclude(image__in=images)
+                new_images = [
+                    RoomImage(room=instance, image=image_url)
+                    for image_url in set(images) - set(stored_images.values_list('image', flat=True))
+                ]
+                RoomImage.objects.bulk_create(new_images)
+            if removed_images:
+                for removed_image_url in removed_images:
+                    delete_image_from_s3(removed_image_url)
+                    RoomImage.objects.filter(room=instance, image=removed_image_url).delete()
+            # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)

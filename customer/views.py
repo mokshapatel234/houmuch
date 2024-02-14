@@ -4,12 +4,18 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer
 from .utils import generate_token
-from hotel.utils import error_response
+from hotel.utils import error_response, send_mail
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
 from .authentication import JWTAuthentication
+from hotel.models import Property
+from hotel.serializer import PropertyOutSerializer
+from hotel.paginator import CustomPagination
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import PropertyFilter
 
 
 class CustomerRegisterView(APIView):
@@ -111,12 +117,19 @@ class CustomerProfileView(APIView):
                 email = serializer.validated_data.get('email', None)
                 phone_number = serializer.validated_data.get('phone_number', None)
 
-                if email and Customer.objects.filter(email=email).exists():
-                    return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
                 if phone_number and Customer.objects.filter(phone_number=phone_number).exists():
                     return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
+                if email:
+                    if Customer.objects.filter(email=email).exists():
+                        return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                    else:
+                        data = {
+                            "subject": f'Welcome {request.user.first_name}',
+                            "email": email,
+                            "template": "welcome_customer.html",
+                            "context": {'first_name': request.user.first_name, 'last_name': request.user.last_name}
+                        }
+                        send_mail(data)
                 serializer.save()
 
                 response_data = {
@@ -133,3 +146,13 @@ class CustomerProfileView(APIView):
 
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class HotelRetrieveView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    queryset = Property.objects.all().order_by('-id')
+    serializer_class = PropertyOutSerializer
+    pagination_class = CustomPagination
+    filterset_class = PropertyFilter
+    filter_backends = [DjangoFilterBackend]
