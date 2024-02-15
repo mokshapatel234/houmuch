@@ -4,8 +4,8 @@ from django.utils.timezone import now
 
 
 class Customer(models.Model):
-    first_name = models.CharField(('First Name'), max_length=30)
-    last_name = models.CharField(('Last Name'), max_length=20)
+    first_name = models.CharField(('First Name'), max_length=255)
+    last_name = models.CharField(('Last Name'), max_length=255)
     email = models.EmailField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
     profile_image = models.CharField(max_length=255, null=True, blank=True)
