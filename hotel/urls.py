@@ -14,6 +14,6 @@ urlpatterns = [
     path('ownerProfile/', OwnerProfileView.as_view(), name="owner_profile"),
     path('categoryRetrieve/', CategoryRetrieveView.as_view(), name="category_retrieve"),
     path('masterRetrieve/', MasterRetrieveView.as_view(), name="master_retrieve"),
-    path('verifyOtp/', OTPVerificationView.as_view(), name='otp-verification'),
+    path('verifyOtp/', OTPVerificationView.as_view(), name='otp_verification'),
     path('', include(router.urls)),  # Include the router URLs
 ]
