@@ -5,9 +5,9 @@ from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
 from customer.models import Customer
 
-class ParanoidModelManager(models.Manager):
-    def get_queryset(self):
-        return super(ParanoidModelManager, self).get_queryset().filter(deleted_at__isnull=True)
+# class ParanoidModelManager(models.Manager):
+#     def get_queryset(self):
+#         return super(ParanoidModelManager, self).get_queryset().filter(deleted_at__isnull=True)
 
 
 class Category(models.Model):
@@ -16,7 +16,7 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -50,7 +50,7 @@ class Owner(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def is_authenticated(self):
         return True
@@ -93,7 +93,7 @@ class PropertyType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -111,7 +111,7 @@ class RoomType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -129,7 +129,7 @@ class BedType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -147,7 +147,7 @@ class BathroomType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -165,7 +165,7 @@ class RoomFeature(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -183,7 +183,7 @@ class CommonAmenities(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -204,7 +204,7 @@ class ExperienceSlot(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -241,7 +241,7 @@ class Property(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -278,7 +278,7 @@ class RoomInventory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -304,7 +304,7 @@ class UpdateInventoryPeriod(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -323,7 +323,7 @@ class RoomImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -342,7 +342,7 @@ class PropertyImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -361,7 +361,7 @@ class OTP(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -378,7 +378,7 @@ class BiddingSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:
@@ -399,7 +399,7 @@ class PropertyDeal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    #objects = ParanoidModelManager()
 
     def delete(self, hard=False, **kwargs):
         if hard:

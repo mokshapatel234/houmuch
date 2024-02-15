@@ -1,7 +1,8 @@
 from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
 from django.utils.timezone import now
-from hotel.models import ParanoidModelManager
+# from hotel.models import ParanoidModelManager
+
 
 class Customer(models.Model):
     first_name = models.CharField(('First Name'), max_length=255)
@@ -16,7 +17,7 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    objects = ParanoidModelManager()
+    # #objects = ParanoidModelManager()
 
     def is_authenticated(self):
         return True
