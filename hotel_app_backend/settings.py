@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 import os
+from corsheaders.defaults import default_headers
 import dotenv
 dotenv.load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,7 +31,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
 
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'device-id',
+]
 # Application definition
 
 INSTALLED_APPS = [
@@ -42,12 +50,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'customer',
     'hotel',
-    'django.contrib.gis'
+    'django.contrib.gis',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
