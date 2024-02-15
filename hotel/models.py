@@ -28,7 +28,7 @@ class Category(models.Model):
 
 
 class Owner(models.Model):
-    hotel_name = models.CharField(('Hotel Name'), max_length=30, null=True, blank=True)
+    hotel_name = models.CharField(('Hotel Name'), max_length=255, null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="owner_category", null=True, blank=True)
     email = models.EmailField(max_length=100, null=True)
     phone_number = models.CharField(validators=[PhoneNumberRegex], max_length=17, blank=True)
@@ -205,9 +205,9 @@ class ExperienceSlot(models.Model):
 
 
 class Property(models.Model):
-    parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=20, null=True, blank=True)
-    hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=20)
-    manager_name = models.CharField(('Manager Name'), max_length=30)
+    parent_hotel_group = models.CharField(('Parent Hotel Group'), max_length=255, null=True, blank=True)
+    hotel_nick_name = models.CharField(('Hotel Nick Name'), max_length=255)
+    manager_name = models.CharField(('Manager Name'), max_length=255)
     hotel_phone_number = models.CharField(max_length=20, blank=True)
     hotel_website = models.CharField(('Hotel website'), max_length=255, null=True, blank=True)
     number_of_rooms = models.IntegerField(verbose_name='number_of_rooms')
@@ -245,9 +245,9 @@ class Property(models.Model):
 
 class RoomInventory(models.Model):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_room')
-    room_name = models.CharField(('Room Name'), max_length=30)
+    room_name = models.CharField(('Room Name'), max_length=255)
     floor = models.IntegerField(('Floor'))
-    room_view = models.CharField(('Room View'), max_length=30)
+    room_view = models.CharField(('Room View'), max_length=255)
     area_sqft = models.FloatField(('Area sqft'))
     room_type = models.ForeignKey(RoomType, on_delete=models.CASCADE, related_name='property_room_type')
     bed_type = models.ManyToManyField(BedType, related_name='property_bed_type')
@@ -280,7 +280,7 @@ class RoomInventory(models.Model):
 
 
 class UpdateInventoryPeriod(models.Model):
-    update_duration = models.CharField(('Update Duration'), max_length=30)
+    update_duration = models.CharField(('Update Duration'), max_length=255)
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
     default_price = models.IntegerField(('Default Price'))
