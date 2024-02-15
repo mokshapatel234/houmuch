@@ -1,6 +1,6 @@
 from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
-from django.utils.timezone import now
+# from django.utils.timezone import now
 # from hotel.models import ParanoidModelManager
 
 
