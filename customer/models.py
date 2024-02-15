@@ -23,12 +23,12 @@ class Customer(models.Model):
     def is_anonymous(self):
         return False
 
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(Customer, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
+    # def delete(self, hard=False, **kwargs):
+    #     if hard:
+    #         super(Customer, self).delete()
+    #     else:
+    #         self.deleted_at = now()
+    #         self.save()
 
     def __str__(self):
         return self.first_name
