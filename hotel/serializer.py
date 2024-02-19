@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, Image
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, Category, PropertyImage
 from django.utils import timezone
 
 
@@ -18,15 +18,29 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
                 self.fields.pop(field_name)
 
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'category', 'bid_time_duration')
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
         fields = '__all__'
-    email = serializers.EmailField(required=False)
-    address = serializers.CharField(required=False)
+    email = serializers.EmailField()
     government_id = serializers.CharField(required=False)
     profile_image = serializers.CharField(required=False)
     read_only_fields = ('is_verified', 'is_active', 'bidding_mode')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
 
 
 class LoginSerializer(serializers.ModelSerializer):
@@ -35,12 +49,37 @@ class LoginSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('hotel_name', 'email', 'profile_image', 'address', 'government_id', 'gst', 'is_verified', 'is_email_verified', 'is_active', 'bidding_mode', 'created_at', 'updated_at', 'deleted_at')
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
+
 
 class OwnerProfileSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Owner
-        fields = ('hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
-        read_only_fields = ('is_verified', 'is_active', 'is_email_verified')
+        fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
+        read_only_fields = ('id', 'is_verified', 'is_active', 'is_email_verified')
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        category_instance = instance.category
+        if category_instance:
+            ret['category'] = CategorySerializer(category_instance).data
+        else:
+            ret['category'] = None
+        return ret
+
+
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = ('image',)
 
 
 class PropertyTypeSerializer(serializers.ModelSerializer):
@@ -80,9 +119,26 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    images = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = Property
         exclude = ['owner']
+
+
+class PropertyOutSerializer(DynamicFieldsModelSerializer):
+    room_types = RoomTypeSerializer(many=True)
+    property_type = PropertyTypeSerializer()
+    address = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+
+    def get_address(self, instance):
+        owner = instance.owner
+        return owner.address if owner and hasattr(owner, 'address') else None
+
+    def get_images(self, obj):
+        image_urls = [image.image for image in PropertyImage.objects.filter(property=obj) if image.property is not None]
+        return image_urls
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -92,15 +148,9 @@ class PropertySerializer(serializers.ModelSerializer):
         }
         return representation
 
-
-class PropertyOutSerializer(PropertySerializer):
-    room_types = RoomTypeSerializer(many=True)
-    property_type = PropertyTypeSerializer()
-    address = serializers.SerializerMethodField()
-
-    def get_address(self, instance):
-        owner = instance.owner
-        return owner.address if owner and hasattr(owner, 'address') else None
+    class Meta:
+        model = Property
+        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number', 'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location', 'nearby_popular_landmark', 'property_type', 'room_types', 'cancellation_days', 'cancellation_policy', 'pet_friendly', 'breakfast_included', 'is_cancellation', 'status', 'is_online', 'created_at', 'updated_at', 'address', 'images']
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
@@ -123,15 +173,9 @@ class RoomInventorySerializer(serializers.ModelSerializer):
         exclude = ['property']
 
 
-class ImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Image
-        fields = ('image', 'created_at', 'updated_at')
-
-
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
-    bed_type = BedTypeSerializer()
+    bed_type = BedTypeSerializer(many=True)
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)
@@ -155,7 +199,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
         return None
 
     def get_images(self, obj):
-        image_urls = [image.image for image in Image.objects.filter(room_image=obj) if image.room_image is not None]
+        image_urls = [image.image for image in RoomImage.objects.filter(room=obj) if image.room is not None]
         return image_urls
 
     class Meta:
