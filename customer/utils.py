@@ -34,23 +34,15 @@ def min_default_price(property_obj):
     return min(default_prices) if default_prices else float('inf')
 
 
-def session_check(self):
-    session = self.request.session
-    room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
-    if room_ids:
-        queryset = queryset.exclude(id__in=room_ids)
-    return queryset
-
-
-def get_room_inventory(property, num_of_rooms, min_price, max_price, 
+def get_room_inventory(property, num_of_rooms, min_price, max_price,
                        is_preferred_property_type, property_list, room_type,
                        start_date, end_date, session):
     room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
     room_inventory_query = RoomInventory.objects.filter(property=property).order_by('default_price')
-    
+
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
-    
+
     if min_price is not None:
         room_inventory_query = room_inventory_query.filter(default_price__gte=float(min_price))
     if max_price is not None:
@@ -60,14 +52,14 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
     room_inventory_instances = list(room_inventory_query)
 
     include_property = len(room_inventory_instances) > 0
-    
+
     is_preferred_type = property.property_type.id in settings.PREFERRED_PROPERTY_TYPES
 
     if all(room.id in room_ids for room in room_inventory_instances):
         include_property = False
 
     room_inventory_instances = [room for room in room_inventory_instances if room.id not in room_ids]
-    
+
     if include_property:
         if is_preferred_type or is_preferred_property_type:
             room_inventory_instances = room_inventory_instances
@@ -75,8 +67,6 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
             room_inventory_instances = room_inventory_instances[:num_of_rooms]
         else:
             room_inventory_instances = room_inventory_instances[:1]
-        
-        
 
         property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
         property_list.append(property)
