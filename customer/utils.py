@@ -54,7 +54,8 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
         room_inventory_query = room_inventory_query.filter(default_price__gte=float(min_price))
     if max_price is not None:
         room_inventory_query = room_inventory_query.filter(default_price__lte=float(max_price))
-    room_inventory_query = is_booking_overlapping(room_inventory_query, start_date, end_date)
+    if start_date is not None and end_date is not None:
+        room_inventory_query = is_booking_overlapping(room_inventory_query, start_date, end_date)
     room_inventory_instances = list(room_inventory_query)
 
     include_property = len(room_inventory_instances) > 0

@@ -257,7 +257,7 @@ class HotelRetrieveView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         location_param = self.request.query_params.get('location')
-        num_of_rooms = int(self.request.query_params.get('num_of_rooms'))
+        num_of_rooms = self.request.query_params.get('num_of_rooms')
         property_type = self.request.query_params.get('property_type')
         nearby_popular_landmark = self.request.query_params.get('nearby_popular_landmark')
         room_type = self.request.query_params.get('room_type')
@@ -265,13 +265,14 @@ class HotelRetrieveView(generics.GenericAPIView):
         max_price = self.request.query_params.get('max_price')
         num_of_adults = self.request.query_params.get('num_of_adults')
         num_of_children = self.request.query_params.get('num_of_children')
-        start_date = self.request.query_params.get('start_date')
-        end_date = self.request.query_params.get('end_date')
+        start_date = self.request.query_params.get('start_date', None)
+        end_date = self.request.query_params.get('end_date', None)
         total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
                         (int(num_of_children) if num_of_children is not None else 0)
         is_preferred_property_type = False
         queryset = self.get_queryset()
-
+        if num_of_rooms:
+            num_of_rooms = int(num_of_rooms)
         if nearby_popular_landmark:
             queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
         if location_param:
@@ -310,3 +311,6 @@ class CustomerSessionView(APIView):
             return JsonResponse({'message': 'Property IDs set in session successfully.'})
         else:
             return JsonResponse({'error': 'Property IDs parameter is missing.'}, status=400)
+    def get(self, request):
+        print(request.session.items())
+        return Response({"Session":request.session.items() })
