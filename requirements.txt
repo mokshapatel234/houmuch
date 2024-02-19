@@ -29,3 +29,6 @@ django-filter==23.5
 redis==5.0.1
 django-redis==5.4.0
 django-jsonform==2.15.0
+django-filter==23.5
+fastapi==0.109.2
+starlette==0.36.3

@@ -17,7 +17,7 @@ class UserAdmin(admin.ModelAdmin):
 
 class OwnerAdmin(admin.ModelAdmin):
     list_display = ['hotel_name', 'email', 'phone_number', 'gst', 'is_verified',]
-    search_fields = ['hotel_name',]
+    search_fields = ['hotel_name', 'phone_number']
     list_per_page = 20
 
 

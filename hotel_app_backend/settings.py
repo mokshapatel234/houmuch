@@ -186,3 +186,6 @@ CACHES = {
         }
     }
 }
+
+
+PREFERRED_PROPERTY_TYPES = [2, 3, 4, 5]

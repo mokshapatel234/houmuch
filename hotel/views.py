@@ -17,7 +17,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
-    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE
+    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -164,6 +164,23 @@ class OTPVerificationView(APIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
+    def get(self, request):
+        try:
+            user = request.user
+            if user.email:
+                otp = generate_otp()
+                OTP.objects.create(user=request.user, otp=otp)
+                data = {
+                    "subject": 'OTP Verification',
+                    "email": user.email,
+                    "template": "otp.html",
+                    "context": {'otp': otp}
+                }
+                send_mail(data)
+                return Response({'result': True, 'message': SENT_OTP_MESSAGE}, status=status.HTTP_200_OK)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
     def post(self, request):
         try:
             serializer = OTPVerificationSerializer(data=request.data)
@@ -171,18 +188,17 @@ class OTPVerificationView(APIView):
                 user = request.user
                 otp_value = serializer.validated_data.get('otp')
                 latest_otp = OTP.objects.filter(user=user).order_by('-created_at').first()
-                print(latest_otp)
                 if latest_otp and latest_otp.otp == otp_value:
                     user.is_email_verified = True
                     user.save()
                     OTP.objects.filter(user=user).delete()
-
                     return Response({'result': True, 'message': OTP_VERIFICATION_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
                 else:
                     return error_response(OTP_VERIFICATION_INVALID_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
                 return error_response(INVALID_INPUT_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 

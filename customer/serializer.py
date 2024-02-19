@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer, RoomInventoryOutSerializer
-from hotel.models import RoomInventory
+from hotel.models import RoomInventory, Property
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -29,20 +29,32 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PopertyListOutSerializer(PropertyOutSerializer):
-    room_inventory = serializers.SerializerMethodField()
+    # room_inventory = serializers.SerializerMethodField()
+    room_inventory = serializers.ListField()
+    # def get_room_inventory(self, obj):
+    #     num_of_rooms = self.context.get('num_of_rooms', None)
+    #     min_price = self.context.get('min_price', None)
+    #     max_price = self.context.get('max_price', None)
+    #     is_preferred_property_type = self.context.get('is_preferred_property_type', None)
+    #     room_inventory_instances = RoomInventory.objects.filter(property=obj).order_by('default_price')
+    #     if num_of_rooms is not None and num_of_rooms > 0 and is_preferred_property_type is None:
+    #         room_inventory_instances = list(room_inventory_instances[:num_of_rooms])
+    #     if min_price is not None and max_price is not None:
+    #         room_inventory_instances = [
+    #             room_instance for room_instance in room_inventory_instances 
+    #             if (min_price is None or room_instance.default_price >= float(min_price)) and 
+    #             (max_price is None or room_instance.default_price <= float(max_price))
+    #         ]
+    #     if is_preferred_property_type:
+    #         room_inventory_instances = list(room_inventory_instances)
+    #     else:
+    #         room_inventory_instances = room_inventory_instances[:1]
+    #     return [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
 
-
-    def get_room_inventory(self, obj):
-        num_of_rooms = self.context.get('num_of_rooms', None)
-        total_rooms_for_property = self.context.get('total_rooms_for_property', None)
-        room_inventory_instances = RoomInventory.objects.filter(property=obj, is_verified=True).order_by('default_price')
-
-        if total_rooms_for_property is not None and total_rooms_for_property > 0:
-            num_to_fetch = total_rooms_for_property
-        elif num_of_rooms is not None and num_of_rooms > 0:
-            num_to_fetch = num_of_rooms
-        else:
-            num_to_fetch = 1
-        room_inventory_instances = list(room_inventory_instances[:num_to_fetch])
-
-        return [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
+    class Meta:
+        model = Property
+        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+                  'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
+                  'nearby_popular_landmark', 'property_type', 'room_types', 'cancellation_days', 'cancellation_policy',
+                  'pet_friendly', 'breakfast_included', 'is_cancellation', 'status', 'is_online', 'created_at',
+                  'updated_at', 'address', 'images', 'room_inventory']

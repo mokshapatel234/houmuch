@@ -3,25 +3,20 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer
-from .utils import generate_token
+from .utils import generate_token, get_room_inventory, min_default_price
 from hotel.utils import error_response, send_mail
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
 from .authentication import JWTAuthentication
-from hotel.models import Property, RoomInventory
-from hotel.serializer import PropertyOutSerializer
+from hotel.models import Property
 from hotel.paginator import CustomPagination
-from rest_framework.generics import ListAPIView
 from django_filters.rest_framework import DjangoFilterBackend
-from .filters import PropertyFilter
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from rest_framework import status, generics
-from django.db.models import Subquery
-from django.db.models import Q
-from django.http import JsonResponse
+from django.conf import settings
 
 
 class CustomerRegisterView(APIView):
@@ -227,6 +222,29 @@ class CustomerProfileView(APIView):
 #             return self.get_paginated_response(serializer.data)
 
 
+# Number od rooms logic
+
+# if num_of_rooms is not None and num_of_rooms > 0 and is_preferred_property_type is None:
+#     room_inventory_instances = list(room_inventory_instances[:num_of_rooms])
+# if min_price is not None or max_price is not None:
+#     filtered_room_inventories = [
+#         room_instance for room_instance in room_inventory_instances
+#         if (min_price is None or room_instance.default_price >= float(min_price)) and 
+#         (max_price is None or room_instance.default_price <= float(max_price))
+#     ]
+#     if filtered_room_inventories:
+#         include_property = True
+#         room_inventory_instances = filtered_room_inventories
+# else:
+#     include_property = True
+
+# if not is_preferred_property_type and include_property:
+#     room_inventory_instances = room_inventory_instances[:1]
+# if include_property:
+#     property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
+#     property_list.append(property)
+
+
 class HotelRetrieveView(generics.GenericAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
@@ -238,7 +256,7 @@ class HotelRetrieveView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         location_param = self.request.query_params.get('location')
-        num_of_rooms = self.request.query_params.get('num_of_rooms')
+        num_of_rooms = int(self.request.query_params.get('num_of_rooms'))
         property_type = self.request.query_params.get('property_type')
         nearby_popular_landmark = self.request.query_params.get('nearby_popular_landmark')
         room_type = self.request.query_params.get('room_type')
@@ -246,48 +264,32 @@ class HotelRetrieveView(generics.GenericAPIView):
         max_price = self.request.query_params.get('max_price')
         num_of_adults = self.request.query_params.get('num_of_adults')
         num_of_children = self.request.query_params.get('num_of_children')
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
         total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
                         (int(num_of_children) if num_of_children is not None else 0)
         is_preferred_property_type = False
-        if location_param is not None or num_of_rooms is not None:
-            if location_param is not None:
-                longitude, latitude = map(float, location_param.split(','))
-                point = Point(longitude, latitude, srid=4326)
-                queryset = self.queryset.filter(location__distance_lte=(point, D(m=1000)))
+        queryset = self.get_queryset()
 
-            if num_of_rooms is not None:
-                num_of_rooms = int(num_of_rooms)
-            if room_type is not None:
-                queryset = queryset.filter(room_types__room_type=room_type)
-            if total_guests > 5:
-                preferred_property_types = ['Home Stay', 'Cottage', 'FarmStay', 'Resort']
-                queryset = queryset.filter(property_type__property_type__in=preferred_property_types)
-                is_preferred_property_type = True
-            property_list = []
-            for property in queryset:
-                if not is_preferred_property_type:
-                    num_of_children=int(num_of_children) if num_of_children is not None else 0
-                    num_of_adults=int(num_of_adults) if num_of_adults is not None else 0
-                    rooms = RoomInventory.objects.filter(property=property, is_verified=True).order_by('default_price')[:num_of_rooms]
-                    if min_price is not None and max_price is not None:
-                        rooms = [
-                            room for room in rooms 
-                            if (min_price is None or room.default_price >= float(min_price)) and 
-                            (max_price is None or room.default_price <= float(max_price))
-                        ]
-                        property.room_inventory = rooms
-                    else:
-                        property.room_inventory = rooms
-                    property_list.append(property)
+        if nearby_popular_landmark:
+            queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
+        if location_param:
+            longitude, latitude = map(float, location_param.split(','))
+            point = Point(longitude, latitude, srid=4326)
+            queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
+        if property_type:
+            queryset = queryset.filter(property_type__id=property_type)
+        if total_guests > 5:
+            queryset = queryset.filter(property_type__id__in = settings.PREFERRED_PROPERTY_TYPES)
+            is_preferred_property_type = True
 
-            page = self.paginate_queryset(property_list if property_list else queryset)
-            serializer = self.serializer_class(page, many=True, context={'num_of_rooms': num_of_rooms})
-            return self.get_paginated_response(serializer.data)
-        else:
-            if nearby_popular_landmark is not None:
-                queryset = self.queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
-            else:
-                queryset = self.get_queryset()
-            page = self.paginate_queryset(queryset)
-            serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(serializer.data)
+        property_list = []
+        for property in queryset:
+            property_list = get_room_inventory(property, num_of_rooms, min_price, max_price, 
+                                                is_preferred_property_type, property_list, room_type,
+                                                start_date, end_date)
+
+        sorted_properties = sorted(property_list, key=min_default_price)
+        page = self.paginate_queryset(sorted_properties)
+        serializer = self.serializer_class(page, many=True)
+        return self.get_paginated_response(serializer.data)
