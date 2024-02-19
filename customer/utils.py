@@ -34,6 +34,14 @@ def min_default_price(property_obj):
     return min(default_prices) if default_prices else float('inf')
 
 
+def session_check(self):
+    session = self.request.session
+    room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
+    if room_ids:
+        queryset = queryset.exclude(id__in=room_ids)
+    return queryset
+
+
 def get_room_inventory(property, num_of_rooms, min_price, max_price, 
                        is_preferred_property_type, property_list, room_type,
                        start_date, end_date):
