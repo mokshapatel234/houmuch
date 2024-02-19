@@ -67,6 +67,8 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
             room_inventory_instances = room_inventory_instances
         elif num_of_rooms is not None and num_of_rooms > 0:
             room_inventory_instances = room_inventory_instances[:num_of_rooms]
+        else:
+            room_inventory_instances = room_inventory_instances[:1]
         
         property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
         property_list.append(property)
