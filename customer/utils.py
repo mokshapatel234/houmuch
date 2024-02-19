@@ -44,7 +44,8 @@ def session_check(self):
 
 def get_room_inventory(property, num_of_rooms, min_price, max_price, 
                        is_preferred_property_type, property_list, room_type,
-                       start_date, end_date):
+                       start_date, end_date, session):
+    room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
     room_inventory_query = RoomInventory.objects.filter(property=property).order_by('default_price')
     
     if room_type is not None:
@@ -62,6 +63,11 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
     
     is_preferred_type = property.property_type.id in settings.PREFERRED_PROPERTY_TYPES
 
+    if all(room.id in room_ids for room in room_inventory_instances):
+        include_property = False
+
+    room_inventory_instances = [room for room in room_inventory_instances if room.id not in room_ids]
+    
     if include_property:
         if is_preferred_type or is_preferred_property_type:
             room_inventory_instances = room_inventory_instances
@@ -70,6 +76,8 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
         else:
             room_inventory_instances = room_inventory_instances[:1]
         
+        
+
         property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
         property_list.append(property)
 
