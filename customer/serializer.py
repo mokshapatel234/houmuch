@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
-from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer, RoomInventoryOutSerializer
-from hotel.models import RoomInventory, Property
+from hotel.serializer import PropertyOutSerializer
+from hotel.models import Property
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -41,8 +41,8 @@ class PopertyListOutSerializer(PropertyOutSerializer):
     #         room_inventory_instances = list(room_inventory_instances[:num_of_rooms])
     #     if min_price is not None and max_price is not None:
     #         room_inventory_instances = [
-    #             room_instance for room_instance in room_inventory_instances 
-    #             if (min_price is None or room_instance.default_price >= float(min_price)) and 
+    #             room_instance for room_instance in room_inventory_instances
+    #             if (min_price is None or room_instance.default_price >= float(min_price)) and
     #             (max_price is None or room_instance.default_price <= float(max_price))
     #         ]
     #     if is_preferred_property_type:

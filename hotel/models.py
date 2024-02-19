@@ -424,10 +424,10 @@ class BookingHistory(models.Model):
     check_out_date = models.DateTimeField()
     amount = models.FloatField()
     currency = models.CharField(max_length=3)
-    book_status = models.BooleanField(default=False)  
+    book_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None)
-    
+
     def __str__(self):
         return self.property

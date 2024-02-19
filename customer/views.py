@@ -1,4 +1,4 @@
-from rest_framework import permissions, status
+from rest_framework import permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
@@ -15,7 +15,6 @@ from hotel.paginator import CustomPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
-from rest_framework import status, generics
 from django.conf import settings
 from django.http import JsonResponse
 
@@ -230,7 +229,7 @@ class CustomerProfileView(APIView):
 # if min_price is not None or max_price is not None:
 #     filtered_room_inventories = [
 #         room_instance for room_instance in room_inventory_instances
-#         if (min_price is None or room_instance.default_price >= float(min_price)) and 
+#         if (min_price is None or room_instance.default_price >= float(min_price)) and
 #         (max_price is None or room_instance.default_price <= float(max_price))
 #     ]
 #     if filtered_room_inventories:
@@ -268,7 +267,7 @@ class HotelRetrieveView(generics.GenericAPIView):
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
-                        (int(num_of_children) if num_of_children is not None else 0)
+            (int(num_of_children) if num_of_children is not None else 0)
         is_preferred_property_type = False
         queryset = self.get_queryset()
         if num_of_rooms:
@@ -282,14 +281,14 @@ class HotelRetrieveView(generics.GenericAPIView):
         if property_type:
             queryset = queryset.filter(property_type__id=property_type)
         if total_guests > 5:
-            queryset = queryset.filter(property_type__id__in = settings.PREFERRED_PROPERTY_TYPES)
+            queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
             is_preferred_property_type = True
 
         property_list = []
         for property in queryset:
-            property_list = get_room_inventory(property, num_of_rooms, min_price, max_price, 
-                                       is_preferred_property_type, property_list, room_type,
-                                       start_date, end_date, self.request.session)
+            property_list = get_room_inventory(property, num_of_rooms, min_price, max_price,
+                                               is_preferred_property_type, property_list, room_type,
+                                               start_date, end_date, self.request.session)
 
         sorted_properties = sorted(property_list, key=min_default_price)
         page = self.paginate_queryset(sorted_properties)
@@ -311,6 +310,7 @@ class CustomerSessionView(APIView):
             return JsonResponse({'message': 'Property IDs set in session successfully.'})
         else:
             return JsonResponse({'error': 'Property IDs parameter is missing.'}, status=400)
+
     def get(self, request):
         print(request.session.items())
-        return Response({"Session":request.session.items() })
+        return Response({"Session": request.session.items()})

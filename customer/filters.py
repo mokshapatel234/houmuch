@@ -23,7 +23,7 @@ class PropertyFilter(filters.FilterSet):
             point = Point(float(self.data['longitude']), float(self.data['latitude']), srid=4326)
             return queryset.filter(location__distance_lte=(point, D(m=1000)))
         return queryset
-    
+
     def filter_by_price(self, queryset, name, value):
         if self.data.get('min_price') and self.data.get('max_price'):
             subquery = RoomInventory.objects.filter(
@@ -32,4 +32,3 @@ class PropertyFilter(filters.FilterSet):
             queryset = queryset.annotate(lowest_price=Subquery(subquery))
             queryset = queryset.filter(lowest_price__gte=self.data.get('min_price'), lowest_price__lte=self.data.get('max_price'))
         return queryset
-        
