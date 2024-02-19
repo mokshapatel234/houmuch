@@ -16,6 +16,7 @@ from hotel.paginator import CustomPagination
 from rest_framework.generics import ListAPIView
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import PropertyFilter
+from django.http import JsonResponse
 
 
 class CustomerRegisterView(APIView):
@@ -155,4 +156,20 @@ class HotelRetrieveView(ListAPIView):
     serializer_class = PropertyOutSerializer
     pagination_class = CustomPagination
     filterset_class = PropertyFilter
-    filter_backends = [DjangoFilterBackend] 
+    filter_backends = [DjangoFilterBackend]
+
+
+class CustomerSessionView(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        if 'room_ids' in request.data:
+            room_ids = request.data.get('room_ids')
+            for room_id in room_ids:
+                request.session['room_id_' + str(room_id)] = room_id
+                request.session.set_expiry(60)
+            print(request.session.items())
+            return JsonResponse({'message': 'Property IDs set in session successfully.'})
+        else:
+            return JsonResponse({'error': 'Property IDs parameter is missing.'}, status=400)
