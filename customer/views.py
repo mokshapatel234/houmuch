@@ -288,8 +288,8 @@ class HotelRetrieveView(generics.GenericAPIView):
         property_list = []
         for property in queryset:
             property_list = get_room_inventory(property, num_of_rooms, min_price, max_price, 
-                                                is_preferred_property_type, property_list, room_type,
-                                                start_date, end_date)
+                                       is_preferred_property_type, property_list, room_type,
+                                       start_date, end_date, self.request.session)
 
         sorted_properties = sorted(property_list, key=min_default_price)
         page = self.paginate_queryset(sorted_properties)
