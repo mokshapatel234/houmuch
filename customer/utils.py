@@ -1,7 +1,7 @@
 import jwt
 from datetime import datetime, timedelta
 from hotel.models import BookingHistory
-from .serializer import RoomInventoryOutSerializer
+from hotel.serializer import RoomInventoryOutSerializer
 from hotel.models import RoomInventory
 from django.conf import settings
 from django.db.models import Exists, OuterRef
@@ -60,6 +60,9 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
 
     room_inventory_instances = [room for room in room_inventory_instances if room.id not in room_ids]
 
+    if num_of_rooms is not None and len(room_inventory_instances) < num_of_rooms:
+        include_property = False
+    
     if include_property:
         if is_preferred_type or is_preferred_property_type:
             room_inventory_instances = room_inventory_instances

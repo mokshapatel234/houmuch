@@ -305,7 +305,7 @@ class CustomerSessionView(APIView):
             room_ids = request.data.get('room_ids')
             for room_id in room_ids:
                 request.session['room_id_' + str(room_id)] = room_id
-                request.session.set_expiry(60)
+                request.session.set_expiry(120)
             print(request.session.items())
             return JsonResponse({'message': 'Property IDs set in session successfully.'})
         else:
