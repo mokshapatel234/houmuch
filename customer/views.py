@@ -8,7 +8,8 @@ from hotel.utils import error_response, send_mail
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_ERROR_MESSAGE, ROOM_IDS_MISSING_MESSAGE, \
+    PAYMENT_SUCCESS_MESSAGE
 from .authentication import JWTAuthentication
 from hotel.models import Property
 from hotel.paginator import CustomPagination
@@ -16,7 +17,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.conf import settings
-from django.http import JsonResponse
 
 
 class CustomerRegisterView(APIView):
@@ -296,21 +296,29 @@ class HotelRetrieveView(generics.GenericAPIView):
         return self.get_paginated_response(serializer.data)
 
 
-class CustomerSessionView(APIView):
+class PayNowView(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
         if 'room_ids' in request.data:
             room_ids = request.data.get('room_ids')
-            for room_id in room_ids:
-                request.session['room_id_' + str(room_id)] = room_id
-                request.session.set_expiry(120)
-            print(request.session.items())
-            return JsonResponse({'message': 'Property IDs set in session successfully.'})
-        else:
-            return JsonResponse({'error': 'Property IDs parameter is missing.'}, status=400)
+            rooms_already_in_session = []
 
-    def get(self, request):
-        print(request.session.items())
-        return Response({"Session": request.session.items()})
+            for room_id in room_ids:
+                session_key = 'room_id_' + str(room_id)
+                if session_key in request.session:
+                    rooms_already_in_session.append(room_id)
+
+            if rooms_already_in_session:
+                return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+            for room_id in room_ids:
+                session_key = 'room_id_' + str(room_id)
+                request.session[session_key] = room_id
+                request.session.set_expiry(60)
+
+            return Response({'result': True, 'message': PAYMENT_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
+
+        else:
+            return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)

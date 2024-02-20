@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, HotelRetrieveView, CustomerSessionView
+from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, HotelRetrieveView, PayNowView
 
 
 urlpatterns = [
@@ -7,5 +7,5 @@ urlpatterns = [
     path('login/', CustomerLoginView.as_view()),
     path('profile/', CustomerProfileView.as_view()),
     path('hotelRetrieve/', HotelRetrieveView.as_view()),
-    path('setsession/', CustomerSessionView.as_view())
+    path('PayNow/', PayNowView.as_view())
 ]

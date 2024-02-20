@@ -62,7 +62,6 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
 
     if num_of_rooms is not None and len(room_inventory_instances) < num_of_rooms:
         include_property = False
-    
     if include_property:
         if is_preferred_type or is_preferred_property_type:
             room_inventory_instances = room_inventory_instances
