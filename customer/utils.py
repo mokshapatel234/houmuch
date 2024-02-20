@@ -74,5 +74,5 @@ def get_room_inventory(property, num_of_rooms=None, min_price=None, max_price=No
         property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
         if property_list is not None:
             property_list.append(property)
-    
-    return property_list if property_list else property
+
+    return property_list if property_list is not None else property

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, PropertyListView, CustomerSessionView, PropertyRetriveView
+from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, PropertyListView, PayNowView, PropertyRetriveView
 
 
 urlpatterns = [
@@ -8,5 +8,5 @@ urlpatterns = [
     path('profile/', CustomerProfileView.as_view()),
     path('propertyList/', PropertyListView.as_view()),
     path('propertyRetrieve/<int:pk>/', PropertyRetriveView.as_view()),
-    path('setsession/', CustomerSessionView.as_view())
+    path('PayNow/', PayNowView.as_view())
 ]
