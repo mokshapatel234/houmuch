@@ -34,9 +34,9 @@ def min_default_price(property_obj):
     return min(default_prices) if default_prices else float('inf')
 
 
-def get_room_inventory(property, num_of_rooms, min_price, max_price,
-                       is_preferred_property_type, property_list, room_type,
-                       start_date, end_date, session):
+def get_room_inventory(property, num_of_rooms=None, min_price=None, max_price=None,
+                       is_preferred_property_type=None, property_list=None, room_type=None,
+                       start_date=None, end_date=None, session=None):
     room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
     room_inventory_query = RoomInventory.objects.filter(property=property).order_by('default_price')
 
@@ -72,6 +72,7 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
             room_inventory_instances = room_inventory_instances[:1]
 
         property.room_inventory = [RoomInventoryOutSerializer(room_instance).data for room_instance in room_inventory_instances]
-        property_list.append(property)
-
-    return property_list
+        if property_list is not None:
+            property_list.append(property)
+    
+    return property_list if property_list else property

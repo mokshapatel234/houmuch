@@ -4,19 +4,22 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer
 from .utils import generate_token, get_room_inventory, min_default_price
-from hotel.utils import error_response, send_mail
+from hotel.utils import error_response, send_mail, generate_response
+from hotel.models import Property
+from hotel.paginator import CustomPagination
+from hotel.serializer import PropertyOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE
 from .authentication import JWTAuthentication
-from hotel.models import Property
-from hotel.paginator import CustomPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.conf import settings
 from django.http import JsonResponse
+from rest_framework.generics import RetrieveAPIView
+from django.http import Http404
 
 
 class CustomerRegisterView(APIView):
@@ -245,7 +248,7 @@ class CustomerProfileView(APIView):
 #     property_list.append(property)
 
 
-class HotelRetrieveView(generics.GenericAPIView):
+class PropertyListView(generics.GenericAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
     queryset = Property.objects.all().order_by('-id')
@@ -255,7 +258,8 @@ class HotelRetrieveView(generics.GenericAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get(self, request, *args, **kwargs):
-        location_param = self.request.query_params.get('location')
+        longitude = self.request.query_params.get('longitude')
+        latitude = self.request.query_params.get('latitude')
         num_of_rooms = self.request.query_params.get('num_of_rooms')
         property_type = self.request.query_params.get('property_type')
         nearby_popular_landmark = self.request.query_params.get('nearby_popular_landmark')
@@ -274,9 +278,8 @@ class HotelRetrieveView(generics.GenericAPIView):
             num_of_rooms = int(num_of_rooms)
         if nearby_popular_landmark:
             queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
-        if location_param:
-            longitude, latitude = map(float, location_param.split(','))
-            point = Point(longitude, latitude, srid=4326)
+        if latitude and longitude:
+            point = Point(float(longitude), float(latitude), srid=4326)
             queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
         if property_type:
             queryset = queryset.filter(property_type__id=property_type)
@@ -295,6 +298,23 @@ class HotelRetrieveView(generics.GenericAPIView):
         serializer = self.serializer_class(page, many=True)
         return self.get_paginated_response(serializer.data)
 
+
+class PropertyRetriveView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = Property.objects.all().order_by('-id')
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            room_data = get_room_inventory(instance, session=self.request.session)
+            print(room_data)
+            return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
+        except Http404:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(e)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 class CustomerSessionView(APIView):
     authentication_classes = (JWTAuthentication,)
