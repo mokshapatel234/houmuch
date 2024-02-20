@@ -74,3 +74,13 @@ def get_room_inventory(property, num_of_rooms, min_price, max_price,
         property_list.append(property)
 
     return property_list
+
+
+def booking_overlapping(room_inventory_query, start_date, end_date):
+    overlapping_bookings = BookingHistory.objects.filter(
+        check_in_date=start_date,
+        check_out_date=end_date,
+        rooms__in=room_inventory_query,
+        book_status=True
+    )
+    return overlapping_bookings

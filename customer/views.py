@@ -17,7 +17,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.conf import settings
-
+from hotel.models import BookingHistory, RoomInventory
+from django.db import transaction
+import razorpay
+from django.utils import timezone
+from .utils import booking_overlapping
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -301,24 +305,80 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if 'room_ids' in request.data:
+        if 'room_ids' in request.data and 'property_id' in request.data and 'amount' in request.data:
             room_ids = request.data.get('room_ids')
-            rooms_already_in_session = []
+            property_id = request.data.get('property_id')
+            amount = request.data.get('amount')
+            check_in_date = request.data.get('check_in_date')
+            check_out_date = request.data.get('check_out_date')
+            currency = 'INR'  # Assuming the currency is always INR
+            user_id = request.user.id
+            
+            if 'room_ids' in request.data:
+                room_ids = request.data.get('room_ids')
+                rooms_already_in_session = []
 
-            for room_id in room_ids:
-                session_key = 'room_id_' + str(room_id)
-                if session_key in request.session:
-                    rooms_already_in_session.append(room_id)
+                for room_id in room_ids:
+                    session_key = 'room_id_' + str(room_id)
+                    if session_key in request.session:
+                        rooms_already_in_session.append(room_id)
 
-            if rooms_already_in_session:
-                return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                if rooms_already_in_session:
+                    return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-            for room_id in room_ids:
-                session_key = 'room_id_' + str(room_id)
-                request.session[session_key] = room_id
-                request.session.set_expiry(60)
+            try:
+                property_object = Property.objects.get(id=property_id)
+                customer = Customer.objects.get(id=user_id)
+                rooms = RoomInventory.objects.filter(id__in=room_ids)
+                
+                # Check for overlapping bookings
+                overlapping_rooms = booking_overlapping(rooms, check_in_date, check_out_date)
+                if overlapping_rooms.exists():
+                    return error_response("One or more rooms have overlapping bookings", status.HTTP_400_BAD_REQUEST)
+                
+            except (Property.DoesNotExist, Customer.DoesNotExist):
+                return error_response("Property or Customer does not exist", status.HTTP_404_NOT_FOUND)
 
-            return Response({'result': True, 'message': PAYMENT_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
+            # Ensure all room IDs provided are valid
+            if len(rooms) != len(room_ids):
+                return error_response("One or more room IDs are invalid", status.HTTP_400_BAD_REQUEST)
+
+            # try:
+            #     check_in_date = datetime.strptime(check_in_date, '%Y-%m-%d %H:%M:%S%z')
+            #     check_out_date = datetime.strptime(check_out_date, '%Y-%m-%d %H:%M:%S%z')
+            # except ValueError:
+            #     return error_response('Invalid date format', status.HTTP_400_BAD_REQUEST)
+
+            with transaction.atomic():
+                try:
+                    razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
+                    order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
+
+                    booking = BookingHistory.objects.create(
+                        property=property_object,
+                        customer=customer,
+                        property_deal=None,
+                        num_of_rooms=len(room_ids),
+                        order_id=order['id'],
+                        amount=amount,
+                        currency=currency,
+                        book_status=False,
+                        check_in_date=check_in_date,
+                        check_out_date=check_out_date,
+                        created_at=timezone.now()
+                    )
+
+                    booking.rooms.add(*rooms)  # Add the rooms to the booking
+
+                    for room_id in room_ids:
+                        session_key = 'room_id_' + str(room_id)
+                        request.session[session_key] = room_id
+                        request.session.set_expiry(60)
+
+                    return Response({'order_id': order['id'], 'message': 'Payment success. Booking created.'}, status=status.HTTP_200_OK)
+
+                except Exception as e:
+                    return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         else:
-            return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response('Room IDs, property ID, and amount are required in request data.', status.HTTP_400_BAD_REQUEST)
