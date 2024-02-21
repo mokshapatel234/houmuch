@@ -9,7 +9,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_ERROR_MESSAGE, ROOM_IDS_MISSING_MESSAGE, \
-    PAYMENT_SUCCESS_MESSAGE
+    PAYMENT_SUCCESS_MESSAGE, PAYMENT_MISSING_INFO_MESSAGE, PAYMEMT_MISSING_PROPERTY_OR_CUSTOMER
 from .authentication import JWTAuthentication
 from hotel.models import Property
 from hotel.paginator import CustomPagination
@@ -21,7 +21,7 @@ from hotel.models import BookingHistory, RoomInventory
 from django.db import transaction
 import razorpay
 from django.utils import timezone
-from .utils import booking_overlapping
+from .utils import is_booking_overlapping
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -305,7 +305,7 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if 'room_ids' in request.data and 'property_id' in request.data and 'amount' in request.data:
+        if all(key in request.data for key in ['room_ids', 'property_id', 'amount', 'check_in_date', 'check_out_date']):
             room_ids = request.data.get('room_ids')
             property_id = request.data.get('property_id')
             amount = request.data.get('amount')
@@ -314,6 +314,16 @@ class PayNowView(APIView):
             currency = 'INR'  # Assuming the currency is always INR
             user_id = request.user.id
             
+            rooms = RoomInventory.objects.filter(id__in=room_ids)
+                
+            overlapping_rooms, non_overlapping_rooms = is_booking_overlapping(rooms, check_in_date, check_out_date, message=True)
+
+            if overlapping_rooms:
+                # If there are overlapping rooms, return an error response
+                overlapping_room_names = ', '.join(str(room_id) for room_id in overlapping_rooms)
+                return error_response(f"The following rooms are already booked: {overlapping_room_names}", status.HTTP_400_BAD_REQUEST)
+    
+            # Check if rooms are already in session
             if 'room_ids' in request.data:
                 room_ids = request.data.get('room_ids')
                 rooms_already_in_session = []
@@ -328,26 +338,14 @@ class PayNowView(APIView):
 
             try:
                 property_object = Property.objects.get(id=property_id)
-                customer = Customer.objects.get(id=user_id)
-                rooms = RoomInventory.objects.filter(id__in=room_ids)
-                
-                # Check for overlapping bookings
-                overlapping_rooms = booking_overlapping(rooms, check_in_date, check_out_date)
-                if overlapping_rooms.exists():
-                    return error_response("One or more rooms have overlapping bookings", status.HTTP_400_BAD_REQUEST)
+                customer = Customer.objects.get(id=user_id)  
                 
             except (Property.DoesNotExist, Customer.DoesNotExist):
-                return error_response("Property or Customer does not exist", status.HTTP_404_NOT_FOUND)
+                return error_response(PAYMEMT_MISSING_PROPERTY_OR_CUSTOMER, status.HTTP_404_NOT_FOUND)
 
             # Ensure all room IDs provided are valid
             if len(rooms) != len(room_ids):
-                return error_response("One or more room IDs are invalid", status.HTTP_400_BAD_REQUEST)
-
-            # try:
-            #     check_in_date = datetime.strptime(check_in_date, '%Y-%m-%d %H:%M:%S%z')
-            #     check_out_date = datetime.strptime(check_out_date, '%Y-%m-%d %H:%M:%S%z')
-            # except ValueError:
-            #     return error_response('Invalid date format', status.HTTP_400_BAD_REQUEST)
+                return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
                 try:
@@ -362,7 +360,7 @@ class PayNowView(APIView):
                         order_id=order['id'],
                         amount=amount,
                         currency=currency,
-                        book_status=False,
+                        book_status=True,
                         check_in_date=check_in_date,
                         check_out_date=check_out_date,
                         created_at=timezone.now()
@@ -374,11 +372,18 @@ class PayNowView(APIView):
                         session_key = 'room_id_' + str(room_id)
                         request.session[session_key] = room_id
                         request.session.set_expiry(60)
-
-                    return Response({'order_id': order['id'], 'message': 'Payment success. Booking created.'}, status=status.HTTP_200_OK)
+                    
+                    response_data = {
+                        'result': True,
+                        'data': {
+                            'order_id': order['id'],
+                        },
+                        'message': PAYMENT_SUCCESS_MESSAGE
+                    }
+                    return Response(response_data, status=status.HTTP_200_OK)
 
                 except Exception as e:
                     return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         else:
-            return error_response('Room IDs, property ID, and amount are required in request data.', status.HTTP_400_BAD_REQUEST)
+            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST)
