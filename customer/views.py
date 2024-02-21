@@ -242,8 +242,9 @@ class OrderSummaryView(ListAPIView):
         check_out_date = self.request.query_params.get('check_out_date')
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
         queryset = RoomInventory.objects.filter(id__in=room_ids_list)
-        queryset = is_booking_overlapping(queryset, check_in_date, check_out_date)
+        booked_ids, queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, message=True)
         room_session_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
+        locked_ids = [id for id in room_session_ids if id not in booked_ids and id in room_ids_list]
         if room_session_ids:
             queryset = queryset.exclude(id__in=room_session_ids)
         total_price = queryset.aggregate(total=Sum('default_price'))['total'] or 0
@@ -253,6 +254,8 @@ class OrderSummaryView(ListAPIView):
             'data': {
                 'rooms': serializer.data,
                 'total_price': total_price,
+                'booked_ids': booked_ids,
+                'locked_ids': locked_ids
             },
             'message': DATA_RETRIEVAL_MESSAGE
         }

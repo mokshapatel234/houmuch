@@ -16,16 +16,25 @@ def generate_token(id):
     return jwt_token
 
 
-def is_booking_overlapping(room_inventory_query, start_date, end_date):
-    bookings_subquery = BookingHistory.objects.filter(
+def is_booking_overlapping(room_inventory_query, start_date, end_date, message=False):
+    overlapping_bookings_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
         check_in_date__lte=end_date,
         book_status=True
     )
-    return room_inventory_query.annotate(
-        has_overlapping_booking=Exists(bookings_subquery)
-    ).filter(has_overlapping_booking=False)
+    room_inventory_query = room_inventory_query.annotate(
+        has_overlapping_booking=Exists(overlapping_bookings_subquery)
+    )
+    non_overlapping_rooms = room_inventory_query.filter(has_overlapping_booking=False)
+
+    if message:
+        overlapping_rooms = room_inventory_query.filter(has_overlapping_booking=True)
+        overlapping_room_ids = set(overlapping_rooms.values_list('id', flat=True))
+        return list(overlapping_room_ids), non_overlapping_rooms
+
+    return non_overlapping_rooms
+
 
 
 def min_default_price(property_obj):
