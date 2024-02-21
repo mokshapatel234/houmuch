@@ -31,10 +31,9 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, message=F
     if message:
         overlapping_rooms = room_inventory_query.filter(has_overlapping_booking=True)
         overlapping_room_ids = set(overlapping_rooms.values_list('id', flat=True))
-        return list(overlapping_room_ids), non_overlapping_rooms
+        return overlapping_room_ids, non_overlapping_rooms
 
     return non_overlapping_rooms
-
 
 
 def min_default_price(property_obj):

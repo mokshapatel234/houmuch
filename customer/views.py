@@ -191,26 +191,6 @@ class PropertyListView(generics.GenericAPIView):
         return self.get_paginated_response(serializer.data)
 
 
-class RoomInventoryView(ListAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
-    serializer_class = RoomInventoryOutSerializer
-    pagination_class = CustomPagination
-    filter_backends = [DjangoFilterBackend]
-    filterset_class = RoomInventoryFilter
-    queryset = RoomInventory.objects.none()
-
-    def get_queryset(self):
-        property_id = self.kwargs.get('property_id')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
-        room_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
-        if room_ids:
-            queryset = queryset.exclude(id__in=room_ids)
-        if not queryset.exists():
-            return self.queryset
-        return queryset
-
-
 class PropertyRetriveView(RetrieveAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -231,6 +211,41 @@ class PropertyRetriveView(RetrieveAPIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class RoomInventoryView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = RoomInventoryOutSerializer
+    pagination_class = CustomPagination
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RoomInventoryFilter
+    queryset = RoomInventory.objects.none()
+
+    def get_queryset(self):
+        property_id = self.kwargs.get('property_id')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
+        room_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
+        if room_ids:
+            queryset = queryset.exclude(id__in=room_ids)
+        if not queryset.exists():
+            return self.queryset
+        return queryset
+
+
+class RoomRetriveView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+    queryset = RoomInventory.objects.all().order_by('-id')
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
+        except Http404:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
 class OrderSummaryView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
@@ -243,6 +258,7 @@ class OrderSummaryView(ListAPIView):
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
         queryset = RoomInventory.objects.filter(id__in=room_ids_list)
         booked_ids, queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, message=True)
+        booked_ids = list(booked_ids)
         room_session_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
         locked_ids = [id for id in room_session_ids if id not in booked_ids and id in room_ids_list]
         if room_session_ids:
