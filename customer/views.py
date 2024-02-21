@@ -23,6 +23,7 @@ import razorpay
 from django.utils import timezone
 from .utils import is_booking_overlapping
 
+
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
@@ -311,19 +312,15 @@ class PayNowView(APIView):
             amount = request.data.get('amount')
             check_in_date = request.data.get('check_in_date')
             check_out_date = request.data.get('check_out_date')
-            currency = 'INR'  # Assuming the currency is always INR
+            currency = 'INR'
             user_id = request.user.id
-            
             rooms = RoomInventory.objects.filter(id__in=room_ids)
-                
-            overlapping_rooms, non_overlapping_rooms = is_booking_overlapping(rooms, check_in_date, check_out_date, message=True)
+            overlapping_rooms, _ = is_booking_overlapping(rooms, check_in_date, check_out_date, message=True)
 
             if overlapping_rooms:
-                # If there are overlapping rooms, return an error response
                 overlapping_room_names = ', '.join(str(room_id) for room_id in overlapping_rooms)
                 return error_response(f"The following rooms are already booked: {overlapping_room_names}", status.HTTP_400_BAD_REQUEST)
-    
-            # Check if rooms are already in session
+
             if 'room_ids' in request.data:
                 room_ids = request.data.get('room_ids')
                 rooms_already_in_session = []
@@ -338,12 +335,11 @@ class PayNowView(APIView):
 
             try:
                 property_object = Property.objects.get(id=property_id)
-                customer = Customer.objects.get(id=user_id)  
-                
+                customer = Customer.objects.get(id=user_id)
+
             except (Property.DoesNotExist, Customer.DoesNotExist):
                 return error_response(PAYMEMT_MISSING_PROPERTY_OR_CUSTOMER, status.HTTP_404_NOT_FOUND)
 
-            # Ensure all room IDs provided are valid
             if len(rooms) != len(room_ids):
                 return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -365,14 +361,11 @@ class PayNowView(APIView):
                         check_out_date=check_out_date,
                         created_at=timezone.now()
                     )
-
-                    booking.rooms.add(*rooms)  # Add the rooms to the booking
-
+                    booking.rooms.add(*rooms)
                     for room_id in room_ids:
                         session_key = 'room_id_' + str(room_id)
                         request.session[session_key] = room_id
                         request.session.set_expiry(60)
-                    
                     response_data = {
                         'result': True,
                         'data': {
