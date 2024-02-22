@@ -256,7 +256,7 @@ class OrderSummaryView(ListAPIView):
         check_in_date = self.request.query_params.get('check_in_date')
         check_out_date = self.request.query_params.get('check_out_date')
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
-        queryset = RoomInventory.objects.filter(id__in=room_ids_list)
+        queryset = RoomInventory.objects.filter(id__in=room_ids_list).order_by('default_price')
         booked_ids, queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, message=True)
         booked_ids = list(booked_ids)
         room_session_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
