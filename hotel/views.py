@@ -25,6 +25,8 @@ from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3
 from django.contrib.auth.models import User
+from .filters import RoomInventoryFilter
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class HotelRegisterView(APIView):
@@ -334,6 +336,8 @@ class RoomInventoryViewSet(ModelViewSet):
     serializer_class = RoomInventorySerializer
     queryset = RoomInventory.objects.all().order_by('-id')
     pagination_class = CustomPagination
+    filterset_class = RoomInventoryFilter
+    filter_backends = [DjangoFilterBackend]
 
     def create(self, request):
         try:
@@ -341,25 +345,36 @@ class RoomInventoryViewSet(ModelViewSet):
             bed_type = request.data.get('bed_type', None)
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
+            num_of_rooms = request.data.pop('num_of_rooms')
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
-            instance = serializer.save(property=property_instance)
-            if updated_period_data:
-                updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
-                updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_serializer.save(room_inventory=instance)
-            if room_features:
-                instance.room_features.set(room_features)
-            if common_amenities:
-                instance.common_amenities.set(common_amenities)
-            if bed_type:
-                instance.bed_type.set(bed_type)
-            if images:
-                for image in images:
-                    RoomImage.objects.create(room=instance, image=image)
+            instances = []
+            image_instances = []
+            if num_of_rooms:
+                for _ in range(num_of_rooms):
+                    serializer = self.get_serializer(data=request.data)
+                    serializer.is_valid(raise_exception=True)
+                    instance = serializer.save(property=property_instance)
+                    instances.append(instance)
+                    if room_features:
+                        instance.room_features.set(room_features)
+                    if common_amenities:
+                        instance.common_amenities.set(common_amenities)
+                    if bed_type:
+                        instance.bed_type.set(bed_type)
+                    if images:
+                        for image in images:
+                            image_instances.append(RoomImage(room=instance, image=image))
+
+                if image_instances:
+                    RoomImage.objects.bulk_create(image_instances)
+
+                if updated_period_data:
+                    for instance in instances:
+                        updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
+                        updated_period_serializer.is_valid(raise_exception=True)
+                        updated_period_serializer.save(room_inventory=instance)
             admin_email = User.objects.filter(is_superuser=True).first().email
             data = {
                 "subject": 'Room Verification',
@@ -375,8 +390,11 @@ class RoomInventoryViewSet(ModelViewSet):
             }
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
-            return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
-        except Exception:
+            page = self.paginate_queryset(instances)
+            serializer = RoomInventoryOutSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
@@ -391,12 +409,10 @@ class RoomInventoryViewSet(ModelViewSet):
     def list(self, request):
         try:
             # cache_response("room_inventory_list", request.user)
-            queryset = RoomInventory.objects.filter(property__owner=request.user).order_by('-id')
+            queryset = self.filter_queryset(RoomInventory.objects.filter(property__owner=request.user))
             page = self.paginate_queryset(queryset)
             serializer = RoomInventoryOutSerializer(page, many=True)
-            serialized_data = serializer.data
-
-            response_data = self.get_paginated_response(serialized_data)
+            response_data = self.get_paginated_response(serializer.data)
             # set_cache("room_inventory_list", request.user, serialized_data)
             return response_data
         except Exception:
