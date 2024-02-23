@@ -268,6 +268,7 @@ class RoomInventory(models.Model):
     bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_bathroom_type')
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
+    num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))
