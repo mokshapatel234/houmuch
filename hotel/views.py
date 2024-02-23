@@ -345,36 +345,29 @@ class RoomInventoryViewSet(ModelViewSet):
             bed_type = request.data.get('bed_type', None)
             room_features = request.data.get('room_features', None)
             common_amenities = request.data.get('common_amenities', None)
-            num_of_rooms = request.data.pop('num_of_rooms')
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
-            instances = []
+            instance = serializer.save(property=property_instance)
             image_instances = []
-            if num_of_rooms:
-                for _ in range(num_of_rooms):
-                    serializer = self.get_serializer(data=request.data)
-                    serializer.is_valid(raise_exception=True)
-                    instance = serializer.save(property=property_instance)
-                    instances.append(instance)
-                    if room_features:
-                        instance.room_features.set(room_features)
-                    if common_amenities:
-                        instance.common_amenities.set(common_amenities)
-                    if bed_type:
-                        instance.bed_type.set(bed_type)
-                    if images:
-                        for image in images:
-                            image_instances.append(RoomImage(room=instance, image=image))
+            if updated_period_data:
+                updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
+                updated_period_serializer.is_valid(raise_exception=True)
+                updated_period_serializer.save(room_inventory=instance)
+            if room_features:
+                instance.room_features.set(room_features)
+            if common_amenities:
+                instance.common_amenities.set(common_amenities)
+            if bed_type:
+                instance.bed_type.set(bed_type)
+            if images:
+                for image in images:
+                    image_instances.append(RoomImage(room=instance, image=image))
 
-                if image_instances:
-                    RoomImage.objects.bulk_create(image_instances)
-
-                if updated_period_data:
-                    for instance in instances:
-                        updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
-                        updated_period_serializer.is_valid(raise_exception=True)
-                        updated_period_serializer.save(room_inventory=instance)
+            if image_instances:
+                RoomImage.objects.bulk_create(image_instances)
             admin_email = User.objects.filter(is_superuser=True).first().email
             data = {
                 "subject": 'Room Verification',
@@ -390,9 +383,7 @@ class RoomInventoryViewSet(ModelViewSet):
             }
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
-            page = self.paginate_queryset(instances)
-            serializer = RoomInventoryOutSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Exception as e:
             print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
