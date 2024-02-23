@@ -144,8 +144,8 @@ class CustomerProfileView(APIView):
 
 
 class PropertyListView(generics.GenericAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     queryset = Property.objects.all().order_by('-id')
     serializer_class = PopertyListOutSerializer
     pagination_class = CustomPagination
@@ -212,8 +212,8 @@ class PropertyRetriveView(RetrieveAPIView):
 
 
 class RoomInventoryView(ListAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     serializer_class = RoomInventoryOutSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
@@ -247,8 +247,8 @@ class RoomRetriveView(RetrieveAPIView):
 
 
 class OrderSummaryView(ListAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
     serializer_class = OrderSummarySerializer
 
     def list(self, request, *args, **kwargs):
