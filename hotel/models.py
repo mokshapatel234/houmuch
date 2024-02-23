@@ -411,3 +411,23 @@ class PropertyDeal(models.Model):
 
     def __str__(self):
         return self.session
+
+
+class BookingHistory(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_book')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_book')
+    property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal', null=True)
+    num_of_rooms = models.IntegerField(verbose_name='number_of_book_rooms')
+    rooms = models.ManyToManyField(RoomInventory, related_name='rooms_book')
+    order_id = models.CharField(max_length=20)
+    check_in_date = models.DateTimeField()
+    check_out_date = models.DateTimeField()
+    amount = models.FloatField()
+    currency = models.CharField(max_length=3)
+    book_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return self.property
