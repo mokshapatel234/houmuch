@@ -384,8 +384,7 @@ class RoomInventoryViewSet(ModelViewSet):
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
