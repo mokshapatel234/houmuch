@@ -262,14 +262,23 @@ class OrderSummaryView(ListAPIView):
         room_ids = self.request.query_params.get('room_ids')
         check_in_date = self.request.query_params.get('check_in_date')
         check_out_date = self.request.query_params.get('check_out_date')
+        num_of_rooms = self.request.query_params.get('num_of_rooms')
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
         queryset = RoomInventory.objects.filter(id__in=room_ids_list).order_by('default_price')
-        booked_ids, queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, message=True)
-        booked_ids = list(booked_ids)
-        room_session_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
-        locked_ids = [id for id in room_session_ids if id not in booked_ids and id in room_ids_list]
-        if room_session_ids:
-            queryset = queryset.exclude(id__in=room_session_ids)
+        queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, num_of_rooms, room_list=True)
+        
+        excluded_room_ids = []
+        for key in self.request.session.keys():
+            if key.startswith('room_id_'):
+                session_data = self.request.session[key]
+                session_room_id = session_data.get('room_id')
+                session_num_of_rooms = session_data.get('num_of_rooms', 0)
+                if session_room_id in room_ids_list and session_num_of_rooms > int(num_of_rooms):
+                    excluded_room_ids.append(session_room_id)
+
+        if excluded_room_ids:
+            queryset = queryset.exclude(id__in=excluded_room_ids)
+        
         total_price = queryset.aggregate(total=Sum('default_price'))['total'] or 0
         serializer = self.serializer_class(queryset, many=True)
         response_data = {
@@ -277,12 +286,11 @@ class OrderSummaryView(ListAPIView):
             'data': {
                 'rooms': serializer.data,
                 'total_price': total_price,
-                'booked_ids': booked_ids,
-                'locked_ids': locked_ids
             },
-            'message': DATA_RETRIEVAL_MESSAGE
+            'message': "Data retrieval successful."  # Assuming DATA_RETRIEVAL_MESSAGE is defined elsewhere
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
+
 
 
 class PayNowView(APIView):
@@ -290,19 +298,23 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if 'room_ids' in request.data:
-            room_ids = request.data.get('room_ids')
-            rooms_already_in_session = []
-            for room_id in room_ids:
-                session_key = 'room_id_' + str(room_id)
-                if session_key in request.session:
-                    rooms_already_in_session.append(room_id)
-            if rooms_already_in_session:
-                return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            for room_id in room_ids:
-                session_key = 'room_id_' + str(room_id)
-                request.session[session_key] = room_id
-                request.session.set_expiry(60)
+        if 'room_id' in request.data:
+            room_id = request.data.get('room_id')
+            num_of_rooms = request.data.get('num_of_rooms')
+            # rooms_already_in_session = []
+            # for room_id in room_ids:
+            #     session_key = 'room_id_' + str(room_id)
+            #     if session_key in request.session:
+            #         rooms_already_in_session.append(room_id)
+            # if rooms_already_in_session:
+            #     return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            session_key = 'room_id_' + str(room_id)
+            request.session[session_key] = {
+                    'room_id': room_id,
+                    'num_of_rooms': num_of_rooms
+            }
+            request.session.set_expiry(60)
+            print(self.request.session.items())
             return Response({'result': True, 'message': PAYMENT_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
         else:
             return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
