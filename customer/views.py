@@ -295,7 +295,8 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if all(key in request.data for key in ['room_id', 'num_of_rooms', 'property_id', 'amount', 'check_in_date', 'check_out_date']):
+        required_keys = ['room_id', 'num_of_rooms', 'property_id', 'amount', 'check_in_date', 'check_out_date']
+        if all(key in request.data for key in required_keys):
             room_id = request.data.get('room_id')
             num_of_rooms = request.data.get('num_of_rooms')
             property_id = request.data.get('property_id')
@@ -308,7 +309,9 @@ class PayNowView(APIView):
             room = RoomInventory.objects.get(id=room_id)
             
             session_key = 'room_id_' + str(room_id)
+            print("session_key_room:", session_key)
             if session_key in request.session:
+                print("Session key found in request session")
                 return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             try:
@@ -347,9 +350,13 @@ class PayNowView(APIView):
                         age_of_children=request.data.get('age_of_children')
                     )
 
-                    request.session[session_key] = room_id
+                    request.session[session_key] = {
+                        'room_id': room_id,
+                        'num_of_rooms_ava': num_of_rooms
+                    }
                     request.session.set_expiry(60)
-                    
+                    print("num_of_rooms added to session")
+
                     response_data = {
                         'result': True,
                         'data': {
@@ -363,4 +370,4 @@ class PayNowView(APIView):
                 return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         else:
-            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST) 
+            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST)
