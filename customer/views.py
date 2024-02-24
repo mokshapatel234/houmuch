@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer
+    OrderSummarySerializer, RoomInventoryListSerializer
 from .utils import generate_token, get_room_inventory, min_default_price, is_booking_overlapping
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.models import Property, RoomInventory
@@ -203,23 +203,22 @@ class PropertyRetriveView(RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            room_ids = self.request.query_params.get('room_ids')
+            room_id = self.request.query_params.get('room_id')
             instance = self.get_object()
-            if room_ids:
-                room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
-                room_instances = RoomInventory.objects.filter(id__in=room_ids_list, property=instance)
-                instance.room_inventory = RoomInventoryOutSerializer(room_instances, many=True).data
+            if room_id:
+                room_instances = RoomInventory.objects.get(id=int(room_id), property=instance)
+                instance.room_inventory = RoomInventoryOutSerializer(room_instances).data
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PopertyListOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-class RoomInventoryView(ListAPIView):
+class RoomInventoryListView(ListAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = RoomInventoryOutSerializer
+    serializer_class = RoomInventoryListSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = RoomInventoryFilter
@@ -227,7 +226,10 @@ class RoomInventoryView(ListAPIView):
 
     def get_queryset(self):
         property_id = self.kwargs.get('property_id')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
+        num_of_adults = self.request.query_params.get('num_of_adults')
+        num_of_children = self.request.query_params.get('num_of_children')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True,
+                                                adult_capacity__gte=int(num_of_adults if num_of_adults else 0), children_capacity__gte=int(num_of_children if num_of_children else 0)).order_by('default_price')
         room_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
         if room_ids:
             queryset = queryset.exclude(id__in=room_ids)
