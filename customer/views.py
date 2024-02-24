@@ -166,25 +166,30 @@ class PropertyListView(generics.GenericAPIView):
         check_out_date = self.request.query_params.get('check_out_date', None)
         total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
             (int(num_of_children) if num_of_children is not None else 0)
-        is_preferred_property_type = False
         queryset = self.get_queryset()
-        if num_of_rooms:
-            num_of_rooms = int(num_of_rooms)
         if nearby_popular_landmark:
             queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
         if latitude and longitude:
             point = Point(float(longitude), float(latitude), srid=4326)
             queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
         if property_type:
-            queryset = queryset.filter(property_type__id=property_type)
+            property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
+            queryset = queryset.filter(property_type__id__in=property_type_ids)
         if total_guests > 5:
             queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
-            is_preferred_property_type = True
         property_list = []
         for property in queryset:
-            property_list = get_room_inventory(property, num_of_rooms, min_price, max_price,
-                                               is_preferred_property_type, property_list, room_type,
-                                               check_in_date, check_out_date, self.request.session)
+            property_list = get_room_inventory(property,
+                                               property_list if property_list else [],
+                                               num_of_rooms=int(num_of_rooms) if num_of_rooms else 0,
+                                               min_price=int(min_price) if min_price else None,
+                                               max_price=int(max_price) if max_price else None,
+                                               room_type=room_type if room_type else None,
+                                               check_in_date=check_in_date if check_in_date else None,
+                                               check_out_date=check_out_date if check_out_date else None,
+                                               num_of_adults=int(num_of_adults if num_of_adults else 0),
+                                               num_of_children=int(num_of_children if num_of_children else 0),
+                                               session=self.request.session)
         sorted_properties = sorted(property_list, key=min_default_price)
         page = self.paginate_queryset(sorted_properties)
         serializer = self.serializer_class(page, many=True)
