@@ -6,7 +6,7 @@ from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, 
     OrderSummarySerializer
 from .utils import generate_token, get_room_inventory, min_default_price, is_booking_overlapping
 from hotel.utils import error_response, send_mail, generate_response
-from hotel.models import Property, RoomInventory
+from hotel.models import Property, RoomInventory, GuestDetail
 from hotel.paginator import CustomPagination
 from hotel.serializer import RoomInventoryOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -29,6 +29,7 @@ from rest_framework.generics import RetrieveAPIView, ListAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
 from django.db.models import Sum
+from django.core.exceptions import ValidationError
 
 
 class CustomerRegisterView(APIView):
@@ -289,32 +290,21 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if all(key in request.data for key in ['room_ids', 'property_id', 'amount', 'check_in_date', 'check_out_date']):
-            room_ids = request.data.get('room_ids')
+        if all(key in request.data for key in ['room_id', 'num_of_rooms', 'property_id', 'amount', 'check_in_date', 'check_out_date']):
+            room_id = request.data.get('room_id')
+            num_of_rooms = request.data.get('num_of_rooms')
             property_id = request.data.get('property_id')
             amount = request.data.get('amount')
             check_in_date = request.data.get('check_in_date')
             check_out_date = request.data.get('check_out_date')
             currency = 'INR'
             user_id = request.user.id
-            rooms = RoomInventory.objects.filter(id__in=room_ids)
-            overlapping_rooms, _ = is_booking_overlapping(rooms, check_in_date, check_out_date, message=True)
-
-            if overlapping_rooms:
-                overlapping_room_names = ', '.join(str(room_id) for room_id in overlapping_rooms)
-                return error_response(f"The following rooms are already booked: {overlapping_room_names}", status.HTTP_400_BAD_REQUEST)
-
-            if 'room_ids' in request.data:
-                room_ids = request.data.get('room_ids')
-                rooms_already_in_session = []
-
-                for room_id in room_ids:
-                    session_key = 'room_id_' + str(room_id)
-                    if session_key in request.session:
-                        rooms_already_in_session.append(room_id)
-
-                if rooms_already_in_session:
-                    return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            
+            room = RoomInventory.objects.get(id=room_id)
+            
+            session_key = 'room_id_' + str(room_id)
+            if session_key in request.session:
+                return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             try:
                 property_object = Property.objects.get(id=property_id)
@@ -323,32 +313,38 @@ class PayNowView(APIView):
             except (Property.DoesNotExist, Customer.DoesNotExist):
                 return error_response(PAYMEMT_MISSING_PROPERTY_OR_CUSTOMER, status.HTTP_404_NOT_FOUND)
 
-            if len(rooms) != len(room_ids):
-                return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
-            with transaction.atomic():
-                try:
+            try:
+                with transaction.atomic():
                     razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
                     order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
 
-                    booking = BookingHistory.objects.create(
+                    booking = BookingHistory(
                         property=property_object,
                         customer=customer,
                         property_deal=None,
-                        num_of_rooms=len(room_ids),
+                        num_of_rooms=num_of_rooms,
                         order_id=order['id'],
                         amount=amount,
                         currency=currency,
                         book_status=True,
                         check_in_date=check_in_date,
                         check_out_date=check_out_date,
-                        created_at=timezone.now()
+                        created_at=timezone.now(),
+                        rooms=room  # Associate the room with the booking
                     )
-                    booking.rooms.add(*rooms)
-                    for room_id in room_ids:
-                        session_key = 'room_id_' + str(room_id)
-                        request.session[session_key] = room_id
-                        request.session.set_expiry(60)
+                    booking.save()  # Save the booking first to get an ID
+                    
+                    # Now create and save the GuestDetail
+                    guest_detail = GuestDetail.objects.create(
+                        booking_id=booking,
+                        no_of_adults=request.data.get('no_of_adults'),
+                        no_of_children=request.data.get('no_of_children'),
+                        age_of_children=request.data.get('age_of_children')
+                    )
+
+                    request.session[session_key] = room_id
+                    request.session.set_expiry(60)
+                    
                     response_data = {
                         'result': True,
                         'data': {
@@ -358,8 +354,8 @@ class PayNowView(APIView):
                     }
                     return Response(response_data, status=status.HTTP_200_OK)
 
-                except Exception as e:
-                    return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
+            except Exception as e:
+                return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         else:
-            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST) 

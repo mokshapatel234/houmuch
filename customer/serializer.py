@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory
+from hotel.models import Property, RoomInventory, BookingHistory
 from hotel.serializer import RoomInventoryOutSerializer
 
 
@@ -56,3 +56,12 @@ class OrderSummarySerializer(RoomInventoryOutSerializer):
     class Meta:
         model = RoomInventory
         fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'is_verified', 'status', 'updated_period']
+
+
+class BookingHistorySerializer(serializers.ModelSerializer):
+    room_id = serializers.IntegerField() 
+    property_id = serializers.IntegerField() 
+    amount = serializers.FloatField()
+    class Meta:
+        model = BookingHistory
+        fields = ['property_id', 'num_of_rooms', 'room_id', 'amount', 'check_in_date', 'check_out_date']
