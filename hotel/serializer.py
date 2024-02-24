@@ -182,7 +182,6 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     updated_period = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
 
-
     def get_updated_period(self, obj):
         duration_mapping = {
             'today': timezone.timedelta(days=1),
@@ -206,7 +205,7 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = RoomInventory
         fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
-                  'floor', 'room_view', 'area_sqft',  'num_of_rooms', 'adult_capacity', 'children_capacity', 'default_price',
+                  'floor', 'room_view', 'area_sqft', 'num_of_rooms', 'adult_capacity', 'children_capacity', 'default_price',
                   'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'updated_period')
 
 

@@ -12,7 +12,7 @@ from hotel.serializer import RoomInventoryOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_ERROR_MESSAGE, ROOM_IDS_MISSING_MESSAGE, \
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, ROOM_IDS_MISSING_MESSAGE, \
     PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
@@ -211,7 +211,7 @@ class PropertyRetriveView(RetrieveAPIView):
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PopertyListOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -266,7 +266,7 @@ class OrderSummaryView(ListAPIView):
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
         queryset = RoomInventory.objects.filter(id__in=room_ids_list).order_by('default_price')
         queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, num_of_rooms, room_list=True)
-        
+
         excluded_room_ids = []
         for key in self.request.session.keys():
             if key.startswith('room_id_'):
@@ -278,7 +278,7 @@ class OrderSummaryView(ListAPIView):
 
         if excluded_room_ids:
             queryset = queryset.exclude(id__in=excluded_room_ids)
-        
+
         total_price = queryset.aggregate(total=Sum('default_price'))['total'] or 0
         serializer = self.serializer_class(queryset, many=True)
         response_data = {
@@ -287,10 +287,9 @@ class OrderSummaryView(ListAPIView):
                 'rooms': serializer.data,
                 'total_price': total_price,
             },
-            'message': "Data retrieval successful."  # Assuming DATA_RETRIEVAL_MESSAGE is defined elsewhere
+            'message': "Data retrieval successful."
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
-
 
 
 class PayNowView(APIView):
@@ -310,8 +309,8 @@ class PayNowView(APIView):
             #     return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             session_key = 'room_id_' + str(room_id)
             request.session[session_key] = {
-                    'room_id': room_id,
-                    'num_of_rooms': num_of_rooms
+                'room_id': room_id,
+                'num_of_rooms': num_of_rooms
             }
             request.session.set_expiry(60)
             print(self.request.session.items())
