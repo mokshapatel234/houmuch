@@ -34,7 +34,15 @@ class RoomInventorySerializer(RoomInventoryOutSerializer):
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'deal_price', 'available_rooms', 'adult_capacity', 'children_capacity', 'room_type', 'is_verified', 'status', 'updated_period']
+        fields = ['id', 'default_price', 'deal_price', 'available_rooms', 'adult_capacity',
+                  'children_capacity', 'room_type', 'is_verified', 'status', 'updated_period']
+
+
+class RoomInventoryListSerializer(RoomInventoryOutSerializer):
+    available_rooms = serializers.IntegerField()
+
+    class Meta(RoomInventoryOutSerializer.Meta):
+        fields = RoomInventoryOutSerializer.Meta.fields + ('available_rooms',)
 
 
 class PopertyListOutSerializer(PropertyOutSerializer):
