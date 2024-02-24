@@ -17,7 +17,7 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-    # #objects = ParanoidModelManager()
+    # objects = ParanoidModelManager()
 
     def is_authenticated(self):
         return True

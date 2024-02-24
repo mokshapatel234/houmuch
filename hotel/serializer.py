@@ -205,8 +205,8 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = RoomInventory
         fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
-                  'floor', 'room_view', 'area_sqft', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'status', 'images', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
+                  'floor', 'room_view', 'area_sqft', 'adult_capacity', 'num_of_rooms', 'children_capacity', 'default_price',
+                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'updated_period', 'created_at', 'updated_at', 'deleted_at')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):

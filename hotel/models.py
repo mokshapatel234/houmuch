@@ -268,9 +268,11 @@ class RoomInventory(models.Model):
     bathroom_type = models.ForeignKey(BathroomType, on_delete=models.CASCADE, related_name='property_bathroom_type')
     room_features = models.ManyToManyField(RoomFeature, related_name='property_room_features')
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='property_common_amenities')
+    num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
     adult_capacity = models.IntegerField(("Adult Capacity"))
     children_capacity = models.IntegerField(("Children Capacity"))
     default_price = models.IntegerField(('Default Price'))
+    deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
     is_verified = models.BooleanField(default=False)
@@ -299,6 +301,7 @@ class UpdateInventoryPeriod(models.Model):
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
     common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
     default_price = models.IntegerField(('Default Price'))
+    deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -411,3 +414,23 @@ class PropertyDeal(models.Model):
 
     def __str__(self):
         return self.session
+
+
+class BookingHistory(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_book')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_book')
+    property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal', null=True)
+    num_of_rooms = models.IntegerField(verbose_name='number_of_book_rooms')
+    rooms = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_book', null=True)
+    order_id = models.CharField(max_length=20)
+    check_in_date = models.DateTimeField()
+    check_out_date = models.DateTimeField()
+    amount = models.FloatField()
+    currency = models.CharField(max_length=3)
+    book_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return self.property
