@@ -24,7 +24,7 @@ def min_default_price(property_obj):
         return float('inf')
 
 
-def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, message=False, room_list=False):
+def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
@@ -36,12 +36,7 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         total_booked=Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), 0),
         available_rooms=F('num_of_rooms') - Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), 0)
     ).filter(available_rooms__gte=num_of_rooms).order_by('default_price', '-available_rooms')
-    if message:
-        unavailable_room_inventories = room_inventory_query.filter(available_rooms__lt=num_of_rooms)
-        unavailable_room_ids = set(unavailable_room_inventories.values_list('id', flat=True))
-        available_room_inventories = room_inventory_query.exclude(id__in=unavailable_room_ids)
-        return unavailable_room_ids, available_room_inventories.first() if available_room_inventories.exists() else None
-    elif room_list:
+    if room_list:
         return room_inventory_query
     return room_inventory_query.first()
 

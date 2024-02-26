@@ -44,6 +44,13 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
     class Meta(RoomInventoryOutSerializer.Meta):
         fields = RoomInventoryOutSerializer.Meta.fields + ('available_rooms',)
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        updated_availability = self.context.get('adjusted_availability', {})
+        if instance.id in updated_availability:
+            ret['available_rooms'] = updated_availability[instance.id]
+        return ret
+
 
 class PopertyListOutSerializer(PropertyOutSerializer):
     room_inventory = serializers.DictField()
@@ -58,10 +65,18 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
 class OrderSummarySerializer(RoomInventoryOutSerializer):
     property_name = serializers.SerializerMethodField()
+    available_rooms = serializers.IntegerField()
 
     def get_property_name(self, obj):
         return obj.property.owner.hotel_name
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'is_verified', 'status', 'updated_period']
+        fields = ['id', 'default_price', 'property_name', 'available_rooms', 'children_capacity', 'room_type', 'is_verified', 'status', 'updated_period']
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        updated_availability = self.context.get('updated_availability', {})
+        if instance.id in updated_availability:
+            ret['available_rooms'] = updated_availability[instance.id]
+        return ret

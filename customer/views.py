@@ -225,17 +225,22 @@ class RoomInventoryListView(ListAPIView):
     queryset = RoomInventory.objects.none()
 
     def get_queryset(self):
+        self.adjusted_availability = {}
         property_id = self.kwargs.get('property_id')
         num_of_adults = self.request.query_params.get('num_of_adults')
         num_of_children = self.request.query_params.get('num_of_children')
         queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True,
                                                 adult_capacity__gte=int(num_of_adults if num_of_adults else 0), children_capacity__gte=int(num_of_children if num_of_children else 0)).order_by('default_price')
-        room_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
-        if room_ids:
-            queryset = queryset.exclude(id__in=room_ids)
-        if not queryset.exists():
-            return self.queryset
-        return queryset
+        return queryset if queryset.exists() else self.queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        adjusted_availability = getattr(request, 'adjusted_availability', {})
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True, context={'request': request, 'adjusted_availability': adjusted_availability})
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
 
 
 class RoomRetriveView(RetrieveAPIView):
@@ -268,19 +273,21 @@ class OrderSummaryView(ListAPIView):
         queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, num_of_rooms, room_list=True)
 
         excluded_room_ids = []
-        for key in self.request.session.keys():
+        adjusted_availability = {room_inventory.id: room_inventory.available_rooms for room_inventory in queryset}
+        for key, value in self.request.session.items():
             if key.startswith('room_id_'):
-                session_data = self.request.session[key]
-                session_room_id = session_data.get('room_id')
-                session_num_of_rooms = session_data.get('num_of_rooms', 0)
-                if session_room_id in room_ids_list and session_num_of_rooms > int(num_of_rooms):
+                session_room_id = int(key.split('_')[-1])
+                session_num_of_rooms = value.get('num_of_rooms', 0)
+                session_num_of_rooms = adjusted_availability[session_room_id] - session_num_of_rooms
+                adjusted_availability[session_room_id] = session_num_of_rooms
+                if session_room_id in room_ids_list and session_num_of_rooms < int(num_of_rooms):
                     excluded_room_ids.append(session_room_id)
 
         if excluded_room_ids:
             queryset = queryset.exclude(id__in=excluded_room_ids)
-
         total_price = queryset.aggregate(total=Sum('default_price'))['total'] or 0
-        serializer = self.serializer_class(queryset, many=True)
+        context = {'request': request, 'updated_availability': adjusted_availability}
+        serializer = self.serializer_class(queryset, many=True, context=context)
         response_data = {
             'result': True,
             'data': {

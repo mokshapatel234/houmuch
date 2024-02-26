@@ -26,7 +26,22 @@ class RoomInventoryFilter(filters.FilterSet):
 
     def bookings_check(self, queryset, name, value):
         if self.data.get('check_in_date') and self.data.get('check_out_date') and self.data.get('num_of_rooms'):
-            return is_booking_overlapping(queryset, self.data.get('check_in_date'),
-                                          self.data.get('check_out_date'),
-                                          self.data.get('num_of_rooms'),
-                                          room_list=True)
+            queryset = is_booking_overlapping(queryset, self.data.get('check_in_date'),
+                                              self.data.get('check_out_date'),
+                                              self.data.get('num_of_rooms'),
+                                              room_list=True)
+            excluded_room_ids = []
+            adjusted_availability = {room_inventory.id: room_inventory.available_rooms for room_inventory in queryset}
+            for key, value in self.request.session.items():
+                if key.startswith('room_id_'):
+                    session_room_id = int(key.split('_')[-1])
+                    session_num_of_rooms = value.get('num_of_rooms', 0)
+                    if session_room_id in adjusted_availability:
+                        new_availability = adjusted_availability[session_room_id] - session_num_of_rooms
+                        adjusted_availability[session_room_id] = new_availability
+                        if new_availability < int(self.data.get('num_of_rooms')):
+                            excluded_room_ids.append(session_room_id)
+            if excluded_room_ids:
+                queryset = queryset.exclude(id__in=excluded_room_ids)
+            self.request.adjusted_availability = adjusted_availability
+            return queryset
