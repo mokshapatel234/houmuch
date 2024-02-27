@@ -44,6 +44,13 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
     class Meta(RoomInventoryOutSerializer.Meta):
         fields = RoomInventoryOutSerializer.Meta.fields + ('available_rooms',)
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        updated_availability = self.context.get('adjusted_availability', {})
+        if instance.id in updated_availability:
+            ret['available_rooms'] = updated_availability[instance.id]
+        return ret
+
 
 class PopertyListOutSerializer(PropertyOutSerializer):
     room_inventory = serializers.DictField()
