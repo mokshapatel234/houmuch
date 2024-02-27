@@ -427,6 +427,9 @@ class BookingHistory(models.Model):
     check_out_date = models.DateTimeField()
     amount = models.FloatField()
     currency = models.CharField(max_length=3)
+    is_cancel = models.BooleanField(default=False)
+    cancel_date = models.DateTimeField(null=True)
+    cancel_reason = models.TextField(null=True)
     book_status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -434,3 +437,16 @@ class BookingHistory(models.Model):
 
     def __str__(self):
         return self.property
+
+
+class GuestDetail(models.Model):
+    booking_id = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
+    no_of_adults = models.IntegerField()
+    no_of_children = models.IntegerField()
+    age_of_children = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return self.no_of_adults
