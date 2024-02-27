@@ -25,6 +25,7 @@ def min_default_price(property_obj):
 
 
 def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
+    print(room_inventory_query)
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
