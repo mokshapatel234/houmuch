@@ -25,7 +25,6 @@ def min_default_price(property_obj):
 
 
 def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
-    print(room_inventory_query)
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
@@ -47,6 +46,7 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
     room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True,
                                                         adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children
                                                         ).order_by('default_price')
+
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
     if min_price is not None:
@@ -78,3 +78,16 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
         if property_list is not None and include_property:
             property_list.append(property)
     return property_list if property_list is not None else property
+
+
+def calculate_available_rooms(room, check_in_date, check_out_date, session):
+    total_booked = BookingHistory.objects.filter(
+        rooms=room,
+        check_out_date__gte=check_in_date,
+        check_in_date__lte=check_out_date,
+        book_status=True
+    ).aggregate(total=Sum('num_of_rooms'))['total'] or 0
+    available_rooms = room.num_of_rooms - total_booked
+    session_key = f'room_id_{room.id}'
+    session_rooms_booked = session.get(session_key, {}).get('num_of_rooms', 0)
+    return total_booked, available_rooms, session_rooms_booked

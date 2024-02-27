@@ -3,17 +3,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer
-from .utils import generate_token, get_room_inventory, min_default_price
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
+from .utils import generate_token, get_room_inventory, min_default_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
-from hotel.models import Property, RoomInventory, BookingHistory
+from hotel.models import Property, RoomInventory
 from hotel.paginator import CustomPagination
 from hotel.serializer import RoomInventoryOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, ROOM_IDS_MISSING_MESSAGE, \
-    PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, \
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, \
+    DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, \
     ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE
 from .authentication import JWTAuthentication
@@ -21,10 +21,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 from django.conf import settings
+import razorpay
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
-from django.db.models import Sum
 
 
 class CustomerRegisterView(APIView):
@@ -271,15 +271,7 @@ class OrderSummaryView(ListAPIView):
         check_out_date = self.request.query_params.get('check_out_date')
         num_of_rooms = self.request.query_params.get('num_of_rooms')
         room = RoomInventory.objects.get(id=room_id)
-        total_booked = BookingHistory.objects.filter(
-            rooms=room,
-            check_out_date__gte=check_in_date,
-            check_in_date__lte=check_out_date,
-            book_status=True
-        ).aggregate(total=Sum('num_of_rooms'))['total'] or 0
-        available_rooms = room.num_of_rooms - total_booked
-        session_key = f'room_id_{room_id}'
-        session_rooms_booked = request.session.get(session_key, {}).get('num_of_rooms', 0)
+        total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
         adjusted_availability = available_rooms - session_rooms_booked
         total_price = room.default_price * min(adjusted_availability, int(num_of_rooms))
         booked_info = BOOKED_INFO_MESSAGE.format(total_booked=total_booked)
@@ -303,23 +295,44 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        if 'room_id' in request.data:
+        try:
             room_id = request.data.get('room_id')
+            room = RoomInventory.objects.get(id=room_id)
+            property_id = request.data.get('property_id')
+            property_instance = Property.objects.get(id=property_id)
+            amount = request.data.get('amount')
+            customer_id = request.user.id
+            customer_instance = Customer.objects.get(id=customer_id)
+            currency = 'INR'
+            check_in_date = request.data.get('check_in_date')
+            check_out_date = request.data.get('check_out_date')
             num_of_rooms = request.data.get('num_of_rooms')
-            # rooms_already_in_session = []
-            # for room_id in room_ids:
-            #     session_key = 'room_id_' + str(room_id)
-            #     if session_key in request.session:
-            #         rooms_already_in_session.append(room_id)
-            # if rooms_already_in_session:
-            #     return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            session_key = 'room_id_' + str(room_id)
-            request.session[session_key] = {
-                'room_id': room_id,
-                'num_of_rooms': num_of_rooms
-            }
-            request.session.set_expiry(60)
-            print(self.request.session.items())
-            return Response({'result': True, 'message': PAYMENT_SUCCESS_MESSAGE}, status=status.HTTP_200_OK)
-        else:
-            return error_response(ROOM_IDS_MISSING_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
+            adjusted_availability = available_rooms - session_rooms_booked
+            if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
+                return error_response("rooms are not available as per you requirements.", status.HTTP_400_BAD_REQUEST)
+            razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
+            order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
+            request.data['customer_id'] = customer_instance.id
+            serializer = CombinedSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(property=property_instance, order_id=order['id'], customer=customer_instance, book_status=True, rooms=room, currency=currency)
+                session_key = 'room_id_' + str(room_id)
+                request.session[session_key] = {
+                    'room_id': room_id,
+                    'num_of_rooms': request.data.get('num_of_rooms')
+                }
+                request.session.set_expiry(60)
+                response_data = {
+                    'result': True,
+                    'data': {
+                        'order_id': order['id'],
+                    },
+                    'message': PAYMENT_SUCCESS_MESSAGE
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            else:
+                return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
