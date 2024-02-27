@@ -431,6 +431,7 @@ class BookingHistory(models.Model):
     cancel_date = models.DateTimeField(null=True)
     cancel_reason = models.TextField(null=True)
     book_status = models.BooleanField(default=False)
+    is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None)
