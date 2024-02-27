@@ -3,8 +3,8 @@ from .models import Customer
 from hotel.serializer import PropertyOutSerializer
 from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail
 from hotel.serializer import RoomInventoryOutSerializer
-import razorpay
-from django.conf import settings
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
@@ -44,6 +44,13 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
     class Meta(RoomInventoryOutSerializer.Meta):
         fields = RoomInventoryOutSerializer.Meta.fields + ('available_rooms',)
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        updated_availability = self.context.get('adjusted_availability', {})
+        if instance.id in updated_availability:
+            ret['available_rooms'] = updated_availability[instance.id]
+        return ret
+
 
 class PopertyListOutSerializer(PropertyOutSerializer):
     room_inventory = serializers.DictField()
@@ -70,7 +77,7 @@ class OrderSummarySerializer(RoomInventoryOutSerializer):
 class BookingHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingHistory
-        exclude = ['property','order_id','customer','book_status','rooms','currency','is_cancel', 'cancel_date', 'cancel_reason', 'property_deal']
+        exclude = ['property', 'order_id', 'customer', 'book_status', 'rooms', 'currency', 'is_cancel', 'cancel_date', 'cancel_reason', 'property_deal']
 
 
 class GuestDetailSerializer(serializers.ModelSerializer):
