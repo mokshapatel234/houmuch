@@ -25,5 +25,8 @@ class RoomInventoryFilter(filters.FilterSet):
         return queryset
 
     def bookings_check(self, queryset, name, value):
-        if self.data.get('check_in_date') and self.data.get('check_out_date'):
-            return is_booking_overlapping(queryset, self.data.get('check_in_date'), self.data.get('check_out_date'))
+        if self.data.get('check_in_date') and self.data.get('check_out_date') and self.data.get('num_of_rooms'):
+            return is_booking_overlapping(queryset, self.data.get('check_in_date'),
+                                          self.data.get('check_out_date'),
+                                          self.data.get('num_of_rooms'),
+                                          room_list=True)

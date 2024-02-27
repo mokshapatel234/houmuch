@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
 from .utils import generate_token, get_room_inventory, min_default_price, is_booking_overlapping
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.models import Property, RoomInventory, GuestDetail
@@ -210,23 +210,22 @@ class PropertyRetriveView(RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            room_ids = self.request.query_params.get('room_ids')
+            room_id = self.request.query_params.get('room_id')
             instance = self.get_object()
-            if room_ids:
-                room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
-                room_instances = RoomInventory.objects.filter(id__in=room_ids_list, property=instance)
-                instance.room_inventory = RoomInventoryOutSerializer(room_instances, many=True).data
+            if room_id:
+                room_instances = RoomInventory.objects.get(id=int(room_id), property=instance)
+                instance.room_inventory = RoomInventoryOutSerializer(room_instances).data
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PopertyListOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-class RoomInventoryView(ListAPIView):
+class RoomInventoryListView(ListAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    serializer_class = RoomInventoryOutSerializer
+    serializer_class = RoomInventoryListSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = RoomInventoryFilter
@@ -234,7 +233,10 @@ class RoomInventoryView(ListAPIView):
 
     def get_queryset(self):
         property_id = self.kwargs.get('property_id')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
+        num_of_adults = self.request.query_params.get('num_of_adults')
+        num_of_children = self.request.query_params.get('num_of_children')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True,
+                                                adult_capacity__gte=int(num_of_adults if num_of_adults else 0), children_capacity__gte=int(num_of_children if num_of_children else 0)).order_by('default_price')
         room_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
         if room_ids:
             queryset = queryset.exclude(id__in=room_ids)
@@ -267,14 +269,23 @@ class OrderSummaryView(ListAPIView):
         room_ids = self.request.query_params.get('room_ids')
         check_in_date = self.request.query_params.get('check_in_date')
         check_out_date = self.request.query_params.get('check_out_date')
+        num_of_rooms = self.request.query_params.get('num_of_rooms')
         room_ids_list = [int(id) for id in room_ids.split(',') if id.isdigit()]
         queryset = RoomInventory.objects.filter(id__in=room_ids_list).order_by('default_price')
-        booked_ids, queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, message=True)
-        booked_ids = list(booked_ids)
-        room_session_ids = [int(key.split('_')[-1]) for key in self.request.session.keys() if key.startswith('room_id_')]
-        locked_ids = [id for id in room_session_ids if id not in booked_ids and id in room_ids_list]
-        if room_session_ids:
-            queryset = queryset.exclude(id__in=room_session_ids)
+        queryset = is_booking_overlapping(queryset, check_in_date, check_out_date, num_of_rooms, room_list=True)
+        
+        excluded_room_ids = []
+        for key in self.request.session.keys():
+            if key.startswith('room_id_'):
+                session_data = self.request.session[key]
+                session_room_id = session_data.get('room_id')
+                session_num_of_rooms = session_data.get('num_of_rooms', 0)
+                if session_room_id in room_ids_list and session_num_of_rooms > int(num_of_rooms):
+                    excluded_room_ids.append(session_room_id)
+
+        if excluded_room_ids:
+            queryset = queryset.exclude(id__in=excluded_room_ids)
+        
         total_price = queryset.aggregate(total=Sum('default_price'))['total'] or 0
         serializer = self.serializer_class(queryset, many=True)
         response_data = {
@@ -282,12 +293,11 @@ class OrderSummaryView(ListAPIView):
             'data': {
                 'rooms': serializer.data,
                 'total_price': total_price,
-                'booked_ids': booked_ids,
-                'locked_ids': locked_ids
             },
-            'message': DATA_RETRIEVAL_MESSAGE
+            'message': "Data retrieval successful."  # Assuming DATA_RETRIEVAL_MESSAGE is defined elsewhere
         }
         return Response(response_data, status=status.HTTP_201_CREATED)
+
 
 
 class PayNowView(APIView):
@@ -295,79 +305,45 @@ class PayNowView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request):
-        required_keys = ['room_id', 'num_of_rooms', 'property_id', 'amount', 'check_in_date', 'check_out_date']
-        if all(key in request.data for key in required_keys):
+        try:
             room_id = request.data.get('room_id')
-            num_of_rooms = request.data.get('num_of_rooms')
+            room = RoomInventory.objects.filter(id=room_id)
             property_id = request.data.get('property_id')
+            property_instance = Property.objects.get(id=property_id)
             amount = request.data.get('amount')
+            customer_id = request.user.id
+            customer_instance = Customer.objects.get(id=customer_id)
+            currency = 'INR'
             check_in_date = request.data.get('check_in_date')
             check_out_date = request.data.get('check_out_date')
-            currency = 'INR'
-            user_id = request.user.id
-            
-            room = RoomInventory.objects.get(id=room_id)
-            
-            session_key = 'room_id_' + str(room_id)
-            print("session_key_room:", session_key)
-            if session_key in request.session:
-                print("Session key found in request session")
-                return error_response(PAYMENT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            num_of_rooms = request.data.get('num_of_rooms')
 
-            try:
-                property_object = Property.objects.get(id=property_id)
-                customer = Customer.objects.get(id=user_id)
+    
+            razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
+            order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
+            request.data['customer_id'] = customer_instance.id
+            # Create combined serializer instance
+            serializer = CombinedSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(property=property_instance, order_id=order['id'],customer=customer_instance, book_status=True,rooms=room, currency=currency)
+                
+                session_key = 'room_id_' + str(room_id)
+                request.session[session_key] = {
+                    'room_id': room_id,
+                    'num_of_rooms': request.data.get('num_of_rooms')
+                }
+                request.session.set_expiry(60)
 
-            except (Property.DoesNotExist, Customer.DoesNotExist):
-                return error_response(PAYMEMT_MISSING_PROPERTY_OR_CUSTOMER, status.HTTP_404_NOT_FOUND)
+                response_data = {
+                    'result': True,
+                    'data': {
+                        'order_id': order['id'],
+                    },
+                    'message': PAYMENT_SUCCESS_MESSAGE
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            else:
+                return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
-            try:
-                with transaction.atomic():
-                    razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
-                    order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
-
-                    booking = BookingHistory(
-                        property=property_object,
-                        customer=customer,
-                        property_deal=None,
-                        num_of_rooms=num_of_rooms,
-                        order_id=order['id'],
-                        amount=amount,
-                        currency=currency,
-                        book_status=True,
-                        check_in_date=check_in_date,
-                        check_out_date=check_out_date,
-                        created_at=timezone.now(),
-                        rooms=room  # Associate the room with the booking
-                    )
-                    booking.save()  # Save the booking first to get an ID
-                    
-                    # Now create and save the GuestDetail
-                    guest_detail = GuestDetail.objects.create(
-                        booking_id=booking,
-                        no_of_adults=request.data.get('no_of_adults'),
-                        no_of_children=request.data.get('no_of_children'),
-                        age_of_children=request.data.get('age_of_children')
-                    )
-
-                    request.session[session_key] = {
-                        'room_id': room_id,
-                        'num_of_rooms_ava': num_of_rooms
-                    }
-                    request.session.set_expiry(60)
-                    print("num_of_rooms added to session")
-
-                    response_data = {
-                        'result': True,
-                        'data': {
-                            'order_id': order['id'],
-                        },
-                        'message': PAYMENT_SUCCESS_MESSAGE
-                    }
-                    return Response(response_data, status=status.HTTP_200_OK)
-
-            except Exception as e:
-                return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        else:
-            return error_response(PAYMENT_MISSING_INFO_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
