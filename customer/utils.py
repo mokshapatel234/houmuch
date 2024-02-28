@@ -29,7 +29,8 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
         check_in_date__lte=end_date,
-        book_status=True
+        book_status=True,
+        is_cancel=False
     ).annotate(total=Sum('num_of_rooms')).values('total')
 
     room_inventory_query = room_inventory_query.annotate(
@@ -85,7 +86,8 @@ def calculate_available_rooms(room, check_in_date, check_out_date, session):
         rooms=room,
         check_out_date__gte=check_in_date,
         check_in_date__lte=check_out_date,
-        book_status=True
+        book_status=True,
+        is_cancel=False
     ).aggregate(total=Sum('num_of_rooms'))['total'] or 0
     available_rooms = room.num_of_rooms - total_booked
     session_key = f'room_id_{room.id}'
