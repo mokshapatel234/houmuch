@@ -4,7 +4,7 @@ from django.utils.timezone import now
 from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
 from customer.models import Customer
-
+from django.core.validators import RegexValidator
 # class ParanoidModelManager(models.Manager):
 #     def get_queryset(self):
 #         return super(ParanoidModelManager, self).get_queryset().filter(deleted_at__isnull=True)
@@ -451,3 +451,29 @@ class GuestDetail(models.Model):
 
     def __str__(self):
         return self.no_of_adults
+
+
+class OwnerBankingDetail(models.Model):
+
+    hotel_owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='banking_details')
+    email = models.EmailField(unique=True)
+    phone = models.CharField(validators=[RegexValidator(regex=r"^\+?1?\d{10}$")], max_length=10, unique=True)
+    contact_name = models.CharField(max_length=16)
+    type = models.CharField(max_length=16)
+    account_id = models.CharField(max_length=20)
+    legal_business_name= models.CharField(max_length=16)
+    business_type = models.CharField(max_length=50)
+    CHOICES = (('inactive','inactive'),('active','active'))
+    status = models.CharField(("status"),choices=CHOICES, max_length=50,default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True,null=True ,default=None)
+
+
+class Product(models.Model):
+    product_id = models.CharField(max_length=20)
+    owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_id')
+    settlements_account_number = models.CharField(max_length=20)
+    settlements_ifsc_code = models.CharField(max_length=20)
+    settlements_beneficiary_name = models.CharField(max_length=20)
+    tnc_accepted = models.BooleanField(default=True)

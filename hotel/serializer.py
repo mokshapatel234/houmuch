@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, Category, PropertyImage
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, Category, PropertyImage, OwnerBankingDetail
 from django.utils import timezone
 
 
@@ -213,3 +213,16 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = OTP
         fields = ('otp',)
+
+
+class HotelOwnerBankingSerializer(serializers.ModelSerializer):
+    email = serializers.CharField()
+    phone = serializers.CharField()
+    contact_name = serializers.CharField()
+    legal_business_name = serializers.CharField()
+    business_type = serializers.CharField(required=False)  # Set as optional field
+    type = serializers.CharField(required=False)  # Set as optional field
+
+    class Meta:
+        model = OwnerBankingDetail
+        fields = ['email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
