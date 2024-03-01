@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, RoomImage, Category, PropertyImage
+    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation, Product
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer, PropertyImageSerializer, HotelOwnerBankingSerializer
+    CategorySerializer, PropertyImageSerializer, HotelOwnerBankingSerializer, PatchRequestSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -264,6 +264,7 @@ class PropertyViewSet(ModelViewSet):
             location_data = request.data.pop('location', None)
             room_types_data = request.data.get('room_types', None)
             images = request.data.pop('images', None)
+            cancellation_data_list = request.data.pop('cancellation_data', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             instance = serializer.save(owner=self.request.user)
@@ -273,8 +274,32 @@ class PropertyViewSet(ModelViewSet):
             if room_types_data:
                 instance.room_types.set(room_types_data)
             if images:
-                for image in images:
-                    PropertyImage.objects.create(property=instance, image=image)
+                PropertyImage.objects.bulk_create([
+                    PropertyImage(property=instance, image=image) for image in images
+                ])
+
+            if cancellation_data_list:
+                PropertyCancellation.objects.bulk_create([
+                    PropertyCancellation(
+                        property=instance,
+                        cancellation_days=cancellation_data['cancellation_days'],
+                        cancellation_percents=cancellation_data['cancellation_percents']
+                    ) for cancellation_data in cancellation_data_list
+                ])
+            admin_email = User.objects.filter(is_superuser=True).first().email
+            data = {
+                "subject": 'Property Verification',
+                "email": admin_email,
+                "template": "property_verify.html",
+                "context": {
+                    'property_name': instance.owner.hotel_name,
+                    'parent_hotel_group': instance.parent_hotel_group,
+                    'address': instance.owner.address,
+                    'property_id': instance.id,
+                    'backend_url': settings.BACKEND_URL
+                }
+            }
+            send_mail(data)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -295,6 +320,8 @@ class PropertyViewSet(ModelViewSet):
             room_types_data = request.data.get('room_types', None)
             removed_images = request.data.pop('removed_images', None)
             images = request.data.pop('images', None)
+            cancellation_data_list = request.data.pop('cancellation_data', None)
+            removed_cancellation_poilcies = request.data.pop('removed_cancellation_poilcies', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -311,6 +338,18 @@ class PropertyViewSet(ModelViewSet):
                     for image_url in set(images) - set(stored_images.values_list('image', flat=True))
                 ]
                 PropertyImage.objects.bulk_create(new_images)
+            if cancellation_data_list:
+                for cancellation_data in cancellation_data_list:
+                    PropertyCancellation.objects.update_or_create(
+                        property=instance,
+                        cancellation_days=cancellation_data['cancellation_days'],
+                        defaults={'cancellation_percents': cancellation_data['cancellation_percents']}
+                    )
+            if removed_cancellation_poilcies:
+                for removed_cancellation_poilcy in removed_cancellation_poilcies:
+                    PropertyCancellation.objects.filter(property=instance,
+                                                        cancellation_days=removed_cancellation_poilcy['cancellation_days'],
+                                                        cancellation_percents=removed_cancellation_poilcy['cancellation_percents']).delete()
             if removed_images:
                 for removed_image_url in removed_images:
                     delete_image_from_s3(removed_image_url)
@@ -379,7 +418,8 @@ class RoomInventoryViewSet(ModelViewSet):
                     'property_name': property_instance.owner.hotel_name,
                     'floor': instance.floor,
                     'address': property_instance.owner.address,
-                    'room_id': instance.id
+                    'room_id': instance.id,
+                    'backend_url': settings.BACKEND_URL
                 }
             }
             send_mail(data)
@@ -493,8 +533,8 @@ class AccountCreateApi(APIView):
 
             if response.status_code == 200:
                 account_data = response.json()
-                serializer.save(
-                    client=request.user,
+                instance = serializer.save(
+                    hotel_owner=request.user,
                     status='active',
                     account_id=account_data.get('id', ''),
                     type='route',
@@ -510,9 +550,12 @@ class AccountCreateApi(APIView):
 
                 response = requests.post(url, json=product_data, headers=headers)
 
-                if response.status_code == 200:
+                if response.status_code == 200 and instance is not None:
                     product_data = response.json()
                     product_id = product_data.get("id")
+                    product = Product(product_id=product_id)
+                    product.owner_banking = instance
+                    product.save()
 
                     # Update bank details with patch method
                     endpoint = f"/accounts/{account_data.get('id', '')}/products/{product_id}/"
@@ -524,16 +567,15 @@ class AccountCreateApi(APIView):
                         'tnc_accepted': tnc_accepted
                     }
 
-                    # serializer = PatchRequestSerializer(data=patch_data)
-                    # serializer.is_valid(raise_exception=True)
+                    serializer = PatchRequestSerializer(data=patch_data)
+                    serializer.is_valid(raise_exception=True)
 
-                    # data = serializer.validated_data
-
-                    # product.settlements_account_number = data['settlements']['account_number']
-                    # product.settlements_ifsc_code = data['settlements']['ifsc_code']
-                    # product.settlements_beneficiary_name = data['settlements']['beneficiary_name']
-                    # product.tnc_accepted = data['tnc_accepted']
-                    # product.save()
+                    data = serializer.validated_data
+                    product.settlements_account_number = data['settlements']['account_number']
+                    product.settlements_ifsc_code = data['settlements']['ifsc_code']
+                    product.settlements_beneficiary_name = data['settlements']['beneficiary_name']
+                    product.tnc_accepted = data['tnc_accepted']
+                    product.save()
 
                     response = requests.patch(url, json=patch_data, headers=headers)
 

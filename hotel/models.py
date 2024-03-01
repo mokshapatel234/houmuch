@@ -1,29 +1,15 @@
 from django.db import models
 from hotel_app_backend.validator import PhoneNumberRegex
-from django.utils.timezone import now
 from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
 from customer.models import Customer
 from django.core.validators import RegexValidator
-# class ParanoidModelManager(models.Manager):
-#     def get_queryset(self):
-#         return super(ParanoidModelManager, self).get_queryset().filter(deleted_at__isnull=True)
-
 
 class Category(models.Model):
     category = models.CharField(max_length=255, null=True, blank=True)
     bid_time_duration = models.IntegerField()
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(PropertyType, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.category
@@ -49,21 +35,12 @@ class Owner(models.Model):
     bidding_mode = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
 
     def is_authenticated(self):
         return True
 
     def is_anonymous(self):
         return False
-
-    # def delete(self, hard=False, **kwargs):
-    #     if hard:
-    #         super(Owner, self).delete()
-    #     else:
-    #         self.deleted_at = now()
-    #         self.save()
 
     def __str__(self):
         return self.hotel_name
@@ -92,15 +69,6 @@ class PropertyType(models.Model):
     property_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(PropertyType, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.property_type
@@ -110,15 +78,6 @@ class RoomType(models.Model):
     room_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(RoomType, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.room_type
@@ -128,15 +87,6 @@ class BedType(models.Model):
     bed_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(BedType, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.bed_type
@@ -146,15 +96,6 @@ class BathroomType(models.Model):
     bathroom_type = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(BathroomType, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.bathroom_type
@@ -164,15 +105,6 @@ class RoomFeature(models.Model):
     room_feature = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(RoomFeature, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.room_feature
@@ -182,15 +114,6 @@ class CommonAmenities(models.Model):
     common_ameninity = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(CommonAmenities, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.common_ameninity
@@ -203,15 +126,6 @@ class ExperienceSlot(models.Model):
     slot = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(ExperienceSlot, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.slot
@@ -231,30 +145,32 @@ class Property(models.Model):
     owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_property')
     property_type = models.ForeignKey(PropertyType, on_delete=models.CASCADE, related_name='owner_property_type')
     room_types = models.ManyToManyField(RoomType, related_name='owner_room_type')
-    cancellation_days = models.IntegerField('Cancellation Days', default=False)
-    cancellation_policy = models.TextField('Cancellation Policy')
+    commission_percent = models.FloatField('Commission', default=10.0)
     pet_friendly = models.BooleanField('Pet Friendly', default=False)
     breakfast_included = models.BooleanField('Breakfast Included', default=False)
     is_cancellation = models.BooleanField('Is Cancellation Allowed', default=False)
     status = models.BooleanField('Status', default=False)
     is_online = models.BooleanField('Is Online', default=False)
+    is_verified = models.BooleanField('Is Verified', default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(Property, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.hotel_website
 
     class Meta:
         verbose_name_plural = "Properties"
+
+
+class PropertyCancellation(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, blank=True, null=True)
+    cancellation_days = models.IntegerField('Cancellation Days')
+    cancellation_percents = models.IntegerField('Cancellation Percents')
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.property
 
 
 class RoomInventory(models.Model):
@@ -275,19 +191,10 @@ class RoomInventory(models.Model):
     deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
-    is_verified = models.BooleanField(default=False)
+    is_verified = models.BooleanField('Is Verified', default=False)
     status = models.BooleanField('Status', default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(RoomInventory, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.room_name
@@ -306,15 +213,6 @@ class UpdateInventoryPeriod(models.Model):
     max_price = models.IntegerField(('Max Price'))
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(UpdateInventoryPeriod, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.update_duration
@@ -325,15 +223,6 @@ class RoomImage(models.Model):
     image = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(RoomImage, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.image
@@ -344,15 +233,6 @@ class PropertyImage(models.Model):
     image = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(PropertyImage, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.image
@@ -363,15 +243,6 @@ class OTP(models.Model):
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(OTP, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.user
@@ -381,15 +252,6 @@ class BiddingSession(models.Model):
     is_open = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(BiddingSession, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.is_open
@@ -402,15 +264,6 @@ class PropertyDeal(models.Model):
     is_winning_bid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None, editable=False)
-#    objects = ParanoidModelManager()
-
-    def delete(self, hard=False, **kwargs):
-        if hard:
-            super(PropertyDeal, self).delete()
-        else:
-            self.deleted_at = now()
-            self.save()
 
     def __str__(self):
         return self.session
@@ -434,7 +287,6 @@ class BookingHistory(models.Model):
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
 
     def __str__(self):
         return self.property
@@ -447,7 +299,6 @@ class GuestDetail(models.Model):
     age_of_children = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
 
     def __str__(self):
         return self.no_of_adults
