@@ -471,9 +471,9 @@ class OwnerBankingDetail(models.Model):
 
 
 class Product(models.Model):
-    product_id = models.CharField(max_length=20)
+    product_id = models.CharField(max_length=30)
     owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_id')
-    settlements_account_number = models.CharField(max_length=20)
-    settlements_ifsc_code = models.CharField(max_length=20)
-    settlements_beneficiary_name = models.CharField(max_length=20)
+    settlements_account_number = models.CharField(max_length=30)
+    settlements_ifsc_code = models.CharField(max_length=30)
+    settlements_beneficiary_name = models.CharField(max_length=30)
     tnc_accepted = models.BooleanField(default=True)

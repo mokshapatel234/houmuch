@@ -226,3 +226,13 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     class Meta:
         model = OwnerBankingDetail
         fields = ['email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+
+
+class SettlementSerializer(serializers.Serializer):
+    account_number = serializers.CharField()
+    ifsc_code = serializers.CharField()
+    beneficiary_name = serializers.CharField()
+
+class PatchRequestSerializer(serializers.Serializer):
+    settlements = SettlementSerializer()
+    tnc_accepted = serializers.BooleanField()
