@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation
+    Category, PropertyImage, PropertyCancellation, BookingHistory
 from django.utils import timezone
 
 
@@ -228,3 +228,9 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = OTP
         fields = ('otp',)
+
+
+class BookingHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingHistory
+        fields = '__all__'

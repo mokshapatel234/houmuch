@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation
+    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation, BookingHistory
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer, PropertyImageSerializer
+    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -25,8 +25,10 @@ from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3
 from django.contrib.auth.models import User
-from .filters import RoomInventoryFilter
+from .filters import RoomInventoryFilter, BookingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 
 
@@ -500,3 +502,23 @@ class RoomInventoryViewSet(ModelViewSet):
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class BookingListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingHistorySerializer
+    pagination_class = CustomPagination
+    filterset_class = BookingFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        queryset = BookingHistory.objects.annotate(
+            is_today=Case(
+                When(check_in_date__date=today, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
+        return queryset
