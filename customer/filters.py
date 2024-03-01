@@ -11,8 +11,8 @@ class RoomInventoryFilter(filters.FilterSet):
     common_amenities = filters.CharFilter(field_name='common_amenities__id', lookup_expr='exact', label='Common Amenity')
     max_price = filters.NumberFilter(method='filter_by_price', lookup_expr='exact', label='Max Price')
     min_price = filters.NumberFilter(method='filter_by_price', lookup_expr='exact', label='Min Price')
-    check_in_date = filters.DateTimeFilter(method='bookings_check', lookup_expr='exact', label='Check In Date')
-    check_out_date = filters.DateTimeFilter(method='bookings_check', lookup_expr='exact', label='Check Out Date')
+    check_in_date = filters.DateFilter(method='bookings_check', lookup_expr='exact', label='Check In Date')
+    check_out_date = filters.DateFilter(method='bookings_check', lookup_expr='exact', label='Check Out Date')
 
     class Meta:
         model = RoomInventory

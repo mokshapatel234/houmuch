@@ -27,8 +27,8 @@ def min_default_price(property_obj):
 def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
-        check_out_date__gte=start_date,
-        check_in_date__lte=end_date,
+        check_out_date__date__gte=start_date,
+        check_in_date__date__lte=end_date,
         book_status=True,
         is_cancel=False
     ).annotate(total=Sum('num_of_rooms')).values('total')
@@ -55,7 +55,7 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
     if max_price is not None:
         room_inventory_query = room_inventory_query.filter(default_price__lte=float(max_price))
     if check_in_date is None or check_out_date is None:
-        current_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_datetime = datetime.now().date()
         if check_in_date is None:
             check_in_date = current_datetime
         if check_out_date is None:

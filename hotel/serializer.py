@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, BookingHistory
+    Category, PropertyImage, PropertyCancellation, BookingHistory
 from django.utils import timezone
 
 
@@ -119,6 +119,12 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
         fields = ('id', 'common_ameninity')
 
 
+class CancellationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyCancellation
+        exclude = ['created_at', 'updated_at']
+
+
 class PropertySerializer(serializers.ModelSerializer):
     images = serializers.ListField(child=serializers.CharField(), required=False)
 
@@ -132,6 +138,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
     property_type = PropertyTypeSerializer()
     address = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    cancellation_policy = serializers.SerializerMethodField()
 
     def get_address(self, instance):
         owner = instance.owner
@@ -140,6 +147,10 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
     def get_images(self, obj):
         image_urls = [image.image for image in PropertyImage.objects.filter(property=obj) if image.property is not None]
         return image_urls
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj)]
+        return cancellation_policies
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -151,7 +162,10 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Property
-        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number', 'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location', 'nearby_popular_landmark', 'property_type', 'room_types', 'cancellation_days', 'cancellation_policy', 'pet_friendly', 'breakfast_included', 'is_cancellation', 'status', 'is_online', 'created_at', 'updated_at', 'address', 'images']
+        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+                  'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
+                  'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
+                  'is_cancellation', 'status', 'is_online', 'address', 'images', 'cancellation_policy', 'is_verified', 'created_at', 'updated_at']
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
