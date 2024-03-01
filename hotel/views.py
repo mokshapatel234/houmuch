@@ -219,8 +219,7 @@ class CategoryRetrieveView(ListAPIView):
 
 
 class MasterRetrieveView(ListAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
+    permission_classes = (permissions.AllowAny, )
 
     def list(self, request, *args, **kwargs):
         try:

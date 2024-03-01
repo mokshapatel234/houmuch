@@ -24,33 +24,30 @@ def min_default_price(property_obj):
         return float('inf')
 
 
-def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, message=False):
+def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
         check_out_date__gte=start_date,
         check_in_date__lte=end_date,
-        book_status=True
+        book_status=True,
+        is_cancel=False
     ).annotate(total=Sum('num_of_rooms')).values('total')
 
     room_inventory_query = room_inventory_query.annotate(
         total_booked=Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), 0),
         available_rooms=F('num_of_rooms') - Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), 0)
     ).filter(available_rooms__gte=num_of_rooms).order_by('default_price', '-available_rooms')
-    if message:
-        unavailable_room_inventories = room_inventory_query.filter(available_rooms__lt=num_of_rooms)
-        unavailable_room_ids = set(unavailable_room_inventories.values_list('id', flat=True))
-        available_room_inventories = room_inventory_query.exclude(id__in=unavailable_room_ids)
-        return unavailable_room_ids, available_room_inventories.first() if available_room_inventories.exists() else None
-
+    if room_list:
+        return room_inventory_query
     return room_inventory_query.first()
 
 
 def get_room_inventory(property, property_list, num_of_rooms, min_price, max_price, room_type,
                        check_in_date, check_out_date, num_of_adults, num_of_children, session):
-    room_ids = [int(key.split('_')[-1]) for key in session.keys() if key.startswith('room_id_')]
     room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True,
                                                         adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children
                                                         ).order_by('default_price')
+
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
     if min_price is not None:
@@ -63,13 +60,36 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
             check_in_date = current_datetime
         if check_out_date is None:
             check_out_date = current_datetime
-    room_inventory_instance = is_booking_overlapping(room_inventory_query, check_in_date, check_out_date, num_of_rooms)
+    available_room_inventory = is_booking_overlapping(room_inventory_query, check_in_date, check_out_date, num_of_rooms, room_list=True)
+    adjusted_availability = {room_inventory.id: room_inventory.available_rooms for room_inventory in available_room_inventory}
+    for key, value in session.items():
+        if key.startswith('room_id_'):
+            session_room_id = int(key.split('_')[-1])
+            session_num_of_rooms = value.get('num_of_rooms', 0)
+            if session_room_id in adjusted_availability:
+                adjusted_availability[session_room_id] = max(0, adjusted_availability[session_room_id] - session_num_of_rooms)
+    available_room_inventory = [room_inventory for room_inventory in available_room_inventory if room_inventory.id in adjusted_availability and adjusted_availability[room_inventory.id] >= num_of_rooms]
     include_property = False
-
-    if room_inventory_instance:
-        if room_inventory_instance.id not in room_ids:
-            include_property = True
-            property.room_inventory = RoomInventorySerializer(room_inventory_instance).data
-            if property_list is not None and include_property:
-                property_list.append(property)
+    if available_room_inventory:
+        room_inventory_instance = available_room_inventory[0]
+        serialized_data = RoomInventorySerializer(room_inventory_instance).data
+        serialized_data['available_rooms'] = adjusted_availability[room_inventory_instance.id]
+        property.room_inventory = serialized_data
+        include_property = True
+        if property_list is not None and include_property:
+            property_list.append(property)
     return property_list if property_list is not None else property
+
+
+def calculate_available_rooms(room, check_in_date, check_out_date, session):
+    total_booked = BookingHistory.objects.filter(
+        rooms=room,
+        check_out_date__gte=check_in_date,
+        check_in_date__lte=check_out_date,
+        book_status=True,
+        is_cancel=False
+    ).aggregate(total=Sum('num_of_rooms'))['total'] or 0
+    available_rooms = room.num_of_rooms - total_booked
+    session_key = f'room_id_{room.id}'
+    session_rooms_booked = session.get(session_key, {}).get('num_of_rooms', 0)
+    return total_booked, available_rooms, session_rooms_booked
