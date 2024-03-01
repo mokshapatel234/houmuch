@@ -92,7 +92,7 @@ a, a:hover {
 			padding-top: 20px;
 			color: #000000;
 			font-family: sans-serif;" class="subheader">
-            A new room has been created on our platform. We kindly request that you conduct the necessary verification process to ensure it meets our community and quality standards. Your prompt attention to this matter will help us maintain the integrity and safety of our environment for all members. <br><br>
+            A new property has been created on our platform. We kindly request that you conduct the necessary verification process to ensure it meets our community and quality standards. Please note that by default, the commission percent for a registered property is set at 10%. You have the option to adjust this rate if needed. Your prompt attention to this matter will help us maintain the integrity and safety of our environment for all members. <br><br>
 		</td>
 	</tr>
 
@@ -100,7 +100,7 @@ a, a:hover {
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
 			color: #000000;
 			font-family: sans-serif;" class="header">
-            Room Detail:
+            Property Detail:
 		</td>
 	</tr>
 
@@ -109,9 +109,8 @@ a, a:hover {
 			padding-top: 20px;
 			color: #000000;
 			font-family: sans-serif;" class="subheader">
-            Room Name: {{room_name}} <br>
             Property Name: {{property_name}} <br>
-            Floor: {{floor}} <br>
+            Property Group: {{parent_hotel_group}} <br>
             Address: {{address}}
 		</td>
 	</tr>
@@ -124,7 +123,7 @@ a, a:hover {
 				<table border="0" cellpadding="0" cellspacing="0" align="left" style="width: 100%; border-collapse: collapse; border-spacing: 0; padding: 0;"><tr><td align="center" valign="middle" style="padding: 12px 24px; margin: 0; text-decoration: none; border-collapse: collapse; border-spacing: 0; border-radius: 100px; -webkit-border-radius: 100px; -moz-border-radius: 100px; -khtml-border-radius: 100px;"
 					bgcolor="#E5C243"><a target="_blank" style="text-decoration: none;
 					color: #000000; font-family: sans-serif; font-size: 17px; font-weight: 700; line-height: 120%;"
-					href="{{backend_url}}admin/hotel/roominventory/{{room_id}}/change/">
+					href="{{backend_url}}admin/hotel/property/{{property_id}}/change/">
 					Admin Dashboard
 					</a>
 			</td></tr></table></a>
