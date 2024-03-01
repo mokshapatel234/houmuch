@@ -84,8 +84,8 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
 def calculate_available_rooms(room, check_in_date, check_out_date, session):
     total_booked = BookingHistory.objects.filter(
         rooms=room,
-        check_out_date__gte=check_in_date,
-        check_in_date__lte=check_out_date,
+        check_out_date__date__gte=check_in_date,
+        check_in_date__date__lte=check_out_date,
         book_status=True,
         is_cancel=False
     ).aggregate(total=Sum('num_of_rooms'))['total'] or 0
