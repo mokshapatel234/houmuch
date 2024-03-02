@@ -1,7 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, \
-    MasterRetrieveView, RoomInventoryViewSet, OTPVerificationView, CategoryRetrieveView, AccountCreateApi
+    MasterRetrieveView, RoomInventoryViewSet, OTPVerificationView, CategoryRetrieveView, \
+    BookingListView, AccountCreateApi, AccountUpdateApi
 
 
 router = DefaultRouter()
@@ -16,5 +17,7 @@ urlpatterns = [
     path('masterRetrieve/', MasterRetrieveView.as_view(), name="master_retrieve"),
     path('verifyOtp/', OTPVerificationView.as_view(), name='otp_verification'),
     path('create-account/',AccountCreateApi.as_view()),
+    path('update-account/',AccountUpdateApi.as_view()),
+    path('bookingHistory/', BookingListView.as_view(), name='booking_history'),
     path('', include(router.urls)),  # Include the router URLs
 ]

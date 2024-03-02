@@ -4,12 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation, Product
+    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation, BookingHistory, Product, OwnerBankingDetail
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer, PropertyImageSerializer, HotelOwnerBankingSerializer, PatchRequestSerializer
+    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, PatchRequestSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -25,8 +25,10 @@ from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3
 from django.contrib.auth.models import User
-from .filters import RoomInventoryFilter
+from .filters import RoomInventoryFilter, BookingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 import requests
 
@@ -611,3 +613,90 @@ class AccountCreateApi(APIView):
                 "result": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AccountUpdateApi(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def patch(self, request):
+        try:
+            account_id = request.data.get('account_id', None)
+            if not account_id:
+                return Response({
+                    "result": False,
+                    "message": "Account ID not provided in the payload"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Retrieve OwnerBankingDetail object
+            owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
+
+            # Update phone and legal_business_name
+            owner_banking_detail.phone = request.data.get('phone', owner_banking_detail.phone)
+            owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
+            owner_banking_detail.save()
+
+            base_url = "https://api.razorpay.com/v2"
+            endpoint = f"/accounts/{account_id}"
+            url = base_url + endpoint
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
+            }
+
+            # Construct PATCH request payload
+            patch_data = {
+                'phone': owner_banking_detail.phone,
+                'legal_business_name': owner_banking_detail.legal_business_name
+            }
+
+            # Send the PATCH request to Razorpay API
+            response = requests.patch(url, json=patch_data, headers=headers)
+
+            if response.status_code == 200:
+                updated_account_data = response.json()
+                return Response({
+                    "result": True,
+                    "data": updated_account_data,
+                    "message": "Account details updated successfully",
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "result": False,
+                    "message": "Failed to update account details in Razorpay",
+                    "api_response": response.json()
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except OwnerBankingDetail.DoesNotExist:
+            return Response({
+                "result": False,
+                "message": "Owner banking detail does not exist"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "result": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)  
+
+
+class BookingListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingHistorySerializer
+    pagination_class = CustomPagination
+    filterset_class = BookingFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        today = timezone.now().date()
+        queryset = BookingHistory.objects.annotate(
+            is_today=Case(
+                When(check_in_date__date=today, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField()
+            )
+        ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
+        return queryset
+
+
