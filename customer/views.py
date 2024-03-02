@@ -166,8 +166,8 @@ class PropertyListView(generics.GenericAPIView):
         num_of_children = self.request.query_params.get('num_of_children')
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
-        total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
-            (int(num_of_children) if num_of_children is not None else 0)
+        # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
+        #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
         if nearby_popular_landmark:
             queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
@@ -177,8 +177,8 @@ class PropertyListView(generics.GenericAPIView):
         if property_type:
             property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
             queryset = queryset.filter(property_type__id__in=property_type_ids)
-        if total_guests > 5:
-            queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
+        # if total_guests > 5:
+        #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
         property_list = []
         for property in queryset:
             property_list = get_room_inventory(property,
