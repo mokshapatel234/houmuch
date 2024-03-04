@@ -9,7 +9,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, PatchRequestSerializer
+    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, PatchRequestSerializer, AccountSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -615,6 +615,47 @@ class AccountCreateApi(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+class AccountGetApi(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        try:
+            owner_id = request.user.id
+
+            if not owner_id:
+                return Response({
+                    "result": False,
+                    "message": "Owner ID not provided in the query parameters"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                account = OwnerBankingDetail.objects.get(hotel_owner_id=owner_id)
+            except OwnerBankingDetail.DoesNotExist:
+                return Response({
+                    "result": False,
+                    "message": "Account not found for the provided owner ID"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = AccountSerializer(account)
+            response_data = serializer.data
+
+            response_data = {
+                'result': True,
+                'data': response_data,
+                'message': DATA_RETRIEVAL_MESSAGE
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "result": False,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+
 class AccountUpdateApi(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -628,10 +669,8 @@ class AccountUpdateApi(APIView):
                     "message": "Account ID not provided in the payload"
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # Retrieve OwnerBankingDetail object
             owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
 
-            # Update phone and legal_business_name
             owner_banking_detail.phone = request.data.get('phone', owner_banking_detail.phone)
             owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
             owner_banking_detail.save()
@@ -644,13 +683,11 @@ class AccountUpdateApi(APIView):
                 'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
             }
 
-            # Construct PATCH request payload
             patch_data = {
                 'phone': owner_banking_detail.phone,
                 'legal_business_name': owner_banking_detail.legal_business_name
             }
 
-            # Send the PATCH request to Razorpay API
             response = requests.patch(url, json=patch_data, headers=headers)
 
             if response.status_code == 200:
