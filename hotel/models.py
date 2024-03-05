@@ -5,6 +5,7 @@ from django.contrib.gis.geos import Point
 from customer.models import Customer
 from django.core.validators import RegexValidator
 
+
 class Category(models.Model):
     category = models.CharField(max_length=255, null=True, blank=True)
     bid_time_duration = models.IntegerField()
@@ -312,13 +313,13 @@ class OwnerBankingDetail(models.Model):
     contact_name = models.CharField(max_length=16)
     type = models.CharField(max_length=16)
     account_id = models.CharField(max_length=20)
-    legal_business_name= models.CharField(max_length=16)
+    legal_business_name = models.CharField(max_length=16)
     business_type = models.CharField(max_length=50)
-    CHOICES = (('inactive','inactive'),('active','active'))
-    status = models.CharField(("status"),choices=CHOICES, max_length=50,default='active')
+    CHOICES = (('inactive', 'inactive'), ('active', 'active'))
+    status = models.CharField(("status"), choices=CHOICES, max_length=50, default='active')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True,null=True ,default=None)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
 
 
 class Product(models.Model):
