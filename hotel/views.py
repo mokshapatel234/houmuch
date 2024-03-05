@@ -615,7 +615,6 @@ class AccountCreateApi(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class AccountGetApi(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -654,7 +653,7 @@ class AccountGetApi(APIView):
                 "result": False,
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
 
 class AccountUpdateApi(APIView):
     authentication_classes = (JWTAuthentication,)
@@ -714,7 +713,7 @@ class AccountUpdateApi(APIView):
             return Response({
                 "result": False,
                 "message": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)  
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BookingListView(ListAPIView):
@@ -735,5 +734,3 @@ class BookingListView(ListAPIView):
             )
         ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
         return queryset
-
-
