@@ -321,6 +321,9 @@ class OwnerBankingDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(blank=True, null=True, default=None)
 
+    def __str__(self):
+        return self.contact_name
+
 
 class Product(models.Model):
     product_id = models.CharField(max_length=30)
@@ -329,3 +332,8 @@ class Product(models.Model):
     settlements_ifsc_code = models.CharField(max_length=30)
     settlements_beneficiary_name = models.CharField(max_length=30)
     tnc_accepted = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.product_id

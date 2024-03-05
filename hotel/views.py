@@ -734,4 +734,3 @@ class BookingListView(ListAPIView):
             )
         ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
         return queryset
-
