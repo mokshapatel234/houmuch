@@ -6,9 +6,10 @@ from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, 
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
 from .utils import generate_token, get_room_inventory, min_default_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
-from hotel.models import Property, RoomInventory
+from hotel.filters import BookingFilter
+from hotel.models import Property, RoomInventory, BookingHistory
 from hotel.paginator import CustomPagination
-from hotel.serializer import RoomInventoryOutSerializer
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -166,8 +167,8 @@ class PropertyListView(generics.GenericAPIView):
         num_of_children = self.request.query_params.get('num_of_children')
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
-        total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
-            (int(num_of_children) if num_of_children is not None else 0)
+        # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
+        #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
         if nearby_popular_landmark:
             queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
@@ -177,8 +178,8 @@ class PropertyListView(generics.GenericAPIView):
         if property_type:
             property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
             queryset = queryset.filter(property_type__id__in=property_type_ids)
-        if total_guests > 5:
-            queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
+        # if total_guests > 5:
+        #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
         property_list = []
         for property in queryset:
             property_list = get_room_inventory(property,
@@ -336,3 +337,16 @@ class PayNowView(APIView):
 
         except Exception as e:
             return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class BookingListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingHistorySerializer
+    pagination_class = CustomPagination
+    filterset_class = BookingFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        return queryset

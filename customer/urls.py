@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, PropertyListView, PayNowView, \
-    PropertyRetriveView, RoomInventoryListView, OrderSummaryView, RoomRetriveView
+    PropertyRetriveView, RoomInventoryListView, OrderSummaryView, RoomRetriveView, BookingListView
 
 
 urlpatterns = [
@@ -13,4 +13,5 @@ urlpatterns = [
     path('roomList/<int:property_id>/', RoomInventoryListView.as_view()),
     path('roomRetrieve/<int:pk>/', RoomRetriveView.as_view()),
     path('orderSummary/', OrderSummaryView.as_view()),
+    path('bookingHistory/', BookingListView.as_view(), name='booking_history'),
 ]
