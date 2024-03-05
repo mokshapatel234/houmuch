@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Product
 from django.utils import timezone
 
 
@@ -230,7 +230,50 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
         fields = ('otp',)
 
 
+class HotelOwnerBankingSerializer(serializers.ModelSerializer):
+    email = serializers.CharField()
+    phone = serializers.CharField()
+    contact_name = serializers.CharField()
+    legal_business_name = serializers.CharField()
+    business_type = serializers.CharField(required=False)  # Set as optional field
+    type = serializers.CharField(required=False)  # Set as optional field
+
+    class Meta:
+        model = OwnerBankingDetail
+        fields = ['email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+
+
+class SettlementSerializer(serializers.Serializer):
+    account_number = serializers.CharField()
+    ifsc_code = serializers.CharField()
+    beneficiary_name = serializers.CharField()
+
+
+class PatchRequestSerializer(serializers.Serializer):
+    settlements = SettlementSerializer()
+    tnc_accepted = serializers.BooleanField()
+
+
 class BookingHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingHistory
         fields = '__all__'
+
+class AccountSerializer(HotelOwnerBankingSerializer):
+    settlements_ifsc_code = serializers.CharField(required=False)
+    settlements_beneficiary_name = serializers.CharField(required=False)
+    settlements_account_number = serializers.CharField(required=False)
+
+    class Meta(HotelOwnerBankingSerializer.Meta):
+        fields = HotelOwnerBankingSerializer.Meta.fields + ['settlements_ifsc_code', 'settlements_beneficiary_name', 'settlements_account_number']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            product = Product.objects.get(owner_banking=instance)
+            data['settlements_ifsc_code'] = product.settlements_ifsc_code
+            data['settlements_beneficiary_name'] = product.settlements_beneficiary_name
+            data['settlements_account_number'] = product.settlements_account_number
+        except Product.DoesNotExist:
+            pass
+        return data
