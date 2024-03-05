@@ -259,6 +259,7 @@ class BookingHistorySerializer(serializers.ModelSerializer):
         model = BookingHistory
         fields = '__all__'
 
+
 class AccountSerializer(HotelOwnerBankingSerializer):
     settlements_ifsc_code = serializers.CharField(required=False)
     settlements_beneficiary_name = serializers.CharField(required=False)
