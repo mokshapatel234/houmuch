@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
-from .utils import generate_token, get_room_inventory, min_default_price, calculate_available_rooms
+from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory
@@ -167,6 +167,7 @@ class PropertyListView(generics.GenericAPIView):
         num_of_children = self.request.query_params.get('num_of_children')
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
+        high_to_low = self.request.query_params.get('high_to_low', False)
         # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
         #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
@@ -192,8 +193,9 @@ class PropertyListView(generics.GenericAPIView):
                                                check_out_date=check_out_date if check_out_date else None,
                                                num_of_adults=int(num_of_adults if num_of_adults else 0),
                                                num_of_children=int(num_of_children if num_of_children else 0),
+                                               high_to_low=high_to_low,
                                                session=self.request.session)
-        sorted_properties = sorted(property_list, key=min_default_price)
+        sorted_properties = sorted(property_list, key=lambda x: sort_properties_by_price(x, high_to_low=high_to_low))
         page = self.paginate_queryset(sorted_properties)
         serializer = self.serializer_class(page, many=True)
         return self.get_paginated_response(serializer.data)

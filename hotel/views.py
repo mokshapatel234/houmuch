@@ -4,26 +4,29 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, RoomImage, Category, PropertyImage, PropertyCancellation, BookingHistory, Product, OwnerBankingDetail
+    RoomInventory, RoomImage, Category, PropertyImage, \
+    PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, \
+    SubscriptionPlan, SubscriptionTransaction
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
-    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, PatchRequestSerializer, AccountSerializer
+    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
+    PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, SubscriptionOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
-    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE
+    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
-from hotel_app_backend.utils import delete_image_from_s3
+from hotel_app_backend.utils import delete_image_from_s3, razorpay_client
 from django.contrib.auth.models import User
 from .filters import RoomInventoryFilter, BookingFilter
 from django_filters.rest_framework import DjangoFilterBackend
@@ -31,6 +34,7 @@ from django.utils import timezone
 from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 import requests
+from django.shortcuts import get_object_or_404
 
 
 class HotelRegisterView(APIView):
@@ -734,3 +738,48 @@ class BookingListView(ListAPIView):
             )
         ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
         return queryset
+
+
+class SubscriptionPlanView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    pagination_class = CustomPagination
+    queryset = SubscriptionPlan.objects.all()
+    serializer_class = SubscriptionPlanSerializer
+
+
+class SubscriptionView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    pagination_class = CustomPagination
+
+    def get(self, request, *args, **kwargs):
+        try:
+            instance = SubscriptionTransaction.objects.filter(owner=self.request.user, payment_status=True).order_by('-created_at').first()
+            if instance is None:
+                return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            plan_expire = check_plan_expiry(instance)
+            if plan_expire:
+                return error_response(PLAN_EXPIRY_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, SubscriptionOutSerializer)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            plan_id = request.data.get('subscription_plan')
+            plan = get_object_or_404(SubscriptionPlan, id=plan_id)
+            serializer = SubscriptionSerializer(data=request.data)
+            if serializer.is_valid():
+                razorpay_subscription = razorpay_client.subscription.create({
+                    'plan_id': plan.razorpay_plan_id,
+                    'customer_notify': 1,
+                    'quantity': 1,
+                    'total_count': 1,
+                })
+                instance = serializer.save(owner=self.request.user,
+                                           subscription_plan=plan,
+                                           razorpay_subscription_id=razorpay_subscription['id'])
+                return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, SubscriptionOutSerializer)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

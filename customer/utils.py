@@ -16,12 +16,13 @@ def generate_token(id):
     return jwt_token
 
 
-def min_default_price(property_obj):
+def sort_properties_by_price(property_obj, high_to_low=False):
     room_inventory = property_obj.room_inventory
     if room_inventory and "default_price" in room_inventory:
-        return room_inventory["default_price"]
+        price = room_inventory["default_price"]
     else:
-        return float('inf')
+        price = float('inf')
+    return -price if high_to_low else price
 
 
 def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
@@ -43,7 +44,7 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
 
 
 def get_room_inventory(property, property_list, num_of_rooms, min_price, max_price, room_type,
-                       check_in_date, check_out_date, num_of_adults, num_of_children, session):
+                       check_in_date, check_out_date, num_of_adults, num_of_children, high_to_low, session):
     room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True,
                                                         adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children
                                                         ).order_by('default_price')

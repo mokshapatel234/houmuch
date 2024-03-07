@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from django.core.cache import cache
 from hotel_app_backend.boto_utils import ses_client
 from django.conf import settings
+from django.utils import timezone
 
 
 def generate_token(id):
@@ -73,6 +74,15 @@ def send_mail(data):
         }
     )
     return response
+
+
+def check_plan_expiry(instance):
+    plan_duration_months = instance.subscription_plan.duration
+    plan_end_date = instance.created_at + timedelta(days=30 * plan_duration_months)
+    current_date = timezone.now()
+    if current_date > plan_end_date:
+        return True
+    return False
 
 
 def remove_cache(name, user):
