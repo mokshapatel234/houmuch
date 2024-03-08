@@ -16,13 +16,13 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, \
     DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, \
     ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
-    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE
+    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
-from django.conf import settings
-import razorpay
+# from django.conf import settings
+# import razorpay
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
@@ -321,8 +321,7 @@ class PayNowView(APIView):
             total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
             adjusted_availability = available_rooms - session_rooms_booked
             if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
-                return error_response("rooms are not available as per you requirements.", status.HTTP_400_BAD_REQUEST)
-            
+                return error_response(ROOM_NOT_AVAILABLE_MESSAGE, status.HTTP_400_BAD_REQUEST)
             commission_percent = property_instance.commission_percent
 
             commission_amount = (amount * commission_percent) / 100
