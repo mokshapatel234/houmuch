@@ -7,7 +7,7 @@ from django.db.models import IntegerField, Subquery, OuterRef, F, Sum
 from django.db.models.functions import Coalesce
 
 
-def generate_token(id):
+def generate_token(id): 
     payload = {
         'user_id': id,
         'exp': datetime.utcnow() + timedelta(days=30)

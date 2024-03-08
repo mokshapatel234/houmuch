@@ -7,7 +7,7 @@ from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, 
 from .utils import generate_token, get_room_inventory, min_default_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
-from hotel.models import Property, RoomInventory, BookingHistory
+from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail
 from hotel.paginator import CustomPagination
 from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -26,6 +26,8 @@ import razorpay
 from rest_framework.generics import RetrieveAPIView, ListAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
+import datetime
+import requests
 
 
 class CustomerRegisterView(APIView):
@@ -301,19 +303,53 @@ class PayNowView(APIView):
             room = RoomInventory.objects.get(id=room_id)
             property_id = request.data.get('property_id')
             property_instance = Property.objects.get(id=property_id)
+            owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
+            account_id = owner_banking_detail.account_id
             amount = request.data.get('amount')
             customer_id = request.user.id
             customer_instance = Customer.objects.get(id=customer_id)
             currency = 'INR'
             check_in_date = request.data.get('check_in_date')
+            check_in_date_obj = datetime.datetime.strptime(check_in_date, '%Y-%m-%d').date()
+            check_in_datetime_obj = datetime.datetime.combine(check_in_date_obj, datetime.time.min)
+            on_hold_until_datetime_obj = check_in_datetime_obj - datetime.timedelta(days=1)
+            on_hold_until_timestamp = int(on_hold_until_datetime_obj.timestamp())
             check_out_date = request.data.get('check_out_date')
             num_of_rooms = request.data.get('num_of_rooms')
             total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
             adjusted_availability = available_rooms - session_rooms_booked
             if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
                 return error_response("rooms are not available as per you requirements.", status.HTTP_400_BAD_REQUEST)
-            razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
-            order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
+            
+            commission_percent = property_instance.commission_percent
+
+            commission_amount = (amount * commission_percent) / 100
+
+            remaining_amount = amount - commission_amount
+
+            remaining_amount_in_paise = int(remaining_amount * 100)
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+            }
+
+            order_data = {
+                'amount': amount * 100,
+                'currency': currency,
+                'transfers': [
+                    {
+                        'account': account_id,
+                        'amount': remaining_amount_in_paise,
+                        'currency': currency,
+                        'on_hold': True,
+                        'on_hold_until': on_hold_until_timestamp,
+                    }
+                ]
+            }
+            response = requests.post('https://api.razorpay.com/v1/orders', headers=headers, json=order_data)
+            print(response.json())
+            order = response.json()
+
             request.data['customer_id'] = customer_instance.id
             serializer = CombinedSerializer(data=request.data)
             if serializer.is_valid():

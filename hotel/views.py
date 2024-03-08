@@ -511,6 +511,13 @@ class AccountCreateApi(APIView):
 
     def post(self, request):
         try:
+            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user).first()
+            if existing_account:
+                return Response({
+                    "result": False,
+                    "message": "An account already exists for this owner."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             base_url = "https://api.razorpay.com/v2"
             endpoint = "/accounts"
             url = base_url + endpoint
