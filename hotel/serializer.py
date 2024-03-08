@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Product
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
+    Product, SubscriptionPlan, SubscriptionTransaction
 from django.utils import timezone
 
 
@@ -278,3 +279,23 @@ class AccountSerializer(HotelOwnerBankingSerializer):
         except Product.DoesNotExist:
             pass
         return data
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = '__all__'
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionTransaction
+        fields = ['subscription_plan',]
+
+
+class SubscriptionOutSerializer(serializers.ModelSerializer):
+    subscription_plan = SubscriptionPlanSerializer()
+
+    class Meta:
+        model = SubscriptionTransaction
+        fields = '__all__'

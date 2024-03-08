@@ -337,3 +337,33 @@ class Product(models.Model):
 
     def __str__(self):
         return self.product_id
+
+
+class SubscriptionPlan(models.Model):
+    Plans = (
+        (3, '3 months'),
+        (6, '6 months'),
+        (12, '12 months'),
+    )
+    name = models.CharField(('Plan'), max_length=30, null=False)
+    price = models.IntegerField(('Price'), null=False)
+    duration = models.IntegerField(('Plan Duration'), choices=Plans)
+    description = models.TextField(('Description'), max_length=255, null=False)
+    razorpay_plan_id = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SubscriptionTransaction(models.Model):
+    subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='subscription_plan')
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_subscription')
+    razorpay_subscription_id = models.CharField(max_length=255, blank=True, null=True)
+    payment_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.subscription_plan.name
