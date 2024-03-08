@@ -20,7 +20,10 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
-    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE
+    INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
+    ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
+    ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
+    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -515,6 +518,10 @@ class AccountCreateApi(APIView):
 
     def post(self, request):
         try:
+            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user).first()
+            if existing_account:
+                return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
             base_url = "https://api.razorpay.com/v2"
             endpoint = "/accounts"
             url = base_url + endpoint
@@ -591,32 +598,16 @@ class AccountCreateApi(APIView):
                         return Response({
                             "result": True,
                             "data": updated_product_data,
-                            "message": "Product and bank details updated successfully",
+                            "message": PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE,
                         }, status=status.HTTP_200_OK)
+                    return error_response(ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-                    return Response({
-                        "result": False,
-                        "message": "Failed to update product and bank details in Razorpay",
-                        "api_response": response.json()
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-                return Response({
-                    "result": False,
-                    "message": "Failed to create product in Razorpay",
-                    "api_response": response.json()
-                }, status=status.HTTP_400_BAD_REQUEST)
+            return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-            return Response({
-                "result": False,
-                "message": "Failed to create account in Razorpay",
-                "api_response": response.json()
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as e:
-            return Response({
-                "result": False,
-                "message": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class AccountGetApi(APIView):
@@ -628,18 +619,12 @@ class AccountGetApi(APIView):
             owner_id = request.user.id
 
             if not owner_id:
-                return Response({
-                    "result": False,
-                    "message": "Owner ID not provided in the query parameters"
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             try:
                 account = OwnerBankingDetail.objects.get(hotel_owner_id=owner_id)
             except OwnerBankingDetail.DoesNotExist:
-                return Response({
-                    "result": False,
-                    "message": "Account not found for the provided owner ID"
-                }, status=status.HTTP_404_NOT_FOUND)
+                return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             serializer = AccountSerializer(account)
             response_data = serializer.data
@@ -652,11 +637,8 @@ class AccountGetApi(APIView):
 
             return Response(response_data, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            return Response({
-                "result": False,
-                "message": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class AccountUpdateApi(APIView):
@@ -667,10 +649,7 @@ class AccountUpdateApi(APIView):
         try:
             account_id = request.data.get('account_id', None)
             if not account_id:
-                return Response({
-                    "result": False,
-                    "message": "Account ID not provided in the payload"
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
 
@@ -701,23 +680,14 @@ class AccountUpdateApi(APIView):
                     "message": "Account details updated successfully",
                 }, status=status.HTTP_200_OK)
             else:
-                return Response({
-                    "result": False,
-                    "message": "Failed to update account details in Razorpay",
-                    "api_response": response.json()
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return error_response(ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
         except OwnerBankingDetail.DoesNotExist:
-            return Response({
-                "result": False,
-                "message": "Owner banking detail does not exist"
-            }, status=status.HTTP_404_NOT_FOUND)
+            BANKING_DETAIL_NOT_EXIST_MESSAGE
+            return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            return Response({
-                "result": False,
-                "message": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class BookingListView(ListAPIView):
