@@ -31,13 +31,14 @@ from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3, razorpay_client
 from django.contrib.auth.models import User
-from .filters import RoomInventoryFilter, BookingFilter
+from .filters import RoomInventoryFilter, BookingFilter, TransactionFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 import requests
 from django.shortcuts import get_object_or_404
+import hashlib, hmac, json
 
 
 class HotelRegisterView(APIView):
@@ -522,15 +523,12 @@ class AccountCreateApi(APIView):
             if existing_account:
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-            base_url = "https://api.razorpay.com/v2"
             endpoint = "/accounts"
-            url = base_url + endpoint
+            url = settings.RAZORPAY_BASE_URL + endpoint
 
-            # Populate necessary data for account creation
             request.data['type'] = 'route'
             request.data['business_type'] = 'partnership'
 
-            # You may need to adjust the serializer class and its usage according to your setup
             serializer = HotelOwnerBankingSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
@@ -539,7 +537,7 @@ class AccountCreateApi(APIView):
 
             headers = {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
+                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
             }
 
             response = requests.post(url, json=request.data, headers=headers)
@@ -559,7 +557,7 @@ class AccountCreateApi(APIView):
                 }
 
                 endpoint = f"/accounts/{account_data.get('id', '')}/products"
-                url = base_url + endpoint
+                url = settings.RAZORPAY_BASE_URL + endpoint
 
                 response = requests.post(url, json=product_data, headers=headers)
 
@@ -570,9 +568,8 @@ class AccountCreateApi(APIView):
                     product.owner_banking = instance
                     product.save()
 
-                    # Update bank details with patch method
                     endpoint = f"/accounts/{account_data.get('id', '')}/products/{product_id}/"
-                    url = base_url + endpoint
+                    url = settings.RAZORPAY_BASE_URL + endpoint
 
                     # Create the payload for the patch request
                     patch_data = {
@@ -657,9 +654,8 @@ class AccountUpdateApi(APIView):
             owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
             owner_banking_detail.save()
 
-            base_url = "https://api.razorpay.com/v2"
             endpoint = f"/accounts/{account_id}"
-            url = base_url + endpoint
+            url = settings.RAZORPAY_BASE_URL + endpoint
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
@@ -683,7 +679,6 @@ class AccountUpdateApi(APIView):
                 return error_response(ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
         except OwnerBankingDetail.DoesNotExist:
-            BANKING_DETAIL_NOT_EXIST_MESSAGE
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
         except Exception:
@@ -707,6 +702,19 @@ class BookingListView(ListAPIView):
                 output_field=IntegerField()
             )
         ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
+        return queryset
+    
+
+class TransactionListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingHistorySerializer
+    pagination_class = CustomPagination
+    filterset_class = TransactionFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user).order_by('-created_at')
         return queryset
 
 
@@ -753,3 +761,30 @@ class SubscriptionView(APIView):
                 return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, SubscriptionOutSerializer)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+def razorpay_webhook(request):
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+
+    body = request.body.decode('utf-8')
+    received_signature = request.headers.get('X-Razorpay-Signature')
+
+    dig = hmac.new(bytearray(webhook_secret, 'utf-8'), msg=body.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
+
+    if hmac.compare_digest(dig, received_signature):
+        payload = json.loads(body)
+
+        if payload['event'] == 'payment.captured':
+            order_id = payload['payload']['payment']['entity']['order_id']
+
+            try:
+                booking = BookingHistory.objects.get(order_id=order_id)
+                booking.book_status = True
+                booking.save()
+                return Response({'status': 'success', 'message': 'Booking status updated successfully'})
+            except BookingHistory.DoesNotExist:
+                return Response({'status': 'failed', 'message': 'Booking not found'})
+        else:
+            return Response(status=200)
+    else:
+        return Response({'status': 'failed', 'message': 'Invalid signature'}, status=400)
