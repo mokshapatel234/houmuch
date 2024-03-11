@@ -294,7 +294,7 @@ class BookingHistory(models.Model):
 
 
 class GuestDetail(models.Model):
-    booking_id = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
+    booking = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
     no_of_adults = models.IntegerField()
     no_of_children = models.IntegerField()
     age_of_children = models.CharField(max_length=255, blank=True, null=True)
@@ -367,3 +367,15 @@ class SubscriptionTransaction(models.Model):
 
     def __str__(self):
         return self.subscription_plan.name
+
+
+class Ratings(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_ratings')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_ratings')
+    ratings = models.IntegerField()
+    review = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.ratings

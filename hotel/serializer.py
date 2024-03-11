@@ -2,8 +2,9 @@ from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
-    Product, SubscriptionPlan, SubscriptionTransaction
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail
 from django.utils import timezone
+from customer.models import Customer
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -255,10 +256,29 @@ class PatchRequestSerializer(serializers.Serializer):
     tnc_accepted = serializers.BooleanField()
 
 
+class CustomerOutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
 class BookingHistorySerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+    rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
+    property = serializers.SerializerMethodField()
+    guests = serializers.SerializerMethodField()
+
+    def get_guests(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        return guests.no_of_adults + guests.no_of_children if guests else None
+
+    def get_property(self, instance):
+        owner = instance.property.owner
+        return owner.hotel_name
+
     class Meta:
         model = BookingHistory
-        fields = '__all__'
+        exclude = ('updated_at',)
 
 
 class AccountSerializer(HotelOwnerBankingSerializer):
