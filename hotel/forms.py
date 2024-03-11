@@ -1,5 +1,5 @@
 from django import forms
-from .models import Property, SubscriptionPlan
+from .models import Property, SubscriptionPlan, BookingHistory
 from django.contrib.gis import forms as gis_forms
 
 
@@ -28,3 +28,9 @@ class SubscriptionPlanForm(forms.ModelForm):
         super(SubscriptionPlanForm, self).__init__(*args, **kwargs)
         if 'razorpay_plan_id' in self.fields:
             self.fields['razorpay_plan_id'].disabled = True
+
+
+class BookingHistoryForm(forms.ModelForm):
+    class Meta:
+        model = BookingHistory
+        fields = ['property', 'rooms', 'amount', 'check_in_date', 'check_out_date', 'book_status']

@@ -23,6 +23,7 @@ class BookingFilter(filters.FilterSet):
 
 class TransactionFilter(filters.FilterSet):
     is_completed = filters.BooleanFilter(field_name="book_status")
+
     class Meta:
         model = BookingHistory
         fields = ['is_completed']
