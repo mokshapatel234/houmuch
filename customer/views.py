@@ -28,6 +28,7 @@ from django.http import Http404
 from .filters import RoomInventoryFilter
 import datetime
 import requests
+from django.db import transaction
 
 
 class CustomerRegisterView(APIView):
@@ -301,79 +302,86 @@ class PayNowView(APIView):
 
     def post(self, request):
         try:
-            room_id = request.data.get('room_id')
-            room = RoomInventory.objects.get(id=room_id)
-            property_id = request.data.get('property_id')
-            property_instance = Property.objects.get(id=property_id)
-            owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
-            account_id = owner_banking_detail.account_id
-            amount = request.data.get('amount')
-            customer_id = request.user.id
-            customer_instance = Customer.objects.get(id=customer_id)
-            currency = 'INR'
-            check_in_date = request.data.get('check_in_date')
-            check_in_date_obj = datetime.datetime.strptime(check_in_date, '%Y-%m-%d').date()
-            check_in_datetime_obj = datetime.datetime.combine(check_in_date_obj, datetime.time.min)
-            on_hold_until_datetime_obj = check_in_datetime_obj - datetime.timedelta(days=1)
-            on_hold_until_timestamp = int(on_hold_until_datetime_obj.timestamp())
-            check_out_date = request.data.get('check_out_date')
-            num_of_rooms = request.data.get('num_of_rooms')
-            total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
-            adjusted_availability = available_rooms - session_rooms_booked
-            if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
-                return error_response(ROOM_NOT_AVAILABLE_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            commission_percent = property_instance.commission_percent
+            with transaction.atomic():
+                booking_data = request.data.get('booking_detail', {})
+                guest_data = request.data.get('guest_detail', {})
 
-            commission_amount = (amount * commission_percent) / 100
+                # Booking related information
+                room_id = booking_data.get('rooms')
+                room_instance = RoomInventory.objects.select_for_update().get(id=room_id)
+                property_instance = Property.objects.get(id=booking_data.get('property'))
 
-            remaining_amount = amount - commission_amount
+                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
+                account_id = owner_banking_detail.account_id
+                amount = float(booking_data.get('amount'))
+                currency = 'INR'
+                num_of_rooms = booking_data.get('num_of_rooms')
+                check_in_date = booking_data.get('check_in_date')
+                check_out_date = booking_data.get('check_out_date')
+                total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room_instance, check_in_date, check_out_date, self.request.session)
+                adjusted_availability = available_rooms - session_rooms_booked
+                if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
+                    return error_response(ROOM_NOT_AVAILABLE_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                commission_percent = property_instance.commission_percent
+                commission_percent = property_instance.commission_percent
+                commission_amount = (amount * commission_percent) / 100
+                remaining_amount = amount - commission_amount
+                remaining_amount_in_paise = int(remaining_amount * 100)
+                on_hold_until_timestamp = self.calculate_on_hold_until(check_in_date)
 
-            remaining_amount_in_paise = int(remaining_amount * 100)
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
-            }
-
-            order_data = {
-                'amount': amount * 100,
-                'currency': currency,
-                'transfers': [
-                    {
-                        'account': account_id,
-                        'amount': remaining_amount_in_paise,
-                        'currency': currency,
-                        'on_hold': True,
-                        'on_hold_until': on_hold_until_timestamp,
-                    }
-                ]
-            }
-            response = requests.post('https://api.razorpay.com/v1/orders', headers=headers, json=order_data)
-            print(response.json())
-            order = response.json()
-
-            request.data['customer_id'] = customer_instance.id
-            serializer = CombinedSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save(property=property_instance, order_id=order['id'], customer=customer_instance, book_status=True, rooms=room, currency=currency)
-                session_key = 'room_id_' + str(room_id)
-                request.session[session_key] = {
-                    'room_id': room_id,
-                    'num_of_rooms': request.data.get('num_of_rooms')
+                order = self.create_payment_order(amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp)
+                if not order:
+                    return error_response("Failed to create payment order", status.HTTP_500_INTERNAL_SERVER_ERROR)
+                serializer_data = {
+                    'booking_detail': booking_data,
+                    'guest_detail': guest_data
                 }
-                request.session.set_expiry(60)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        'order_id': order['id'],
-                    },
-                    'message': PAYMENT_SUCCESS_MESSAGE
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-            else:
-                return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
+                serializer = CombinedSerializer(data=serializer_data, context={'request': request,
+                                                                               'property': property_instance,
+                                                                               'room': room_instance,
+                                                                               'order_id': order['id']})
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response({
+                        'result': True,
+                        'data': {'order_id': order['id']},
+                        'message': PAYMENT_SUCCESS_MESSAGE
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+        }
+        order_data = {
+            'amount': amount * 100,  # Assuming this is in paise since we're multiplying by 100
+            'currency': currency,
+            'transfers': [
+                {
+                    'account': account_id,
+                    'amount': remaining_amount_in_paise,
+                    'currency': currency,
+                    'on_hold': True,
+                    'on_hold_until': on_hold_until_timestamp,
+                }
+            ]
+        }
+        response = requests.post('https://api.razorpay.com/v1/orders', headers=headers, json=order_data)
+        if response.status_code == 200:
+            return response.json()
+        return None
+
+    def calculate_on_hold_until(self, check_in_date_str):
+        check_in_date_obj = datetime.datetime.strptime(check_in_date_str, '%Y-%m-%d').date()
+        check_in_datetime_obj = datetime.datetime.combine(check_in_date_obj, datetime.time.min)
+        on_hold_until_datetime_obj = check_in_datetime_obj - datetime.timedelta(days=1)
+        return int(on_hold_until_datetime_obj.timestamp())
 
 
 class BookingListView(ListAPIView):

@@ -255,7 +255,7 @@ class BiddingSession(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.is_open
+        return self.created_at
 
 
 class PropertyDeal(models.Model):
@@ -290,7 +290,7 @@ class BookingHistory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.property
+        return self.property.hotel_nick_name
 
 
 class GuestDetail(models.Model):

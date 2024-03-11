@@ -38,7 +38,9 @@ from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 import requests
 from django.shortcuts import get_object_or_404
-import hashlib, hmac, json
+import hashlib
+import hmac
+import json
 
 
 class HotelRegisterView(APIView):
@@ -703,7 +705,7 @@ class BookingListView(ListAPIView):
             )
         ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
         return queryset
-    
+
 
 class TransactionListView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
