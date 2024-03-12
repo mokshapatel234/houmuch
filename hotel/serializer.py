@@ -233,12 +233,12 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
 
 
 class HotelOwnerBankingSerializer(serializers.ModelSerializer):
-    email = serializers.CharField()
-    phone = serializers.CharField()
+    email = serializers.CharField(required=False)
+    phone = serializers.CharField(required=False)
     contact_name = serializers.CharField()
     legal_business_name = serializers.CharField()
-    business_type = serializers.CharField(required=False)  # Set as optional field
-    type = serializers.CharField(required=False)  # Set as optional field
+    business_type = serializers.CharField()
+    type = serializers.CharField(required=False)
 
     class Meta:
         model = OwnerBankingDetail
