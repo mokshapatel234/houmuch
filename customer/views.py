@@ -3,13 +3,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
-from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail
+from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings
 from hotel.paginator import CustomPagination
-from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, RatingsOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -23,7 +23,7 @@ from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
 # from django.conf import settings
 # import razorpay
-from rest_framework.generics import RetrieveAPIView, ListAPIView
+from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
 import datetime
@@ -360,7 +360,7 @@ class PayNowView(APIView):
             'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
         }
         order_data = {
-            'amount': amount * 100,  # Assuming this is in paise since we're multiplying by 100
+            'amount': amount * 100,
             'currency': currency,
             'transfers': [
                 {
@@ -395,3 +395,33 @@ class BookingListView(ListAPIView):
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
         return queryset
+
+
+class PropertyRatingView(ListCreateAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = RatingSerializer
+    pagination_class = CustomPagination
+
+    def create(self, request, *args, **kwargs):
+        try:
+            property_id = self.kwargs.get('property_id')
+            property_instance = Property.objects.get(id=property_id)
+            serializer = self.serializer_class(data=request.data)
+            if serializer.is_valid():
+                serializer.save(property=property_instance, customer=self.request.user)
+            return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
+        except Property.DoesNotExist:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def list(self, request, *args, **kwargs):
+        try:
+            property_id = self.kwargs.get('property_id')
+            ratings = Ratings.objects.filter(property=property_id).order_by('-created_at')
+            page = self.paginate_queryset(ratings)
+            serializer = RatingsOutSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

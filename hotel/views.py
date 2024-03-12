@@ -6,13 +6,14 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, \
-    SubscriptionPlan, SubscriptionTransaction
+    SubscriptionPlan, SubscriptionTransaction, Ratings
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
-    PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, SubscriptionOutSerializer
+    PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
+    SubscriptionOutSerializer, RatingsOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -765,9 +766,24 @@ class SubscriptionView(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class RatingsListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    pagination_class = CustomPagination
+
+    def list(self, request, *args, **kwargs):
+        try:
+            property = Property.objects.filter(owner=self.request.user).first()
+            ratings = Ratings.objects.filter(property=property).order_by('-created_at')
+            page = self.paginate_queryset(ratings)
+            serializer = RatingsOutSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
 def razorpay_webhook(request):
     webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
-
     body = request.body.decode('utf-8')
     received_signature = request.headers.get('X-Razorpay-Signature')
 
