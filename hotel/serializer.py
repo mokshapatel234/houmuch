@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
-    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings
 from django.utils import timezone
 from customer.models import Customer
 
@@ -318,4 +318,12 @@ class SubscriptionOutSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubscriptionTransaction
+        fields = '__all__'
+
+
+class RatingsOutSerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+
+    class Meta:
+        model = Ratings
         fields = '__all__'

@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings
 from hotel.serializer import RoomInventoryOutSerializer
+from django.db.models import Avg
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -54,13 +55,19 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
 
 class PopertyListOutSerializer(PropertyOutSerializer):
     room_inventory = serializers.DictField()
+    average_ratings = serializers.SerializerMethodField()
+
+    def get_average_ratings(self, obj):
+        average = Ratings.objects.filter(property=obj).aggregate(average_rating=Avg('ratings'))
+        return round(average['average_rating'], 2) if average['average_rating'] else 0
 
     class Meta:
         model = Property
         fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                   'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                   'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
-                  'is_cancellation', 'status', 'is_online', 'address', 'images', 'is_verified', 'cancellation_policy', 'room_inventory']
+                  'is_cancellation', 'status', 'is_online', 'address', 'images', 'is_verified', 'average_ratings',
+                  'cancellation_policy', 'room_inventory']
 
 
 class OrderSummarySerializer(RoomInventoryOutSerializer):
@@ -106,3 +113,9 @@ class CombinedSerializer(serializers.Serializer):
 
         guest = GuestDetail.objects.create(**guest_data, booking=booking)
         return {'booking': booking, 'guest': guest}
+
+
+class RatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ratings
+        exclude = ['customer', 'property']

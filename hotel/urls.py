@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, \
     MasterRetrieveView, RoomInventoryViewSet, OTPVerificationView, CategoryRetrieveView, \
     BookingListView, AccountCreateApi, AccountUpdateApi, AccountGetApi, SubscriptionView, \
-    SubscriptionPlanView, TransactionListView
+    SubscriptionPlanView, TransactionListView, RatingsListView
 
 
 router = DefaultRouter()
@@ -25,5 +25,6 @@ urlpatterns = [
     path('transactions/', TransactionListView.as_view(), name='transaction_history'),
     path('subscriptionPlan/', SubscriptionPlanView.as_view(), name='subscription_plan'),
     path('subscription/', SubscriptionView.as_view(), name='subscription'),
+    path('ratings/', RatingsListView.as_view(), name='rating_list'),
     path('', include(router.urls)),
 ]
