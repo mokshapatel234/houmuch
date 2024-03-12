@@ -525,12 +525,14 @@ class AccountCreateApi(APIView):
             existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user).first()
             if existing_account:
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            user = Owner.objects.get(id=request.user.id)
 
             endpoint = "/accounts"
             url = settings.RAZORPAY_BASE_URL + endpoint
 
             request.data['type'] = 'route'
-            request.data['business_type'] = 'partnership'
+            request.data['email'] = user.email
+            request.data['phone'] = user.phone_number
 
             serializer = HotelOwnerBankingSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -544,15 +546,13 @@ class AccountCreateApi(APIView):
             }
 
             response = requests.post(url, json=request.data, headers=headers)
-
             if response.status_code == 200:
                 account_data = response.json()
                 instance = serializer.save(
                     hotel_owner=request.user,
                     status='active',
                     account_id=account_data.get('id', ''),
-                    type='route',
-                    business_type='partnership'
+                    type='route'
                 )
 
                 product_data = {
@@ -606,7 +606,8 @@ class AccountCreateApi(APIView):
 
             return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
