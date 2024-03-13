@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings
 from django.utils import timezone
+from customer.models import Customer
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -230,7 +232,101 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
         fields = ('otp',)
 
 
+class HotelOwnerBankingSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(required=False)
+    phone = serializers.CharField(required=False)
+    contact_name = serializers.CharField()
+    legal_business_name = serializers.CharField()
+    business_type = serializers.CharField()
+    type = serializers.CharField(required=False)
+    account_id = serializers.CharField(required=False)
+
+    class Meta:
+        model = OwnerBankingDetail
+        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+
+
+class SettlementSerializer(serializers.Serializer):
+    account_number = serializers.CharField()
+    ifsc_code = serializers.CharField()
+    beneficiary_name = serializers.CharField()
+
+
+class PatchRequestSerializer(serializers.Serializer):
+    settlements = SettlementSerializer()
+    tnc_accepted = serializers.BooleanField()
+
+
+class CustomerOutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
 class BookingHistorySerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+    rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
+    property = serializers.SerializerMethodField()
+    guests = serializers.SerializerMethodField()
+
+    def get_guests(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        return guests.no_of_adults + guests.no_of_children if guests else None
+
+    def get_property(self, instance):
+        owner = instance.property.owner
+        return owner.hotel_name
+
     class Meta:
         model = BookingHistory
+        exclude = ('updated_at',)
+
+
+class AccountSerializer(HotelOwnerBankingSerializer):
+    product_id = serializers.CharField(required=False)
+    settlements_ifsc_code = serializers.CharField(required=False)
+    settlements_beneficiary_name = serializers.CharField(required=False)
+    settlements_account_number = serializers.CharField(required=False)
+
+    class Meta(HotelOwnerBankingSerializer.Meta):
+        fields = HotelOwnerBankingSerializer.Meta.fields + ['product_id', 'settlements_ifsc_code', 'settlements_beneficiary_name', 'settlements_account_number']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            product = Product.objects.get(owner_banking=instance)
+            data['product_id'] = product.product_id
+            data['settlements_ifsc_code'] = product.settlements_ifsc_code
+            data['settlements_beneficiary_name'] = product.settlements_beneficiary_name
+            data['settlements_account_number'] = product.settlements_account_number
+        except Product.DoesNotExist:
+            pass
+        return data
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = '__all__'
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionTransaction
+        fields = ['subscription_plan',]
+
+
+class SubscriptionOutSerializer(serializers.ModelSerializer):
+    subscription_plan = SubscriptionPlanSerializer()
+
+    class Meta:
+        model = SubscriptionTransaction
+        fields = '__all__'
+
+
+class RatingsOutSerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+
+    class Meta:
+        model = Ratings
         fields = '__all__'

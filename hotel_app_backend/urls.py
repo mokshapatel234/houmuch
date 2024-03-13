@@ -16,10 +16,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from .utils import get_presigned_url
+from hotel.views import razorpay_webhook
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("hotel/", include("hotel.urls")),
     path("customer/", include("customer.urls")),
     path("getPresignedUrl/", get_presigned_url),
+    path('webhook/', razorpay_webhook, name='razorpay_webhook'),
 ]

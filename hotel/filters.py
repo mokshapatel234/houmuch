@@ -19,3 +19,11 @@ class BookingFilter(filters.FilterSet):
     class Meta:
         model = BookingHistory
         fields = ['start_date', 'end_date', 'is_confirmed', 'is_cancel']
+
+
+class TransactionFilter(filters.FilterSet):
+    is_completed = filters.BooleanFilter(field_name="book_status")
+
+    class Meta:
+        model = BookingHistory
+        fields = ['is_completed']

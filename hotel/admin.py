@@ -1,9 +1,9 @@
 from django.contrib import admin
 from .models import Owner, RoomType, Category, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, \
-    ExperienceSlot, Property, RoomInventory, RoomImage, PropertyImage
+    ExperienceSlot, Property, RoomInventory, RoomImage, PropertyImage, SubscriptionPlan, BookingHistory
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
-from .forms import PropertyForm
+from .forms import PropertyForm, SubscriptionPlanForm, BookingHistoryForm
 from django import forms
 
 
@@ -133,6 +133,15 @@ class RoomAdmin(admin.ModelAdmin):
         return obj.property.hotel_nick_name
 
 
+class SubscriptionPlanAdmin(admin.ModelAdmin):
+    form = SubscriptionPlanForm
+    list_display = ['name', 'price', 'duration',]
+
+
+class BookingHistoryAdmin(admin.ModelAdmin):
+    form = BookingHistoryForm
+
+
 admin.site.register(Owner, OwnerAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(PropertyType, PropertyTypeAdmin)
@@ -144,3 +153,5 @@ admin.site.register(CommonAmenities, CommonAmenitiesAdmin)
 admin.site.register(ExperienceSlot, ExperienceSlotAdmin)
 admin.site.register(Property, PropertyAdmin)
 admin.site.register(RoomInventory, RoomAdmin)
+admin.site.register(SubscriptionPlan, SubscriptionPlanAdmin)
+admin.site.register(BookingHistory, BookingHistoryAdmin)
