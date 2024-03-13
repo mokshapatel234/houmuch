@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import CustomerRegisterView, CustomerLoginView, CustomerProfileView, PropertyListView, PayNowView, \
-    PropertyRetriveView, RoomInventoryListView, OrderSummaryView, RoomRetriveView, BookingListView, PropertyRatingView
+    PropertyRetriveView, RoomInventoryListView, OrderSummaryView, RoomRetriveView, BookingListView, \
+    PropertyRatingView, CancelBookingView
 
 
 urlpatterns = [
@@ -15,5 +16,6 @@ urlpatterns = [
     path('orderSummary/', OrderSummaryView.as_view(), name='order_summary'),
     path('bookingHistory/', BookingListView.as_view(), name='booking_history'),
     path('ratings/<int:property_id>/', PropertyRatingView.as_view(), name='add_ratings'),
+    path('cancelBooking/<int:id>/', CancelBookingView.as_view(), name="cancel_booking")
 
 ]

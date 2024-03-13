@@ -53,3 +53,7 @@ ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE = _("Failed to update account details in Razo
 BANKING_DETAIL_NOT_EXIST_MESSAGE = _("Owner banking detail does not exist.")
 ROOM_NOT_AVAILABLE_MESSAGE = _("rooms are not available as per you requirements.")
 PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE = _("Product and bank details updated successfully.")
+ORDER_ERROR_MESSAGE = _("Failed to update order.")
+REFUND_SUCCESFULL_MESSAGE = _("Refund processed successfully.")
+REFUND_ERROR_MESSAGE = _("Failed to process refund.")
+DIRECT_TRANSFER_ERROR_MESSAGE = _("Failed to process direct transfer.")

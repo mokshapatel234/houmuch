@@ -3,20 +3,20 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CancelBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
-from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings
+from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
 from hotel.paginator import CustomPagination
 from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, RatingsOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
-    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, \
-    DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, \
-    ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
-    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE
+    PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, \
+    OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
+    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
+    REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
@@ -29,6 +29,9 @@ from .filters import RoomInventoryFilter
 import datetime
 import requests
 from django.db import transaction
+from django.db.models import Avg
+from django.conf import settings
+from django.utils import timezone
 
 
 class CustomerRegisterView(APIView):
@@ -171,6 +174,7 @@ class PropertyListView(generics.GenericAPIView):
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
         high_to_low = self.request.query_params.get('high_to_low', False)
+        # ratings = self.request.query_params.get('ratings', None)
         # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
         #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
@@ -182,6 +186,14 @@ class PropertyListView(generics.GenericAPIView):
         if property_type:
             property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
             queryset = queryset.filter(property_type__id__in=property_type_ids)
+        # if ratings:
+        #     rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
+        #     properties_with_desired_ratings = Ratings.objects \
+        #         .annotate(average_rating=Avg('ratings')) \
+        #         .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
+        #                 average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
+        #         .values_list('property', flat=True).distinct()
+        #     queryset = queryset.filter(id__in=properties_with_desired_ratings)
         # if total_guests > 5:
         #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
         property_list = []
@@ -306,7 +318,6 @@ class PayNowView(APIView):
                 booking_data = request.data.get('booking_detail', {})
                 guest_data = request.data.get('guest_detail', {})
 
-                # Booking related information
                 room_id = booking_data.get('rooms')
                 room_instance = RoomInventory.objects.select_for_update().get(id=room_id)
                 property_instance = Property.objects.get(id=booking_data.get('property'))
@@ -328,7 +339,12 @@ class PayNowView(APIView):
                 remaining_amount = amount - commission_amount
                 remaining_amount_in_paise = int(remaining_amount * 100)
                 on_hold_until_timestamp = self.calculate_on_hold_until(check_in_date)
-
+                session_key = 'room_id_' + str(room_id)
+                request.session[session_key] = {
+                    'room_id': room_id,
+                    'num_of_rooms': num_of_rooms
+                }
+                request.session.set_expiry(60)
                 order = self.create_payment_order(amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp)
                 if not order:
                     return error_response("Failed to create payment order", status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -340,7 +356,8 @@ class PayNowView(APIView):
                 serializer = CombinedSerializer(data=serializer_data, context={'request': request,
                                                                                'property': property_instance,
                                                                                'room': room_instance,
-                                                                               'order_id': order['id']})
+                                                                               'order_id': order['id'],
+                                                                               'transfer_id': order['transfers'][0]['id']})
                 if serializer.is_valid():
                     serializer.save()
                     return Response({
@@ -351,7 +368,8 @@ class PayNowView(APIView):
                 else:
                     return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
@@ -423,5 +441,79 @@ class PropertyRatingView(ListCreateAPIView):
             page = self.paginate_queryset(ratings)
             serializer = RatingsOutSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class CancelBookingView(APIView):
+    def post(self, request, *args, **kwargs):
+        try:
+            id = self.kwargs.get('id')
+            booking = BookingHistory.objects.get(id=id)
+            check_in_date = booking.check_in_date.date()
+
+            cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).all()
+            owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
+            days_before_check_in = (check_in_date - timezone.now().date()).days
+            cancellation_charge_percentage = 100
+            for policy in sorted(cancellation_policies, key=lambda x: x.cancellation_days, reverse=True):
+                if days_before_check_in >= policy.cancellation_days:
+                    cancellation_charge_percentage = policy.cancellation_percents
+                    break
+
+            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
+            print(cancellation_charge_amount)
+            refund_amount = booking.amount - cancellation_charge_amount
+
+            commission_percent = booking.property.commission_percent
+            commission_amount = (cancellation_charge_amount * commission_percent) / 100
+            transfer_amount = cancellation_charge_amount - commission_amount
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+            }
+            order_endpoint = f"/v1/transfers/{booking.transfer_id}"
+            refund_endpoint = f"/v1/payments/{booking.payment_id}/refund"
+            transfer_endpoint = "/v1/transfers/"
+            try:
+                order_response = requests.patch(
+                    settings.RAZORPAY_BASE_URL + order_endpoint,
+                    headers=headers,
+                    json={
+                        "on_hold": 1
+                    }
+                )
+            except Exception:
+                return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            if order_response.status_code == 200:
+                try:
+                    refund_response = requests.post(
+                        settings.RAZORPAY_BASE_URL + refund_endpoint,
+                        headers=headers,
+                        json={
+                            "amount": refund_amount * 100
+                        }
+                    )
+                except Exception:
+                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                if refund_response.status_code == 200:
+                    try:
+                        requests.post(
+                            settings.RAZORPAY_BASE_URL + transfer_endpoint,
+                            headers=headers,
+                            json={
+                                "amount": transfer_amount * 100,
+                                "currency": booking.currency,
+                                "account": owner.account_id
+                            }
+                        )
+                    except Exception:
+                        return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save(is_cancel=True, cancel_date=timezone.now())
+                return Response(REFUND_SUCCESFULL_MESSAGE, status=200)
+            else:
+                return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

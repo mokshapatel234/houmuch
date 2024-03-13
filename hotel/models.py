@@ -171,7 +171,7 @@ class PropertyCancellation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.property
+        return self.property.hotel_nick_name
 
 
 class RoomInventory(models.Model):
@@ -277,6 +277,7 @@ class BookingHistory(models.Model):
     num_of_rooms = models.IntegerField(verbose_name='number_of_book_rooms')
     rooms = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_book', null=True)
     order_id = models.CharField(max_length=20)
+    transfer_id = models.CharField(max_length=20, null=True)
     check_in_date = models.DateTimeField()
     check_out_date = models.DateTimeField()
     amount = models.FloatField()
@@ -285,6 +286,7 @@ class BookingHistory(models.Model):
     cancel_date = models.DateTimeField(null=True)
     cancel_reason = models.TextField(null=True)
     book_status = models.BooleanField(default=False)
+    payment_id = models.CharField(max_length=20, null=True)
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
