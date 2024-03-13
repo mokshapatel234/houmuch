@@ -654,10 +654,6 @@ class AccountUpdateApi(APIView):
 
             owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
 
-            owner_banking_detail.phone = request.data.get('phone', owner_banking_detail.phone)
-            owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
-            owner_banking_detail.save()
-
             endpoint = f"/accounts/{account_id}"
             url = settings.RAZORPAY_BASE_URL + endpoint
             headers = {
@@ -673,6 +669,9 @@ class AccountUpdateApi(APIView):
             response = requests.patch(url, json=patch_data, headers=headers)
 
             if response.status_code == 200:
+                owner_banking_detail.phone = request.data.get('phone', owner_banking_detail.phone)
+                owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
+                owner_banking_detail.save()
                 updated_account_data = response.json()
                 return Response({
                     "result": True,
