@@ -786,8 +786,10 @@ class RatingsListView(ListAPIView):
 
 
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 
+@csrf_exempt
 def razorpay_webhook(request):
     print("Received Razorpay webhook call")
     # Ensure that you have your webhook secret set in your settings
