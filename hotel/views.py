@@ -789,22 +789,26 @@ from django.http import JsonResponse
 
 
 def razorpay_webhook(request):
+    print("Received Razorpay webhook call")
     # Ensure that you have your webhook secret set in your settings
     webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
 
     # Decode the request body
     body = request.body.decode('utf-8')
     received_signature = request.headers.get('X-Razorpay-Signature')
-
+    print(f"Webhook body: {body}")
+    print(f"Received signature: {received_signature}")
     # Generate the signature
     dig = hmac.new(bytearray(webhook_secret, 'utf-8'), msg=body.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
 
     # Compare the generated signature with the received signature
     if hmac.compare_digest(dig, received_signature):
+        print("Signature verified successfully")
         payload = json.loads(body)
 
         # Check if the event is payment capture
         if payload['event'] == 'payment.captured':
+            print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
             payment_id = payload['payload']['payment']['entity']['id']
 
