@@ -5,6 +5,7 @@ from django.contrib.gis.geos import Point
 from customer.models import Customer
 from django.core.validators import RegexValidator
 
+
 class Category(models.Model):
     category = models.CharField(max_length=255, null=True, blank=True)
     bid_time_duration = models.IntegerField()
@@ -254,7 +255,7 @@ class BiddingSession(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.is_open
+        return self.created_at
 
 
 class PropertyDeal(models.Model):
@@ -289,11 +290,11 @@ class BookingHistory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.property
+        return self.property.hotel_nick_name
 
 
 class GuestDetail(models.Model):
-    booking_id = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
+    booking = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
     no_of_adults = models.IntegerField()
     no_of_children = models.IntegerField()
     age_of_children = models.CharField(max_length=255, blank=True, null=True)
@@ -312,13 +313,16 @@ class OwnerBankingDetail(models.Model):
     contact_name = models.CharField(max_length=16)
     type = models.CharField(max_length=16)
     account_id = models.CharField(max_length=20)
-    legal_business_name= models.CharField(max_length=16)
+    legal_business_name = models.CharField(max_length=16)
     business_type = models.CharField(max_length=50)
-    CHOICES = (('inactive','inactive'),('active','active'))
-    status = models.CharField(("status"),choices=CHOICES, max_length=50,default='active')
+    CHOICES = (('inactive', 'inactive'), ('active', 'active'))
+    status = models.CharField(("status"), choices=CHOICES, max_length=50, default='active')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    deleted_at = models.DateTimeField(blank=True,null=True ,default=None)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return self.contact_name
 
 
 class Product(models.Model):
@@ -328,3 +332,50 @@ class Product(models.Model):
     settlements_ifsc_code = models.CharField(max_length=30)
     settlements_beneficiary_name = models.CharField(max_length=30)
     tnc_accepted = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.product_id
+
+
+class SubscriptionPlan(models.Model):
+    Plans = (
+        (3, '3 months'),
+        (6, '6 months'),
+        (12, '12 months'),
+    )
+    name = models.CharField(('Plan'), max_length=30, null=False)
+    price = models.IntegerField(('Price'), null=False)
+    duration = models.IntegerField(('Plan Duration'), choices=Plans)
+    description = models.TextField(('Description'), max_length=255, null=False)
+    razorpay_plan_id = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SubscriptionTransaction(models.Model):
+    subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='subscription_plan')
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_subscription')
+    razorpay_subscription_id = models.CharField(max_length=255, blank=True, null=True)
+    payment_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.subscription_plan.name
+
+
+class Ratings(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_ratings')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_ratings')
+    ratings = models.IntegerField()
+    review = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.ratings

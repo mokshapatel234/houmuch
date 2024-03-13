@@ -3,29 +3,32 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer
-from .utils import generate_token, get_room_inventory, min_default_price, calculate_available_rooms
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer
+from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
-from hotel.models import Property, RoomInventory, BookingHistory
+from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings
 from hotel.paginator import CustomPagination
-from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, RatingsOutSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, \
     DATA_RETRIEVAL_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, \
     ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
-    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE
+    SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
 from django.contrib.gis.measure import D
-from django.conf import settings
-import razorpay
-from rest_framework.generics import RetrieveAPIView, ListAPIView
+# from django.conf import settings
+# import razorpay
+from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIView
 from django.http import Http404
 from .filters import RoomInventoryFilter
+import datetime
+import requests
+from django.db import transaction
 
 
 class CustomerRegisterView(APIView):
@@ -167,6 +170,7 @@ class PropertyListView(generics.GenericAPIView):
         num_of_children = self.request.query_params.get('num_of_children')
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
+        high_to_low = self.request.query_params.get('high_to_low', False)
         # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
         #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
@@ -192,8 +196,9 @@ class PropertyListView(generics.GenericAPIView):
                                                check_out_date=check_out_date if check_out_date else None,
                                                num_of_adults=int(num_of_adults if num_of_adults else 0),
                                                num_of_children=int(num_of_children if num_of_children else 0),
+                                               high_to_low=high_to_low,
                                                session=self.request.session)
-        sorted_properties = sorted(property_list, key=min_default_price)
+        sorted_properties = sorted(property_list, key=lambda x: sort_properties_by_price(x, high_to_low=high_to_low))
         page = self.paginate_queryset(sorted_properties)
         serializer = self.serializer_class(page, many=True)
         return self.get_paginated_response(serializer.data)
@@ -297,46 +302,86 @@ class PayNowView(APIView):
 
     def post(self, request):
         try:
-            room_id = request.data.get('room_id')
-            room = RoomInventory.objects.get(id=room_id)
-            property_id = request.data.get('property_id')
-            property_instance = Property.objects.get(id=property_id)
-            amount = request.data.get('amount')
-            customer_id = request.user.id
-            customer_instance = Customer.objects.get(id=customer_id)
-            currency = 'INR'
-            check_in_date = request.data.get('check_in_date')
-            check_out_date = request.data.get('check_out_date')
-            num_of_rooms = request.data.get('num_of_rooms')
-            total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
-            adjusted_availability = available_rooms - session_rooms_booked
-            if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
-                return error_response("rooms are not available as per you requirements.", status.HTTP_400_BAD_REQUEST)
-            razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
-            order = razorpay_client.order.create({'amount': amount * 100, 'currency': currency})
-            request.data['customer_id'] = customer_instance.id
-            serializer = CombinedSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save(property=property_instance, order_id=order['id'], customer=customer_instance, book_status=True, rooms=room, currency=currency)
-                session_key = 'room_id_' + str(room_id)
-                request.session[session_key] = {
-                    'room_id': room_id,
-                    'num_of_rooms': request.data.get('num_of_rooms')
-                }
-                request.session.set_expiry(60)
-                response_data = {
-                    'result': True,
-                    'data': {
-                        'order_id': order['id'],
-                    },
-                    'message': PAYMENT_SUCCESS_MESSAGE
-                }
-                return Response(response_data, status=status.HTTP_200_OK)
-            else:
-                return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                booking_data = request.data.get('booking_detail', {})
+                guest_data = request.data.get('guest_detail', {})
 
-        except Exception as e:
-            return error_response(str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
+                # Booking related information
+                room_id = booking_data.get('rooms')
+                room_instance = RoomInventory.objects.select_for_update().get(id=room_id)
+                property_instance = Property.objects.get(id=booking_data.get('property'))
+
+                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
+                account_id = owner_banking_detail.account_id
+                amount = float(booking_data.get('amount'))
+                currency = 'INR'
+                num_of_rooms = booking_data.get('num_of_rooms')
+                check_in_date = booking_data.get('check_in_date')
+                check_out_date = booking_data.get('check_out_date')
+                total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room_instance, check_in_date, check_out_date, self.request.session)
+                adjusted_availability = available_rooms - session_rooms_booked
+                if available_rooms < int(num_of_rooms) or adjusted_availability < int(num_of_rooms):
+                    return error_response(ROOM_NOT_AVAILABLE_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                commission_percent = property_instance.commission_percent
+                commission_percent = property_instance.commission_percent
+                commission_amount = (amount * commission_percent) / 100
+                remaining_amount = amount - commission_amount
+                remaining_amount_in_paise = int(remaining_amount * 100)
+                on_hold_until_timestamp = self.calculate_on_hold_until(check_in_date)
+
+                order = self.create_payment_order(amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp)
+                if not order:
+                    return error_response("Failed to create payment order", status.HTTP_500_INTERNAL_SERVER_ERROR)
+                serializer_data = {
+                    'booking_detail': booking_data,
+                    'guest_detail': guest_data
+                }
+
+                serializer = CombinedSerializer(data=serializer_data, context={'request': request,
+                                                                               'property': property_instance,
+                                                                               'room': room_instance,
+                                                                               'order_id': order['id']})
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response({
+                        'result': True,
+                        'data': {'order_id': order['id']},
+                        'message': PAYMENT_SUCCESS_MESSAGE
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+        }
+        order_data = {
+            'amount': amount * 100,
+            'currency': currency,
+            'transfers': [
+                {
+                    'account': account_id,
+                    'amount': remaining_amount_in_paise,
+                    'currency': currency,
+                    'on_hold': True,
+                    'on_hold_until': on_hold_until_timestamp,
+                }
+            ]
+        }
+        response = requests.post('https://api.razorpay.com/v1/orders', headers=headers, json=order_data)
+        if response.status_code == 200:
+            return response.json()
+        return None
+
+    def calculate_on_hold_until(self, check_in_date_str):
+        check_in_date_obj = datetime.datetime.strptime(check_in_date_str, '%Y-%m-%d').date()
+        check_in_datetime_obj = datetime.datetime.combine(check_in_date_obj, datetime.time.min)
+        on_hold_until_datetime_obj = check_in_datetime_obj - datetime.timedelta(days=1)
+        return int(on_hold_until_datetime_obj.timestamp())
 
 
 class BookingListView(ListAPIView):
@@ -350,3 +395,33 @@ class BookingListView(ListAPIView):
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
         return queryset
+
+
+class PropertyRatingView(ListCreateAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = RatingSerializer
+    pagination_class = CustomPagination
+
+    def create(self, request, *args, **kwargs):
+        try:
+            property_id = self.kwargs.get('property_id')
+            property_instance = Property.objects.get(id=property_id)
+            serializer = self.serializer_class(data=request.data)
+            if serializer.is_valid():
+                serializer.save(property=property_instance, customer=self.request.user)
+            return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
+        except Property.DoesNotExist:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+    def list(self, request, *args, **kwargs):
+        try:
+            property_id = self.kwargs.get('property_id')
+            ratings = Ratings.objects.filter(property=property_id).order_by('-created_at')
+            page = self.paginate_queryset(ratings)
+            serializer = RatingsOutSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Product
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings
 from django.utils import timezone
+from customer.models import Customer
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -231,12 +233,12 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
 
 
 class HotelOwnerBankingSerializer(serializers.ModelSerializer):
-    email = serializers.CharField()
-    phone = serializers.CharField()
+    email = serializers.CharField(required=False)
+    phone = serializers.CharField(required=False)
     contact_name = serializers.CharField()
     legal_business_name = serializers.CharField()
-    business_type = serializers.CharField(required=False)  # Set as optional field
-    type = serializers.CharField(required=False)  # Set as optional field
+    business_type = serializers.CharField()
+    type = serializers.CharField(required=False)
 
     class Meta:
         model = OwnerBankingDetail
@@ -254,10 +256,30 @@ class PatchRequestSerializer(serializers.Serializer):
     tnc_accepted = serializers.BooleanField()
 
 
+class CustomerOutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
 class BookingHistorySerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+    rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
+    property = serializers.SerializerMethodField()
+    guests = serializers.SerializerMethodField()
+
+    def get_guests(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        return guests.no_of_adults + guests.no_of_children if guests else None
+
+    def get_property(self, instance):
+        owner = instance.property.owner
+        return owner.hotel_name
+
     class Meta:
         model = BookingHistory
-        fields = '__all__'
+        exclude = ('updated_at',)
+
 
 class AccountSerializer(HotelOwnerBankingSerializer):
     settlements_ifsc_code = serializers.CharField(required=False)
@@ -277,3 +299,31 @@ class AccountSerializer(HotelOwnerBankingSerializer):
         except Product.DoesNotExist:
             pass
         return data
+
+
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = '__all__'
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionTransaction
+        fields = ['subscription_plan',]
+
+
+class SubscriptionOutSerializer(serializers.ModelSerializer):
+    subscription_plan = SubscriptionPlanSerializer()
+
+    class Meta:
+        model = SubscriptionTransaction
+        fields = '__all__'
+
+
+class RatingsOutSerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer()
+
+    class Meta:
+        model = Ratings
+        fields = '__all__'
