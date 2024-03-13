@@ -174,7 +174,7 @@ class PropertyListView(generics.GenericAPIView):
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
         high_to_low = self.request.query_params.get('high_to_low', False)
-        ratings = self.request.query_params.get('ratings', None)
+        # ratings = self.request.query_params.get('ratings', None)
         # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
         #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
@@ -186,14 +186,14 @@ class PropertyListView(generics.GenericAPIView):
         if property_type:
             property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
             queryset = queryset.filter(property_type__id__in=property_type_ids)
-        if ratings:
-            rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
-            properties_with_desired_ratings = Ratings.objects \
-                .annotate(average_rating=Avg('ratings')) \
-                .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
-                        average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
-                .values_list('property', flat=True).distinct()
-            queryset = queryset.filter(id__in=properties_with_desired_ratings)
+        # if ratings:
+        #     rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
+        #     properties_with_desired_ratings = Ratings.objects \
+        #         .annotate(average_rating=Avg('ratings')) \
+        #         .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
+        #                 average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
+        #         .values_list('property', flat=True).distinct()
+        #     queryset = queryset.filter(id__in=properties_with_desired_ratings)
         # if total_guests > 5:
         #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
         property_list = []
