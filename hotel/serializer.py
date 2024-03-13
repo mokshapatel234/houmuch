@@ -330,9 +330,3 @@ class RatingsOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ratings
         fields = '__all__'
-
-
-class CancelBookingSeriallizer(serializers.ModelSerializer):
-    class Meta:
-        model = BookingHistory
-        fields = ('cancel_reason')

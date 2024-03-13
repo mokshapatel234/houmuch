@@ -105,10 +105,12 @@ class CombinedSerializer(serializers.Serializer):
         property = self.context['property']
         room = self.context['room']
         order = self.context['order_id']
+        transfer_id = self.context['transfer_id']
         booking = BookingHistory.objects.create(property=property,
                                                 order_id=order,
                                                 rooms=room,
                                                 currency="INR",
+                                                transfer_id=transfer_id,
                                                 **booking_data)
 
         guest = GuestDetail.objects.create(**guest_data, booking=booking)
@@ -119,3 +121,9 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ratings
         exclude = ['customer', 'property']
+
+
+class CancelBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingHistory
+        fields = ['cancel_reason']

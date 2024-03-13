@@ -527,7 +527,7 @@ class AccountCreateApi(APIView):
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             user = Owner.objects.get(id=request.user.id)
 
-            endpoint = "/accounts"
+            endpoint = "/v2/accounts"
             url = settings.RAZORPAY_BASE_URL + endpoint
 
             request.data['type'] = 'route'
@@ -559,7 +559,7 @@ class AccountCreateApi(APIView):
                     "product_name": "route"
                 }
 
-                endpoint = f"/accounts/{account_data.get('id', '')}/products"
+                endpoint = f"/v2/accounts/{account_data.get('id', '')}/products"
                 url = settings.RAZORPAY_BASE_URL + endpoint
 
                 response = requests.post(url, json=product_data, headers=headers)
@@ -571,7 +571,7 @@ class AccountCreateApi(APIView):
                     product.owner_banking = instance
                     product.save()
 
-                    endpoint = f"/accounts/{account_data.get('id', '')}/products/{product_id}/"
+                    endpoint = f"/v2/accounts/{account_data.get('id', '')}/products/{product_id}/"
                     url = settings.RAZORPAY_BASE_URL + endpoint
 
                     # Create the payload for the patch request
@@ -654,7 +654,7 @@ class AccountUpdateApi(APIView):
 
             owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
 
-            endpoint = f"/accounts/{account_id}"
+            endpoint = f"/v2/accounts/{account_id}"
             url = settings.RAZORPAY_BASE_URL + endpoint
             print(url)
             headers = {
@@ -784,60 +784,49 @@ class RatingsListView(ListAPIView):
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-class CancelBookingView(APIView):
-    def post(self, request):
-        try:
-            id = self.kwargs.get('id')
-            booking = BookingHistory.objects.get(id=id)
 
-            endpoint = f"payments/{booking.payment_id}/refund"
-            url = settings.RAZORPAY_BASE_URL + endpoint
-            headers = {
-            'Content-Type': 'application/json',
-            'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
-            }
-            refund_response = requests.post(
-                url,
-                headers=headers,
-                json={
-                    "amount": booking.amount * 100,
-                    "currency": booking.currency,
-                }
-            )
-
-            if refund_response.status_code == 200:
-                booking.is_cancel = True
-                booking.cancel_date = timezone.now()
-                booking.cancel_reason = "Refunded"
-                booking.save()
-                return Response({"message": "Refund processed successfully"}, status=200)
-            else:
-                return Response({"message": "Failed to process refund"}, status=refund_response.status_code)
-        except BookingHistory.DoesNotExist:
-            return Response({"message": "Booking does not exist"}, status=404)
+from django.http import JsonResponse
 
 
 def razorpay_webhook(request):
+    # Ensure that you have your webhook secret set in your settings
     webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+
+    # Decode the request body
     body = request.body.decode('utf-8')
     received_signature = request.headers.get('X-Razorpay-Signature')
 
+    # Generate the signature
     dig = hmac.new(bytearray(webhook_secret, 'utf-8'), msg=body.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
 
+    # Compare the generated signature with the received signature
     if hmac.compare_digest(dig, received_signature):
         payload = json.loads(body)
 
+        # Check if the event is payment capture
         if payload['event'] == 'payment.captured':
             order_id = payload['payload']['payment']['entity']['order_id']
+            payment_id = payload['payload']['payment']['entity']['id']
 
             try:
+                # Fetch the booking from the database using the order_id
                 booking = BookingHistory.objects.get(order_id=order_id)
+
+                # Update the booking with the payment_id and book_status
+                booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                return Response({'status': 'success', 'message': 'Booking status updated successfully'})
+
+                # Return a success response
+                return JsonResponse({'status': 'success', 'message': 'Booking status and payment ID updated successfully'})
+
             except BookingHistory.DoesNotExist:
-                return Response({'status': 'failed', 'message': 'Booking not found'})
+                # Handle the case where the booking does not exist
+                return JsonResponse({'status': 'failed', 'message': 'Booking not found'}, status=404)
         else:
-            return Response(status=200)
+            # If the event is not payment.captured, you might still want to acknowledge it
+            return JsonResponse({'message': 'Received'}, status=200)
+
     else:
-        return Response({'status': 'failed', 'message': 'Invalid signature'}, status=400)
+        # If the signature verification fails
+        return JsonResponse({'status': 'failed', 'message': 'Invalid signature'}, status=400)
