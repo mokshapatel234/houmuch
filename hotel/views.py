@@ -660,6 +660,7 @@ class AccountUpdateApi(APIView):
 
             endpoint = f"/accounts/{account_id}"
             url = settings.RAZORPAY_BASE_URL + endpoint
+            print(url)
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
@@ -671,6 +672,7 @@ class AccountUpdateApi(APIView):
             }
 
             response = requests.patch(url, json=patch_data, headers=headers)
+            print(response.json())
 
             if response.status_code == 200:
                 updated_account_data = response.json()
@@ -685,7 +687,8 @@ class AccountUpdateApi(APIView):
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -781,6 +784,38 @@ class RatingsListView(ListAPIView):
             return self.get_paginated_response(serializer.data)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+class CancelBookingView(APIView):
+    def post(self, request):
+        try:
+            id = self.kwargs.get('id')
+            booking = BookingHistory.objects.get(id=id)
+
+            endpoint = f"payments/{booking.payment_id}/refund"
+            url = settings.RAZORPAY_BASE_URL + endpoint
+            headers = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+            }
+            refund_response = requests.post(
+                url,
+                headers=headers,
+                json={
+                    "amount": booking.amount * 100,
+                    "currency": booking.currency,
+                }
+            )
+
+            if refund_response.status_code == 200:
+                booking.is_cancel = True
+                booking.cancel_date = timezone.now()
+                booking.cancel_reason = "Refunded"
+                booking.save()
+                return Response({"message": "Refund processed successfully"}, status=200)
+            else:
+                return Response({"message": "Failed to process refund"}, status=refund_response.status_code)
+        except BookingHistory.DoesNotExist:
+            return Response({"message": "Booking does not exist"}, status=404)
 
 
 def razorpay_webhook(request):

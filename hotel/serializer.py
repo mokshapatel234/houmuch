@@ -239,10 +239,11 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     legal_business_name = serializers.CharField()
     business_type = serializers.CharField()
     type = serializers.CharField(required=False)
+    account_id = serializers.CharField(required=False)
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
 
 
 class SettlementSerializer(serializers.Serializer):
@@ -282,17 +283,19 @@ class BookingHistorySerializer(serializers.ModelSerializer):
 
 
 class AccountSerializer(HotelOwnerBankingSerializer):
+    product_id = serializers.CharField(required=False)
     settlements_ifsc_code = serializers.CharField(required=False)
     settlements_beneficiary_name = serializers.CharField(required=False)
     settlements_account_number = serializers.CharField(required=False)
 
     class Meta(HotelOwnerBankingSerializer.Meta):
-        fields = HotelOwnerBankingSerializer.Meta.fields + ['settlements_ifsc_code', 'settlements_beneficiary_name', 'settlements_account_number']
+        fields = HotelOwnerBankingSerializer.Meta.fields + ['product_id', 'settlements_ifsc_code', 'settlements_beneficiary_name', 'settlements_account_number']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         try:
             product = Product.objects.get(owner_banking=instance)
+            data['product_id'] = product.product_id
             data['settlements_ifsc_code'] = product.settlements_ifsc_code
             data['settlements_beneficiary_name'] = product.settlements_beneficiary_name
             data['settlements_account_number'] = product.settlements_account_number
@@ -327,3 +330,9 @@ class RatingsOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ratings
         fields = '__all__'
+
+
+class CancelBookingSeriallizer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingHistory
+        fields = ('cancel_reason')
