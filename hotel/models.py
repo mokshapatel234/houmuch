@@ -147,6 +147,7 @@ class Property(models.Model):
     property_type = models.ForeignKey(PropertyType, on_delete=models.CASCADE, related_name='owner_property_type')
     room_types = models.ManyToManyField(RoomType, related_name='owner_room_type')
     commission_percent = models.FloatField('Commission', default=10.0)
+    hotel_class = models.IntegerField(default=0)
     pet_friendly = models.BooleanField('Pet Friendly', default=False)
     breakfast_included = models.BooleanField('Breakfast Included', default=False)
     is_cancellation = models.BooleanField('Is Cancellation Allowed', default=False)

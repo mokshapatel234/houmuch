@@ -5,7 +5,7 @@ from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CancelBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
-from hotel.utils import error_response, send_mail, generate_response
+from hotel.utils import error_response, send_mail, generate_response, deletion_success_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
 from hotel.paginator import CustomPagination
@@ -174,7 +174,8 @@ class PropertyListView(generics.GenericAPIView):
         check_in_date = self.request.query_params.get('check_in_date', None)
         check_out_date = self.request.query_params.get('check_out_date', None)
         high_to_low = self.request.query_params.get('high_to_low', False)
-        # ratings = self.request.query_params.get('ratings', None)
+        ratings = self.request.query_params.get('ratings', None)
+        hotel_class = self.request.query_params.get('hotel_class', None)
         # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
         #     (int(num_of_children) if num_of_children is not None else 0)
         queryset = self.get_queryset()
@@ -186,14 +187,16 @@ class PropertyListView(generics.GenericAPIView):
         if property_type:
             property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
             queryset = queryset.filter(property_type__id__in=property_type_ids)
-        # if ratings:
-        #     rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
-        #     properties_with_desired_ratings = Ratings.objects \
-        #         .annotate(average_rating=Avg('ratings')) \
-        #         .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
-        #                 average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
-        #         .values_list('property', flat=True).distinct()
-        #     queryset = queryset.filter(id__in=properties_with_desired_ratings)
+        if ratings:
+            rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
+            properties_with_desired_ratings = Ratings.objects \
+                .annotate(average_rating=Avg('ratings')) \
+                .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
+                        average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
+                .values_list('property', flat=True).distinct()
+            queryset = queryset.filter(id__in=properties_with_desired_ratings)
+        if hotel_class:
+            queryset = queryset.filter(hotel_class=int(hotel_class))
         # if total_guests > 5:
         #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
         property_list = []
@@ -375,7 +378,7 @@ class PayNowView(APIView):
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+            'Authorization': settings.RAZORPAY_AUTH_TOKEN
         }
         order_data = {
             'amount': amount * 100,
@@ -390,7 +393,7 @@ class PayNowView(APIView):
                 }
             ]
         }
-        response = requests.post('https://api.razorpay.com/v1/orders', headers=headers, json=order_data)
+        response = requests.post(settings.RAZORPAY_BASE_URL + '/v1/orders', headers=headers, json=order_data)
         if response.status_code == 200:
             return response.json()
         return None
@@ -452,17 +455,17 @@ class CancelBookingView(APIView):
             booking = BookingHistory.objects.get(id=id)
             check_in_date = booking.check_in_date.date()
 
-            cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).all()
+            cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
             days_before_check_in = (check_in_date - timezone.now().date()).days
-            cancellation_charge_percentage = 100
-            for policy in sorted(cancellation_policies, key=lambda x: x.cancellation_days, reverse=True):
-                if days_before_check_in >= policy.cancellation_days:
+
+            cancellation_charge_percentage = cancellation_policies.last().cancellation_percents
+            for policy in cancellation_policies:
+                if days_before_check_in == policy.cancellation_days:
                     cancellation_charge_percentage = policy.cancellation_percents
                     break
 
-            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
-            print(cancellation_charge_amount)
+            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100 if cancellation_charge_percentage != 0 else 0
             refund_amount = booking.amount - cancellation_charge_amount
 
             commission_percent = booking.property.commission_percent
@@ -470,49 +473,42 @@ class CancelBookingView(APIView):
             transfer_amount = cancellation_charge_amount - commission_amount
             headers = {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+                'Authorization': settings.RAZORPAY_AUTH_TOKEN
             }
             order_endpoint = f"/v1/transfers/{booking.transfer_id}"
             refund_endpoint = f"/v1/payments/{booking.payment_id}/refund"
             transfer_endpoint = "/v1/transfers/"
-            try:
-                order_response = requests.patch(
-                    settings.RAZORPAY_BASE_URL + order_endpoint,
+            order_response = requests.patch(
+                settings.RAZORPAY_BASE_URL + order_endpoint,
+                headers=headers,
+                json={"on_hold": 1}
+            )
+            if order_response.status_code != 200:
+                return error_response(ORDER_ERROR_MESSAGE, order_response.status_code)
+            refund_response = requests.post(
+                settings.RAZORPAY_BASE_URL + refund_endpoint,
+                headers=headers,
+                json={"amount": refund_amount * 100}
+            )
+            if refund_response.status_code != 200:
+                return error_response(REFUND_ERROR_MESSAGE, order_response.status_code)
+            if transfer_amount > 0:
+                direct_transfer_response = requests.post(
+                    settings.RAZORPAY_BASE_URL + transfer_endpoint,
                     headers=headers,
                     json={
-                        "on_hold": 1
+                        "amount": transfer_amount * 100,
+                        "currency": booking.currency,
+                        "account": owner.account_id
                     }
                 )
-            except Exception:
-                return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            if order_response.status_code == 200:
-                try:
-                    refund_response = requests.post(
-                        settings.RAZORPAY_BASE_URL + refund_endpoint,
-                        headers=headers,
-                        json={
-                            "amount": refund_amount * 100
-                        }
-                    )
-                except Exception:
-                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-                if refund_response.status_code == 200:
-                    try:
-                        requests.post(
-                            settings.RAZORPAY_BASE_URL + transfer_endpoint,
-                            headers=headers,
-                            json={
-                                "amount": transfer_amount * 100,
-                                "currency": booking.currency,
-                                "account": owner.account_id
-                            }
-                        )
-                    except Exception:
-                        return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                if direct_transfer_response.status_code != 200:
+                    return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, order_response.status_code)
+
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
-                return Response(REFUND_SUCCESFULL_MESSAGE, status=200)
+                return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status=status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:

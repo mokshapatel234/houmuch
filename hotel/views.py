@@ -42,6 +42,8 @@ from django.shortcuts import get_object_or_404
 import hashlib
 import hmac
 import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 
 class HotelRegisterView(APIView):
@@ -542,7 +544,7 @@ class AccountCreateApi(APIView):
 
             headers = {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'
+                'Authorization': settings.RAZORPAY_AUTH_TOKEN
             }
 
             response = requests.post(url, json=request.data, headers=headers)
@@ -659,7 +661,7 @@ class AccountUpdateApi(APIView):
             print(url)
             headers = {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic cnpwX3Rlc3RfQmk0dnZ5WUlWbEdGZTg6TTB6aHhCNXlGaGpYU0Q4MGFtYnZtU3c5'  # Use your Razorpay API key secret here
+                'Authorization': settings.RAZORPAY_AUTH_TOKEN  # Use your Razorpay API key secret here
             }
 
             patch_data = {
@@ -785,54 +787,37 @@ class RatingsListView(ListAPIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
-
 @csrf_exempt
 def razorpay_webhook(request):
     print("Received Razorpay webhook call")
-    # Ensure that you have your webhook secret set in your settings
     webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
 
-    # Decode the request body
     body = request.body.decode('utf-8')
     received_signature = request.headers.get('X-Razorpay-Signature')
-    print(f"Webhook body: {body}")
-    print(f"Received signature: {received_signature}")
-    # Generate the signature
     dig = hmac.new(bytearray(webhook_secret, 'utf-8'), msg=body.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
 
-    # Compare the generated signature with the received signature
     if hmac.compare_digest(dig, received_signature):
         print("Signature verified successfully")
         payload = json.loads(body)
 
-        # Check if the event is payment capture
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
             payment_id = payload['payload']['payment']['entity']['id']
 
             try:
-                # Fetch the booking from the database using the order_id
                 booking = BookingHistory.objects.get(order_id=order_id)
 
-                # Update the booking with the payment_id and book_status
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
+                print("TRUEE")
 
-                # Return a success response
                 return JsonResponse({'status': 'success', 'message': 'Booking status and payment ID updated successfully'})
 
             except BookingHistory.DoesNotExist:
-                # Handle the case where the booking does not exist
                 return JsonResponse({'status': 'failed', 'message': 'Booking not found'}, status=404)
         else:
-            # If the event is not payment.captured, you might still want to acknowledge it
             return JsonResponse({'message': 'Received'}, status=200)
-
     else:
-        # If the signature verification fails
         return JsonResponse({'status': 'failed', 'message': 'Invalid signature'}, status=400)
