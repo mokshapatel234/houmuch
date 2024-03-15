@@ -94,3 +94,17 @@ def calculate_available_rooms(room, check_in_date, check_out_date, session):
     session_key = f'room_id_{room.id}'
     session_rooms_booked = session.get(session_key, {}).get('num_of_rooms', 0)
     return total_booked, available_rooms, session_rooms_booked
+
+
+def get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time_str):
+    check_in_time = datetime.strptime(check_in_time_str, "%I:%M %p").time()
+    now = datetime.now()
+    current_time = now.time()
+    if current_time > check_in_time:
+        days_before_check_in -= 1
+    cancellation_charge_percentage = cancellation_policies.last().cancellation_percents
+    for policy in sorted(cancellation_policies, key=lambda x: x.cancellation_days):
+        if days_before_check_in <= policy.cancellation_days:
+            cancellation_charge_percentage = policy.cancellation_percents
+            break
+    return cancellation_charge_percentage

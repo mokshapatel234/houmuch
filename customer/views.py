@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CancelBookingSerializer
-from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CancelBookingSerializer, BookingRetrieveSerializer
+from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
 from hotel.utils import error_response, send_mail, generate_response, deletion_success_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
@@ -27,11 +27,10 @@ from rest_framework.generics import RetrieveAPIView, ListAPIView, ListCreateAPIV
 from django.http import Http404
 from .filters import RoomInventoryFilter
 import datetime
-import requests
 from django.db import transaction
 from django.db.models import Avg
-from django.conf import settings
 from django.utils import timezone
+from hotel_app_backend.razorpay_utils import razorpay_request
 
 
 class CustomerRegisterView(APIView):
@@ -371,15 +370,10 @@ class PayNowView(APIView):
                 else:
                     return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': settings.RAZORPAY_AUTH_TOKEN
-        }
         order_data = {
             'amount': amount * 100,
             'currency': currency,
@@ -393,7 +387,8 @@ class PayNowView(APIView):
                 }
             ]
         }
-        response = requests.post(settings.RAZORPAY_BASE_URL + '/v1/orders', headers=headers, json=order_data)
+        # response = requests.post(settings.RAZORPAY_BASE_URL + '/v1/orders', headers=headers, json=order_data)
+        response = razorpay_request('/v1/orders', "post", data=order_data)
         if response.status_code == 200:
             return response.json()
         return None
@@ -412,6 +407,16 @@ class BookingListView(ListAPIView):
     pagination_class = CustomPagination
     filterset_class = BookingFilter
     filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        return queryset
+
+
+class BookingRetrieveView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingRetrieveSerializer
 
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
@@ -458,50 +463,28 @@ class CancelBookingView(APIView):
             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
             days_before_check_in = (check_in_date - timezone.now().date()).days
+            check_in_time = booking.property.check_in_time
 
-            cancellation_charge_percentage = cancellation_policies.last().cancellation_percents
-            for policy in cancellation_policies:
-                if days_before_check_in == policy.cancellation_days:
-                    cancellation_charge_percentage = policy.cancellation_percents
-                    break
+            cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
 
-            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100 if cancellation_charge_percentage != 0 else 0
+            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
             refund_amount = booking.amount - cancellation_charge_amount
-
             commission_percent = booking.property.commission_percent
             commission_amount = (cancellation_charge_amount * commission_percent) / 100
             transfer_amount = cancellation_charge_amount - commission_amount
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': settings.RAZORPAY_AUTH_TOKEN
-            }
-            order_endpoint = f"/v1/transfers/{booking.transfer_id}"
-            refund_endpoint = f"/v1/payments/{booking.payment_id}/refund"
-            transfer_endpoint = "/v1/transfers/"
-            order_response = requests.patch(
-                settings.RAZORPAY_BASE_URL + order_endpoint,
-                headers=headers,
-                json={"on_hold": 1}
-            )
+            order_response = razorpay_request(f"/v1/transfers/{booking.transfer_id}", "patch", data={"on_hold": 1})
             if order_response.status_code != 200:
                 return error_response(ORDER_ERROR_MESSAGE, order_response.status_code)
-            refund_response = requests.post(
-                settings.RAZORPAY_BASE_URL + refund_endpoint,
-                headers=headers,
-                json={"amount": refund_amount * 100}
-            )
+            refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
             if refund_response.status_code != 200:
                 return error_response(REFUND_ERROR_MESSAGE, order_response.status_code)
             if transfer_amount > 0:
-                direct_transfer_response = requests.post(
-                    settings.RAZORPAY_BASE_URL + transfer_endpoint,
-                    headers=headers,
-                    json={
-                        "amount": transfer_amount * 100,
-                        "currency": booking.currency,
-                        "account": owner.account_id
-                    }
-                )
+                transfer_data = {
+                    "amount": transfer_amount * 100,
+                    "currency": booking.currency,
+                    "account": owner.account_id
+                }
+                direct_transfer_response = razorpay_request("/v1/transfers/", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, order_response.status_code)
 

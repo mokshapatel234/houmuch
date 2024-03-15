@@ -25,6 +25,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
     PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE
+from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
 from .paginator import CustomPagination
@@ -34,8 +35,6 @@ from hotel_app_backend.utils import delete_image_from_s3, razorpay_client
 from django.contrib.auth.models import User
 from .filters import RoomInventoryFilter, BookingFilter, TransactionFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
-from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 import requests
 from django.shortcuts import get_object_or_404
@@ -127,13 +126,18 @@ class OwnerProfileView(APIView):
             property = Property.objects.filter(owner=request.user)
             images = PropertyImage.objects.filter(property=property.first())
             image_serializer = PropertyImageSerializer(images, many=True)
+            # subscription_plan = SubscriptionTransaction.objects.filter(owner=self.request.user, payment_status=True).order_by('-created_at').first()
+            # is_plan_purchased = False
+            # if subscription_plan:
+            #     is_plan_purchased = not check_plan_expiry(subscription_plan)
             response_data = {
                 'result': True,
                 'data': {
                     **serializer.data,
                     "is_property_added": True if property.count() >= 1 else False,
                     "property_count": property.count() if property.count() >= 1 else 0,
-                    "images": image_serializer.data
+                    "images": image_serializer.data,
+                    # "is_plan_purchased":is_plan_purchased
                 },
                 'message': PROFILE_MESSAGE,
             }
@@ -529,8 +533,8 @@ class AccountCreateApi(APIView):
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             user = Owner.objects.get(id=request.user.id)
 
-            endpoint = "/v2/accounts"
-            url = settings.RAZORPAY_BASE_URL + endpoint
+            # endpoint = "/v2/accounts"
+            # url = settings.RAZORPAY_BASE_URL + endpoint
 
             request.data['type'] = 'route'
             request.data['email'] = user.email
@@ -542,12 +546,8 @@ class AccountCreateApi(APIView):
             settlements_data = request.data.pop('settlements', {})
             tnc_accepted = request.data.pop('tnc_accepted', False)
 
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': settings.RAZORPAY_AUTH_TOKEN
-            }
-
-            response = requests.post(url, json=request.data, headers=headers)
+            response = razorpay_request("/v2/accounts", "post", data=request.data)
+            # response = requests.post(url, json=request.data, headers=headers)
             if response.status_code == 200:
                 account_data = response.json()
                 instance = serializer.save(
@@ -561,11 +561,10 @@ class AccountCreateApi(APIView):
                     "product_name": "route"
                 }
 
-                endpoint = f"/v2/accounts/{account_data.get('id', '')}/products"
-                url = settings.RAZORPAY_BASE_URL + endpoint
-
-                response = requests.post(url, json=product_data, headers=headers)
-
+                # endpoint = f"/v2/accounts/{account_data.get('id', '')}/products"
+                # url = settings.RAZORPAY_BASE_URL + endpoint
+                # response = requests.post(url, json=product_data, headers=headers)
+                response = razorpay_request(f"/v2/accounts/{account_data.get('id', '')}/products", "post", data=product_data)
                 if response.status_code == 200 and instance is not None:
                     product_data = response.json()
                     product_id = product_data.get("id")
@@ -573,33 +572,30 @@ class AccountCreateApi(APIView):
                     product.owner_banking = instance
                     product.save()
 
-                    endpoint = f"/v2/accounts/{account_data.get('id', '')}/products/{product_id}/"
-                    url = settings.RAZORPAY_BASE_URL + endpoint
+                    # endpoint = f"/v2/accounts/{account_data.get('id', '')}/products/{product_id}/"
+                    # url = settings.RAZORPAY_BASE_URL + endpoint
 
                     # Create the payload for the patch request
                     patch_data = {
                         'settlements': settlements_data,
                         'tnc_accepted': tnc_accepted
                     }
-
-                    serializer = PatchRequestSerializer(data=patch_data)
-                    serializer.is_valid(raise_exception=True)
-
-                    data = serializer.validated_data
-                    product.settlements_account_number = data['settlements']['account_number']
-                    product.settlements_ifsc_code = data['settlements']['ifsc_code']
-                    product.settlements_beneficiary_name = data['settlements']['beneficiary_name']
-                    product.tnc_accepted = data['tnc_accepted']
-                    product.save()
-
-                    response = requests.patch(url, json=patch_data, headers=headers)
-
+                    response = razorpay_request(f"/v2/accounts/{account_data.get('id', '')}/products/{product_id}/", "patch", data=patch_data)
                     if response.status_code == 200:
-                        updated_product_data = response.json()
+                        serializer = PatchRequestSerializer(data=patch_data)
+                        serializer.is_valid(raise_exception=True)
+
+                        data = serializer.validated_data
+                        product.settlements_account_number = data['settlements']['account_number']
+                        product.settlements_ifsc_code = data['settlements']['ifsc_code']
+                        product.settlements_beneficiary_name = data['settlements']['beneficiary_name']
+                        product.tnc_accepted = data['tnc_accepted']
+                        product.save()
+                        # response = requests.patch(url, json=patch_data, headers=headers)
 
                         return Response({
                             "result": True,
-                            "data": updated_product_data,
+                            "data": response.json(),
                             "message": PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE,
                         }, status=status.HTTP_200_OK)
                     return error_response(ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -608,8 +604,7 @@ class AccountCreateApi(APIView):
 
             return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -688,8 +683,7 @@ class AccountUpdateApi(APIView):
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -702,14 +696,7 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        today = timezone.now().date()
-        queryset = BookingHistory.objects.annotate(
-            is_today=Case(
-                When(check_in_date__date=today, then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField()
-            )
-        ).filter(property__owner=self.request.user, book_status=True).order_by('-is_today')
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('created_at')
         return queryset
 
 

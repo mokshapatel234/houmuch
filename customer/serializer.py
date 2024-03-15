@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings
-from hotel.serializer import RoomInventoryOutSerializer
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, CancellationSerializer
 from django.db.models import Avg
 
 
@@ -127,3 +127,11 @@ class CancelBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingHistory
         fields = ['cancel_reason']
+
+
+class BookingRetrieveSerializer(BookingHistorySerializer):
+    cancellation_policy = serializers.SerializerMethodField()
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
