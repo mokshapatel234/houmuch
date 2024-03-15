@@ -269,6 +269,7 @@ class BookingHistorySerializer(serializers.ModelSerializer):
     rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
     property = serializers.SerializerMethodField()
     guests = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
 
     def get_guests(self, instance):
         guests = GuestDetail.objects.filter(booking=instance).first()
@@ -277,6 +278,10 @@ class BookingHistorySerializer(serializers.ModelSerializer):
     def get_property(self, instance):
         owner = instance.property.owner
         return owner.hotel_name
+
+    def get_address(self, instance):
+        owner = instance.property.owner
+        return owner.address
 
     class Meta:
         model = BookingHistory
