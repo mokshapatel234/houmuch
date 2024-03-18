@@ -294,6 +294,9 @@ class OrderSummaryView(ListAPIView):
         total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
         adjusted_availability = available_rooms - session_rooms_booked
         total_price = room.default_price * min(adjusted_availability, int(num_of_rooms))
+        gst_rate = 0.12 if total_price <= 7500 else 0.18
+        gst_amount = total_price * gst_rate
+        final_price = total_price + gst_amount
         booked_info = BOOKED_INFO_MESSAGE.format(total_booked=total_booked)
         session_info = SESSION_INFO_MESSAGE.format(session_rooms_booked=session_rooms_booked)
         availability_info = AVAILABILITY_INFO_MESSAGE.format(adjusted_availability=adjusted_availability)
@@ -305,6 +308,9 @@ class OrderSummaryView(ListAPIView):
                 **serializer.data,
                 'available_rooms': adjusted_availability,
                 'total_price': total_price,
+                'gst_rate': gst_rate * 100,
+                'gst_amount': gst_amount,
+                'final_price': final_price,
             },
             'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
         }, status=status.HTTP_200_OK)
@@ -483,19 +489,19 @@ class CancelBookingView(APIView):
             transfer_amount = cancellation_charge_amount - commission_amount
             order_response = razorpay_request(f"/v1/transfers/{booking.transfer_id}", "patch", data={"on_hold": 1})
             if order_response.status_code != 200:
-                return error_response(ORDER_ERROR_MESSAGE, order_response.status_code)
+                return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
             if refund_response.status_code != 200:
-                return error_response(REFUND_ERROR_MESSAGE, order_response.status_code)
+                return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if transfer_amount > 0:
                 transfer_data = {
                     "amount": transfer_amount * 100,
                     "currency": booking.currency,
                     "account": owner.account_id
                 }
-                direct_transfer_response = razorpay_request("/v1/transfers/", "post", data=transfer_data)
+                direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
-                    return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, order_response.status_code)
+                    return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
