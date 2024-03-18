@@ -206,18 +206,19 @@ class RoomInventory(models.Model):
 
 
 class UpdateInventoryPeriod(models.Model):
-    update_duration = models.CharField(('Update Duration'), max_length=255)
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
-    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
     default_price = models.IntegerField(('Default Price'))
     deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
     min_price = models.IntegerField(('Min Price'))
     max_price = models.IntegerField(('Max Price'))
+    num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.update_duration
+        return self.default_price
 
 
 class RoomImage(models.Model):

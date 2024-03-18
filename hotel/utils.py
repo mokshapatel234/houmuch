@@ -100,3 +100,17 @@ def cache_response(name, user):
 def set_cache(name, user, data):
     cache_key = f"{name}_{user.id}"
     cache.set(cache_key, data, timeout=60 * 5)
+
+
+def get_start_end_dates(num_of_days=None, num_of_weeks=None, num_of_months=None):
+    start_date = timezone.now()
+    end_date = None
+    if num_of_days == 1:
+        pass
+    elif num_of_days:
+        end_date = start_date + timedelta(days=num_of_days)
+    elif num_of_weeks:
+        end_date = start_date + timedelta(weeks=num_of_weeks)
+    elif num_of_months:
+        end_date = start_date + timedelta(days=30 * num_of_months)
+    return start_date, end_date

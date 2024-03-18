@@ -174,11 +174,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
     class Meta:
         model = UpdateInventoryPeriod
-        exclude = ['created_at', 'updated_at', 'deleted_at', 'room_inventory']
-
-
-class UpdatedPeriodOutSerializer(UpdatedPeriodSerializer):
-    common_amenities = CommonAmenitiesSerializer(many=True)
+        exclude = ['created_at', 'updated_at', 'room_inventory']
 
 
 class RoomInventorySerializer(serializers.ModelSerializer):
@@ -199,20 +195,18 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     common_amenities = CommonAmenitiesSerializer(many=True)
     updated_period = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    is_updated_period = serializers.SerializerMethodField()
 
     def get_updated_period(self, obj):
-        duration_mapping = {
-            'today': timezone.timedelta(days=1),
-            'for a week': timezone.timedelta(days=7),
-            'for a month': timezone.timedelta(days=30),
-        }
-
+        now = timezone.now().date()
         for update_period in UpdateInventoryPeriod.objects.filter(room_inventory=obj):
-            if (
-                update_period.update_duration.lower() in duration_mapping
-                and timezone.now() - update_period.created_at <= duration_mapping[update_period.update_duration.lower()]
-            ):
-                return UpdatedPeriodOutSerializer(update_period).data
+            start_date = update_period.start_date.date()
+            end_date = update_period.end_date.date() if update_period.end_date else None
+            if end_date:
+                if start_date <= now <= end_date:
+                    return UpdatedPeriodSerializer(update_period).data
+            elif start_date == now:
+                return UpdatedPeriodSerializer(update_period).data
 
         return None
 
@@ -220,11 +214,15 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
         image_urls = [image.image for image in RoomImage.objects.filter(room=obj) if image.room is not None]
         return image_urls
 
+    def get_is_updated_period(self, obj):
+        updated_period = self.get_updated_period(obj)
+        return updated_period is not None
+
     class Meta:
         model = RoomInventory
         fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
                   'floor', 'room_view', 'area_sqft', 'num_of_rooms', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'updated_period')
+                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'is_updated_period', 'updated_period')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):

@@ -15,7 +15,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, get_start_end_dates
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -41,7 +41,7 @@ from django.shortcuts import get_object_or_404
 import hashlib
 import hmac
 import json
-from django.http import JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 
@@ -481,6 +481,13 @@ class RoomInventoryViewSet(ModelViewSet):
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
             if updated_period_data:
+                date_params = {k: updated_period_data.pop(k, None) for k in ('num_of_days', 'num_of_weeks', 'num_of_months')}
+                start_date, end_date = (updated_period_data.get('start_date'), updated_period_data.get('end_date'))
+                if not start_date and not end_date:
+                    calculated_start_date, calculated_end_date = get_start_end_dates(**date_params)
+                    updated_period_data['start_date'] = calculated_start_date
+                    if calculated_end_date:
+                        updated_period_data['end_date'] = calculated_end_date
                 updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
                 updated_period_serializer.is_valid(raise_exception=True)
                 updated_period_serializer.save(room_inventory=instance)
@@ -506,7 +513,8 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
@@ -799,12 +807,8 @@ def razorpay_webhook(request):
                 booking.book_status = True
                 booking.save()
                 print("TRUEE")
-
-                return JsonResponse({'status': 'success', 'message': 'Booking status and payment ID updated successfully'})
-
+                return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
-                return JsonResponse({'status': 'failed', 'message': 'Booking not found'}, status=404)
-        else:
-            return JsonResponse({'message': 'Received'}, status=200)
+                return HttpResponse(status=404)
     else:
-        return JsonResponse({'status': 'failed', 'message': 'Invalid signature'}, status=400)
+        return HttpResponse(status=400)
