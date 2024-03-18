@@ -301,7 +301,7 @@ class OrderSummaryView(ListAPIView):
         session_info = SESSION_INFO_MESSAGE.format(session_rooms_booked=session_rooms_booked)
         availability_info = AVAILABILITY_INFO_MESSAGE.format(adjusted_availability=adjusted_availability)
         requirement_info = REQUIREMENT_INFO_MESSAGE.format(additional_rooms_needed=int(num_of_rooms) - adjusted_availability)
-        serializer = self.serializer_class(room)
+        serializer = self.serializer_class(room, context={"start_date": check_in_date, "end_date": check_out_date})
         return Response({
             'result': True,
             'data': {
