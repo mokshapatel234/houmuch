@@ -6,14 +6,14 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, \
-    SubscriptionPlan, SubscriptionTransaction, Ratings
+    SubscriptionPlan, SubscriptionTransaction, Ratings, CancellationReason, SubCancellationReason
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, get_start_end_dates
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -253,6 +253,8 @@ class MasterRetrieveView(ListAPIView):
                 BathroomType: BathroomTypeSerializer,
                 RoomFeature: RoomFeatureSerializer,
                 CommonAmenities: CommonAmenitiesSerializer,
+                CancellationReason: CancellationReasonSerializer,
+                SubCancellationReason: SubCancellationReasonSerializer
             }
             data = {}
             for model, serializer_class in models_and_serializers.items():

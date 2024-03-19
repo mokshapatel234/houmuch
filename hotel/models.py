@@ -207,13 +207,14 @@ class RoomInventory(models.Model):
 
 class UpdateInventoryPeriod(models.Model):
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
-    default_price = models.IntegerField(('Default Price'))
-    deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
-    min_price = models.IntegerField(('Min Price'))
-    max_price = models.IntegerField(('Max Price'))
+    default_price = models.IntegerField(('Default Price'), default=0)
+    deal_price = models.IntegerField(('Deal Price'), default=0, null=True)
+    min_price = models.IntegerField(('Min Price'), default=0)
+    max_price = models.IntegerField(('Max Price'), default=0)
     num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
     start_date = models.DateTimeField(blank=True, null=True)
     end_date = models.DateTimeField(blank=True, null=True)
+    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
@@ -383,3 +384,22 @@ class Ratings(models.Model):
 
     def __str__(self):
         return self.ratings
+
+
+class CancellationReason(models.Model):
+    reason = models.CharField(('Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.reason
+
+
+class SubCancellationReason(models.Model):
+    main_reason = models.ForeignKey(CancellationReason, on_delete=models.CASCADE, related_name='main_cancel_reason')
+    sub_reason = models.CharField(('Sub Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.sub_reason

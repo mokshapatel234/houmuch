@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
-    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings, CancellationReason, SubCancellationReason
 from django.utils import timezone
 from customer.models import Customer
 
@@ -334,3 +334,16 @@ class RatingsOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ratings
         fields = '__all__'
+
+
+class CancellationReasonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CancellationReason
+        exclude = ['created_at', 'updated_at']
+
+
+class SubCancellationReasonSerializer(serializers.ModelSerializer):
+    main_reason = CancellationReasonSerializer()
+    class Meta:
+        model = SubCancellationReason
+        exclude = ['created_at', 'updated_at']

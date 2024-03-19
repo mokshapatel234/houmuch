@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import Owner, RoomType, Category, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, \
-    ExperienceSlot, Property, RoomInventory, RoomImage, PropertyImage, SubscriptionPlan, BookingHistory
+    ExperienceSlot, Property, RoomInventory, RoomImage, PropertyImage, SubscriptionPlan, BookingHistory, \
+    CancellationReason, SubCancellationReason
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
 from .forms import PropertyForm, SubscriptionPlanForm, BookingHistoryForm
@@ -16,8 +17,9 @@ class UserAdmin(admin.ModelAdmin):
 
 
 class OwnerAdmin(admin.ModelAdmin):
-    list_display = ['hotel_name', 'email', 'phone_number', 'gst', 'is_verified',]
+    list_display = ['hotel_name', 'email', 'phone_number', 'gst', 'is_verified']
     search_fields = ['hotel_name', 'phone_number']
+    list_filter = ['is_verified',]
     list_per_page = 20
 
 
@@ -90,7 +92,8 @@ class PropertyImageInline(admin.TabularInline):
 class PropertyAdmin(admin.ModelAdmin):
     inlines = [PropertyImageInline,]
     form = PropertyForm
-    list_display = ['hotel_nick_name', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website', 'get_owner_name',]
+    list_display = ['hotel_nick_name', 'parent_hotel_group', 'manager_name', 'hotel_phone_number', 'hotel_website', 'get_owner_name']
+    list_filter = ['owner__hotel_name',]
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -121,8 +124,9 @@ class RoomImageInline(admin.TabularInline):
 
 class RoomAdmin(admin.ModelAdmin):
     inlines = [RoomImageInline,]
-    list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity',]
-    search_fields = ['room_name', 'property__owner__hotel_name',]
+    list_display = ['room_name', 'get_property_name', 'floor', 'room_view', 'default_price', 'adult_capacity', 'children_capacity']
+    search_fields = ['room_name', 'property__owner__hotel_name']
+    list_filter = ['property__hotel_nick_name', 'property__owner__hotel_name']
     list_per_page = 20
 
     def has_add_permission(self, request, obj=None):
@@ -135,11 +139,33 @@ class RoomAdmin(admin.ModelAdmin):
 
 class SubscriptionPlanAdmin(admin.ModelAdmin):
     form = SubscriptionPlanForm
-    list_display = ['name', 'price', 'duration',]
+    list_display = ['name', 'price', 'duration']
+
+
+class CancellationAdmin(admin.ModelAdmin):
+    search_fields = ['reason',]
+    list_per_page = 20
+
+
+class SubCancellationAdmin(admin.ModelAdmin):
+    list_display = ['sub_reason', 'get_reason']
+    list_filter = ['main_reason__reason',]
+    search_fields = ['sub_reason',]
+    list_per_page = 20
+
+    @admin.display(description='Cancellation Reason')
+    def get_reason(self, obj):
+        return obj.main_reason.reason
 
 
 class BookingHistoryAdmin(admin.ModelAdmin):
     form = BookingHistoryForm
+    list_display = ['get_property_name', 'check_in_date', 'check_out_date', 'book_status']
+    list_filter = ['book_status',]
+
+    @admin.display(description='Property Name')
+    def get_property_name(self, obj):
+        return obj.property.owner.hotel_name
 
 
 admin.site.register(Owner, OwnerAdmin)
@@ -155,3 +181,5 @@ admin.site.register(Property, PropertyAdmin)
 admin.site.register(RoomInventory, RoomAdmin)
 admin.site.register(SubscriptionPlan, SubscriptionPlanAdmin)
 admin.site.register(BookingHistory, BookingHistoryAdmin)
+admin.site.register(CancellationReason, CancellationAdmin)
+admin.site.register(SubCancellationReason, SubCancellationAdmin)
