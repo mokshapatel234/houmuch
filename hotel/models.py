@@ -384,3 +384,22 @@ class Ratings(models.Model):
 
     def __str__(self):
         return self.ratings
+
+
+class CancellationReason(models.Model):
+    reason = models.CharField(('Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.reason
+
+
+class SubCancellationReason(models.Model):
+    main_reason = models.ForeignKey(CancellationReason, on_delete=models.CASCADE, related_name='main_cancel_reason')
+    sub_reason = models.CharField(('Sub Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.sub_reason
