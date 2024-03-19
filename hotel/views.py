@@ -13,7 +13,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer, TransactionSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, get_start_end_dates
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -43,6 +43,8 @@ import hmac
 import json
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from collections import defaultdict
+from django.utils.dateparse import parse_datetime
 
 
 class HotelRegisterView(APIView):
@@ -713,7 +715,7 @@ class BookingListView(ListAPIView):
 class TransactionListView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
-    serializer_class = BookingHistorySerializer
+    serializer_class = TransactionSerializer
     pagination_class = CustomPagination
     filterset_class = TransactionFilter
     filter_backends = [DjangoFilterBackend]
@@ -721,6 +723,31 @@ class TransactionListView(ListAPIView):
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(property__owner=self.request.user).order_by('-created_at')
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            queryset = page
+
+        grouped_data = defaultdict(list)
+        for obj in queryset:
+            serializer = self.get_serializer(obj)
+            data = serializer.data
+            created_at = data['created_at']
+            created_at_date = parse_datetime(created_at).date()
+            grouped_data[str(created_at_date)].append(data)
+
+        result_data = []
+        for created_at, bookings in grouped_data.items():
+            result_data.append({
+                "created_at": created_at,
+                "data": bookings
+            })
+
+        if page is not None:
+            return self.get_paginated_response(result_data)
 
 
 class SubscriptionPlanView(ListAPIView):
