@@ -14,6 +14,4 @@ headers = {
 def razorpay_request(endpoint, method, data):
     url = settings.RAZORPAY_BASE_URL + endpoint
     response = requests.request(method, url, headers=headers, json=data)
-    # if response.status_code != 200:
-    #     raise ValueError(f"Failed to process request to {endpoint}: {response.json()}")
     return response

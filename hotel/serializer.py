@@ -286,6 +286,16 @@ class BookingHistorySerializer(serializers.ModelSerializer):
         exclude = ('updated_at',)
 
 
+class TransactionSerializer(BookingHistorySerializer):
+    class Meta:
+        model = BookingHistory
+        fields = [
+            'id', 'customer', 'rooms', 'property', 'guests', 'address', 'num_of_rooms', 'order_id', 'transfer_id',
+            'check_in_date', 'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_date', 'cancel_reason',
+            'book_status', 'payment_id', 'is_confirmed', 'created_at', 'property_deal'
+        ]
+
+
 class AccountSerializer(HotelOwnerBankingSerializer):
     product_id = serializers.CharField(required=False)
     settlements_ifsc_code = serializers.CharField(required=False)
@@ -344,6 +354,7 @@ class CancellationReasonSerializer(serializers.ModelSerializer):
 
 class SubCancellationReasonSerializer(serializers.ModelSerializer):
     main_reason = CancellationReasonSerializer()
+
     class Meta:
         model = SubCancellationReason
         exclude = ['created_at', 'updated_at']
