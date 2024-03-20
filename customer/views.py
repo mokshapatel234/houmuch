@@ -481,9 +481,18 @@ class CancelBookingView(APIView):
             check_in_time = booking.property.check_in_time
 
             cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
-
             cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
             refund_amount = booking.amount - cancellation_charge_amount
+
+            if refund_amount == 0:
+                # Perform booking cancellation without Razorpay API calls
+                serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save(is_cancel=True, cancel_date=timezone.now())
+                    return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                else:
+                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
             commission_percent = booking.property.commission_percent
             commission_amount = (cancellation_charge_amount * commission_percent) / 100
             transfer_amount = cancellation_charge_amount - commission_amount
@@ -506,7 +515,7 @@ class CancelBookingView(APIView):
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
-                return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status=status.HTTP_200_OK)
+                return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:

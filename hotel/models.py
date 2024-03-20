@@ -205,21 +205,32 @@ class RoomInventory(models.Model):
         verbose_name_plural = "Room inventories"
 
 
+class UpdateType(models.Model):
+    type = models.CharField(("Type"), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.type
+
+
 class UpdateInventoryPeriod(models.Model):
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
+    type = models.ForeignKey(UpdateType, on_delete=models.CASCADE, related_name="update_type", null=True)
     default_price = models.IntegerField(('Default Price'), default=0)
     deal_price = models.IntegerField(('Deal Price'), default=0, null=True)
     min_price = models.IntegerField(('Min Price'), default=0)
     max_price = models.IntegerField(('Max Price'), default=0)
     num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
+    date = models.DateTimeField(blank=True, null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.default_price
+        return self.type.type
 
 
 class RoomImage(models.Model):

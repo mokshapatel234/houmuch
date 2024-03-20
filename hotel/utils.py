@@ -7,6 +7,9 @@ from django.core.cache import cache
 from hotel_app_backend.boto_utils import ses_client
 from django.conf import settings
 from django.utils import timezone
+import copy
+from .models import UpdateInventoryPeriod, UpdateType
+from dateutil import parser
 
 
 def generate_token(id):
@@ -102,15 +105,34 @@ def set_cache(name, user, data):
     cache.set(cache_key, data, timeout=60 * 5)
 
 
-def get_start_end_dates(num_of_days=None, num_of_weeks=None, num_of_months=None):
-    start_date = timezone.now()
-    end_date = None
-    if num_of_days == 1:
-        pass
-    elif num_of_days:
-        end_date = start_date + timedelta(days=num_of_days)
-    elif num_of_weeks:
-        end_date = start_date + timedelta(weeks=num_of_weeks)
-    elif num_of_months:
-        end_date = start_date + timedelta(days=30 * num_of_months)
+def generate_date_range(start_date, end_date):
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + timedelta(n)
     return start_date, end_date
+
+
+def update_period(updated_period_data, instance):
+    dates = updated_period_data.pop('dates')
+    new_periods = []
+    update_map = {}
+    if 'type' in updated_period_data:
+        type_id = updated_period_data['type']
+        updated_period_data['type'] = UpdateType.objects.get(id=type_id)
+    if type_id == 3 and len(dates) >= 2:
+        start_date = parser.parse(dates[0]).date()
+        end_date = parser.parse(dates[-1]).date()
+        dates = [date for date in generate_date_range(start_date, end_date)]
+    for date in dates:
+        updated_period_data_copy = copy.deepcopy(updated_period_data)
+        updated_period_data_copy['date'] = date
+        existing_instance = UpdateInventoryPeriod.objects.filter(date=date, room_inventory=instance).first()
+        if existing_instance:
+            for key, value in updated_period_data_copy.items():
+                setattr(existing_instance, key, value)
+            update_map[existing_instance.id] = existing_instance
+        else:
+            new_periods.append(UpdateInventoryPeriod(room_inventory=instance, **updated_period_data_copy))
+    if new_periods:
+        UpdateInventoryPeriod.objects.bulk_create(new_periods)
+    if update_map:
+        UpdateInventoryPeriod.objects.bulk_update(update_map.values(), updated_period_data_copy.keys())
