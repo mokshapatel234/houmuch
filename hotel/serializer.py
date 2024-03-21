@@ -186,6 +186,14 @@ class RoomInventorySerializer(serializers.ModelSerializer):
         exclude = ['property']
 
 
+class UpdateInventoryPeriodSerializer(serializers.ModelSerializer):
+    # type = serializers.CharField(source='type.type')
+
+    class Meta:
+        model = UpdateInventoryPeriod
+        fields = ['date']
+
+
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
     bed_type = BedTypeSerializer(many=True)
@@ -205,16 +213,6 @@ class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
                   'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images')
 
 
-class RoomUpdateInventorySerializer(RoomInventoryOutSerializer):
-    update_inventory_grouped = UpdatedPeriodSerializer()
-
-    class Meta:
-        model = RoomInventory
-        fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
-                  'floor', 'room_view', 'area_sqft', 'num_of_rooms', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'update_inventory_grouped')
-
-
 class OTPVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = OTP
@@ -229,10 +227,11 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     business_type = serializers.CharField()
     type = serializers.CharField(required=False)
     account_id = serializers.CharField(required=False)
+    status = serializers.BooleanField(required=False)
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
 
 
 class SettlementSerializer(serializers.Serializer):

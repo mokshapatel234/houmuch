@@ -4,13 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
-    RoomInventory, RoomImage, Category, PropertyImage, Ratings, \
+    RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, \
     SubscriptionPlan, SubscriptionTransaction, CancellationReason, SubCancellationReason
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
-    OTPVerificationSerializer, UpdatedPeriodSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, \
+    OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer, TransactionSerializer
@@ -23,7 +23,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
     INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
-    ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
+    ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
     PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
@@ -36,7 +36,6 @@ from django.contrib.auth.models import User
 from .filters import RoomInventoryFilter, BookingFilter, TransactionFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
-import requests
 from django.shortcuts import get_object_or_404
 import hashlib
 import hmac
@@ -45,6 +44,10 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from collections import defaultdict
 from django.utils.dateparse import parse_datetime
+from django.utils.timezone import now
+from dateutil.relativedelta import relativedelta
+from django.db.models import F, Func
+import calendar
 
 
 class HotelRegisterView(APIView):
@@ -128,10 +131,10 @@ class OwnerProfileView(APIView):
             property = Property.objects.filter(owner=request.user)
             images = PropertyImage.objects.filter(property=property.first())
             image_serializer = PropertyImageSerializer(images, many=True)
-            # subscription_plan = SubscriptionTransaction.objects.filter(owner=self.request.user, payment_status=True).order_by('-created_at').first()
-            # is_plan_purchased = False
-            # if subscription_plan:
-            #     is_plan_purchased = not check_plan_expiry(subscription_plan)
+            subscription_plan = SubscriptionTransaction.objects.filter(owner=self.request.user, payment_status=True).order_by('-created_at').first()
+            is_plan_purchased = False
+            if subscription_plan:
+                is_plan_purchased = not check_plan_expiry(subscription_plan)
             response_data = {
                 'result': True,
                 'data': {
@@ -139,7 +142,7 @@ class OwnerProfileView(APIView):
                     "is_property_added": True if property.count() >= 1 else False,
                     "property_count": property.count() if property.count() >= 1 else 0,
                     "images": image_serializer.data,
-                    # "is_plan_purchased":is_plan_purchased
+                    "is_plan_purchased": is_plan_purchased
                 },
                 'message': PROFILE_MESSAGE,
             }
@@ -416,9 +419,7 @@ class RoomInventoryViewSet(ModelViewSet):
             instance = serializer.save(property=property_instance)
             image_instances = []
             if updated_period_data:
-                updated_period_serializer = UpdatedPeriodSerializer(data=updated_period_data)
-                updated_period_serializer.is_valid(raise_exception=True)
-                updated_period_serializer.save(room_inventory=instance)
+                update_period(updated_period_data, instance)
             if room_features:
                 instance.room_features.set(room_features)
             if common_amenities:
@@ -454,10 +455,33 @@ class RoomInventoryViewSet(ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
+            today = now().date()
+            start_date = today.replace(day=1)
+            end_date = start_date + relativedelta(months=+6)
+            updated_inventory = UpdateInventoryPeriod.objects.filter(
+                room_inventory=instance,
+                date__range=(start_date, end_date),
+                is_deleted=False,
+            ).annotate(
+                month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
+                year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
+            ).order_by('year', 'month', 'type')
+            grouped_data = defaultdict(lambda: defaultdict(list))
+            for item in updated_inventory:
+                month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
+                grouped_data[month_year][item.type.type].append(item)
+            for month, types in grouped_data.items():
+                for type, items in types.items():
+                    grouped_data[month][type] = [UpdateInventoryPeriodSerializer(item).data for item in items]
+            response_data = {
+                'room_inventory': RoomInventoryOutSerializer(instance).data,
+                'updated_inventory': grouped_data
+            }
+            return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def list(self, request):
@@ -508,8 +532,7 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
@@ -555,7 +578,7 @@ class AccountCreateApi(APIView):
                 account_data = response.json()
                 instance = serializer.save(
                     hotel_owner=request.user,
-                    status='active',
+                    status=True,
                     account_id=account_data.get('id', ''),
                     type='route'
                 )
@@ -633,46 +656,15 @@ class AccountUpdateApi(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
-    def patch(self, request):
+    def patch(self, request, id):
         try:
-            account_id = request.data.get('account_id', None)
-            if not account_id:
-                return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
-            owner_banking_detail = OwnerBankingDetail.objects.get(account_id=account_id)
-
-            endpoint = f"/v2/accounts/{account_id}"
-            url = settings.RAZORPAY_BASE_URL + endpoint
-            print(url)
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': settings.RAZORPAY_AUTH_TOKEN  # Use your Razorpay API key secret here
-            }
-
-            patch_data = {
-                'phone': owner_banking_detail.phone,
-                'legal_business_name': owner_banking_detail.legal_business_name
-            }
-
-            response = requests.patch(url, json=patch_data, headers=headers)
-            print(response.json())
-
-            if response.status_code == 200:
-                owner_banking_detail.phone = request.data.get('phone', owner_banking_detail.phone)
-                owner_banking_detail.legal_business_name = request.data.get('legal_business_name', owner_banking_detail.legal_business_name)
-                owner_banking_detail.save()
-                updated_account_data = response.json()
-                return Response({
-                    "result": True,
-                    "data": updated_account_data,
-                    "message": "Account details updated successfully",
-                }, status=status.HTTP_200_OK)
-            else:
-                return error_response(ACCOUNT_DETAIL_UPDATE_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
+            account = OwnerBankingDetail.objects.get(id=id)
+            serializer = HotelOwnerBankingSerializer(account, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return generate_response(serializer.data, ACCOUNT_DETAIL_UPDATE_MESSAGE, status.HTTP_200_OK)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 

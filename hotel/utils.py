@@ -10,6 +10,7 @@ from django.utils import timezone
 import copy
 from .models import UpdateInventoryPeriod, UpdateType
 from dateutil import parser
+from django.utils.timezone import now
 
 
 def generate_token(id):
@@ -112,9 +113,11 @@ def generate_date_range(start_date, end_date):
 
 
 def update_period(updated_period_data, instance):
-    dates = updated_period_data.pop('dates')
+    dates = updated_period_data.pop('dates', [])
     new_periods = []
     update_map = {}
+    if not dates:
+        dates = [now().date()]
     if 'type' in updated_period_data:
         type_id = updated_period_data['type']
         updated_period_data['type'] = UpdateType.objects.get(id=type_id)
