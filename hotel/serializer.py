@@ -1,9 +1,8 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, \
-    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, Ratings, CancellationReason, SubCancellationReason
-from django.utils import timezone
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, \
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
 
 
@@ -187,42 +186,31 @@ class RoomInventorySerializer(serializers.ModelSerializer):
         exclude = ['property']
 
 
+class UpdateInventoryPeriodSerializer(serializers.ModelSerializer):
+    # type = serializers.CharField(source='type.type')
+
+    class Meta:
+        model = UpdateInventoryPeriod
+        fields = ['date']
+
+
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):
     room_type = RoomTypeSerializer()
     bed_type = BedTypeSerializer(many=True)
     bathroom_type = BathroomTypeSerializer()
     room_features = RoomFeatureSerializer(many=True)
     common_amenities = CommonAmenitiesSerializer(many=True)
-    updated_period = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
-    is_updated_period = serializers.SerializerMethodField()
-
-    def get_updated_period(self, obj):
-        now = timezone.now().date()
-        for update_period in UpdateInventoryPeriod.objects.filter(room_inventory=obj):
-            start_date = update_period.start_date.date()
-            end_date = update_period.end_date.date() if update_period.end_date else None
-            if end_date:
-                if start_date <= now <= end_date:
-                    return UpdatedPeriodSerializer(update_period).data
-            elif start_date == now:
-                return UpdatedPeriodSerializer(update_period).data
-
-        return None
 
     def get_images(self, obj):
         image_urls = [image.image for image in RoomImage.objects.filter(room=obj) if image.room is not None]
         return image_urls
 
-    def get_is_updated_period(self, obj):
-        updated_period = self.get_updated_period(obj)
-        return updated_period is not None
-
     class Meta:
         model = RoomInventory
         fields = ('id', 'room_type', 'bed_type', 'bathroom_type', 'room_features', 'common_amenities', 'room_name',
                   'floor', 'room_view', 'area_sqft', 'num_of_rooms', 'adult_capacity', 'children_capacity', 'default_price',
-                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images', 'is_updated_period', 'updated_period')
+                  'min_price', 'max_price', 'deal_price', 'is_verified', 'status', 'images')
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):
@@ -239,10 +227,11 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     business_type = serializers.CharField()
     type = serializers.CharField(required=False)
     account_id = serializers.CharField(required=False)
+    status = serializers.BooleanField(required=False)
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type']
+        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
 
 
 class SettlementSerializer(serializers.Serializer):

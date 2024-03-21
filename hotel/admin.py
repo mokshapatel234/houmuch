@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import Owner, RoomType, Category, PropertyType, RoomFeature, BathroomType, BedType, CommonAmenities, \
     ExperienceSlot, Property, RoomInventory, RoomImage, PropertyImage, SubscriptionPlan, BookingHistory, \
-    CancellationReason, SubCancellationReason
+    CancellationReason, SubCancellationReason, UpdateType
 from django.contrib.auth.models import Group
 from django.utils.html import format_html
 from .forms import PropertyForm, SubscriptionPlanForm, BookingHistoryForm
@@ -183,3 +183,4 @@ admin.site.register(SubscriptionPlan, SubscriptionPlanAdmin)
 admin.site.register(BookingHistory, BookingHistoryAdmin)
 admin.site.register(CancellationReason, CancellationAdmin)
 admin.site.register(SubCancellationReason, SubCancellationAdmin)
+admin.site.register(UpdateType)

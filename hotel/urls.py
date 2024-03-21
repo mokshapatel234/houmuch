@@ -19,7 +19,7 @@ urlpatterns = [
     path('masterRetrieve/', MasterRetrieveView.as_view(), name="master_retrieve"),
     path('verifyOtp/', OTPVerificationView.as_view(), name='otp_verification'),
     path('createAccount/', AccountCreateApi.as_view()),
-    path('updateAccount/', AccountUpdateApi.as_view()),
+    path('updateAccount/<int:id>/', AccountUpdateApi.as_view()),
     path('getAccount/', AccountGetApi.as_view()),
     path('bookingHistory/', BookingListView.as_view(), name='booking_history'),
     path('transactions/', TransactionListView.as_view(), name='transaction_history'),
