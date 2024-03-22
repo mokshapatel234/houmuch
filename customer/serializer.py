@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, UpdateInventoryPeriod
-from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, CancellationSerializer, UpdatedPeriodSerializer
-from django.db.models import Avg, Q
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, CancellationSerializer
+from django.db.models import Avg
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -32,31 +32,31 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class RoomInventorySerializer(serializers.ModelSerializer):
     available_rooms = serializers.IntegerField()
-    updated_period = serializers.SerializerMethodField()
-    is_updated_period = serializers.SerializerMethodField()
+    # updated_period = serializers.SerializerMethodField()
+    # is_updated_period = serializers.SerializerMethodField()
 
-    def get_updated_period(self, obj):
-        start_date = self.context['start_date']
-        end_date = self.context['end_date']
-        updated_period = UpdateInventoryPeriod.objects.filter(
-            room_inventory=obj,
-            start_date__date__lte=end_date,
-        ).filter(
-            Q(end_date__date__gte=start_date) | Q(end_date__isnull=True)
-        ).first()
+    # def get_updated_period(self, obj):
+    #     start_date = self.context['start_date']
+    #     end_date = self.context['end_date']
+    #     updated_period = UpdateInventoryPeriod.objects.filter(
+    #         room_inventory=obj,
+    #         start_date__date__lte=end_date,
+    #     ).filter(
+    #         Q(end_date__date__gte=start_date) | Q(end_date__isnull=True)
+    #     ).first()
 
-        if updated_period:
-            return UpdatedPeriodSerializer(updated_period).data
-        return None
+    #     if updated_period:
+    #         return UpdatedPeriodSerializer(updated_period).data
+    #     return None
 
-    def get_is_updated_period(self, obj):
-        updated_period = self.get_updated_period(obj)
-        return updated_period is not None
+    # def get_is_updated_period(self, obj):
+    #     updated_period = self.get_updated_period(obj)
+    #     return updated_period is not None
 
     class Meta:
         model = RoomInventory
         fields = ['id', 'default_price', 'deal_price', 'available_rooms', 'adult_capacity',
-                  'children_capacity', 'room_type', 'is_verified', 'status', 'is_updated_period', 'updated_period']
+                  'children_capacity', 'room_type', 'is_verified', 'status']
 
 
 class RoomInventoryListSerializer(RoomInventoryOutSerializer):
@@ -69,7 +69,8 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
         ret = super().to_representation(instance)
         updated_availability = self.context.get('adjusted_availability', {})
         if instance.id in updated_availability:
-            ret['available_rooms'] = updated_availability[instance.id]
+            ret['available_rooms'] = updated_availability[instance.id]['available_rooms']
+            ret['default_price'] = updated_availability[instance.id]['effective_price']
         return ret
 
 
@@ -98,7 +99,7 @@ class OrderSummarySerializer(RoomInventorySerializer):
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'is_verified', 'status', 'is_updated_period', 'updated_period']
+        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'is_verified', 'status']
 
 
 class BookingSerializer(serializers.ModelSerializer):

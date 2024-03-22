@@ -480,8 +480,7 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def list(self, request):
