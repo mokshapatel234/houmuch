@@ -357,3 +357,9 @@ class CancellationReasonSerializer(serializers.ModelSerializer):
     def get_sub_reasons(self, obj):
         sub_reasons_qs = SubCancellationReason.objects.filter(main_reason=obj).all()
         return SubCancellationReasonSerializer(sub_reasons_qs, many=True).data
+
+
+class CancelBookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookingHistory
+        fields = ['cancel_reason']
