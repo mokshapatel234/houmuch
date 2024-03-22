@@ -341,15 +341,19 @@ class RatingsOutSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class CancellationReasonSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CancellationReason
-        exclude = ['created_at', 'updated_at']
-
-
 class SubCancellationReasonSerializer(serializers.ModelSerializer):
-    main_reason = CancellationReasonSerializer()
-
     class Meta:
         model = SubCancellationReason
-        exclude = ['created_at', 'updated_at']
+        exclude = ['created_at', 'updated_at', 'main_reason']
+
+
+class CancellationReasonSerializer(serializers.ModelSerializer):
+    sub_reasons = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CancellationReason
+        fields = ['id', 'reason', 'sub_reasons']
+
+    def get_sub_reasons(self, obj):
+        sub_reasons_qs = SubCancellationReason.objects.filter(main_reason=obj).all()
+        return SubCancellationReasonSerializer(sub_reasons_qs, many=True).data

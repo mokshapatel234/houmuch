@@ -32,8 +32,10 @@ def sort_properties_by_price(property_obj, high_to_low=False):
 
 
 def calculate_avg_price_and_min_rooms(room_inventory_qs, start_date, end_date):
-    start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-    end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
     room_adjustments = {}
     for room_inventory in room_inventory_qs:
         total_price = 0

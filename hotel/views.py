@@ -6,14 +6,14 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
-    SubscriptionPlan, SubscriptionTransaction, CancellationReason, SubCancellationReason
+    SubscriptionPlan, SubscriptionTransaction, CancellationReason
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer, TransactionSerializer
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
@@ -259,7 +259,6 @@ class MasterRetrieveView(ListAPIView):
                 RoomFeature: RoomFeatureSerializer,
                 CommonAmenities: CommonAmenitiesSerializer,
                 CancellationReason: CancellationReasonSerializer,
-                SubCancellationReason: SubCancellationReasonSerializer,
                 UpdateType: UpdateTypeSerializer
             }
             data = {}
@@ -275,7 +274,8 @@ class MasterRetrieveView(ListAPIView):
                 }
                 # set_cache("master_list", request.user, response_data)
             return Response(response_data, status=status.HTTP_200_OK)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
