@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
 from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
-from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, CancellationSerializer
+from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, CancellationSerializer, RoomTypeSerializer
 from django.db.models import Avg
 
 
@@ -93,6 +93,7 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
 class OrderSummarySerializer(RoomInventorySerializer):
     property_name = serializers.SerializerMethodField()
+    room_type = RoomTypeSerializer()
 
     def get_property_name(self, obj):
         return obj.property.owner.hotel_name

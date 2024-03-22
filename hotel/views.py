@@ -780,6 +780,60 @@ class RatingsListView(ListAPIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+# class CancelBookingView(APIView):
+#     def post(self, request, *args, **kwargs):
+#         try:
+#             id = self.kwargs.get('id')
+#             booking = BookingHistory.objects.get(id=id)
+#             check_in_date = booking.check_in_date.date()
+#             current_month = timezone.now().month
+#             current_year = timezone.now().year
+
+#             # Find bookings cancelled by the owner for the property in the current month and year
+#             cancellations_this_month = BookingHistory.objects.filter(
+#                 property__owner=request.user,
+#                 cancel_by_owner=True,
+#                 cancel_date__year=current_year,
+#                 cancel_date__month=current_month
+#             ).count()
+#             print(cancellations_this_month)
+#             if cancellations_this_month >= 2:
+#                 return error_response("Cancellation limit reached for the month", status.HTTP_400_BAD_REQUEST)
+#             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
+#             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
+#             days_before_check_in = (check_in_date - timezone.now().date()).days
+#             check_in_time = booking.property.check_in_time
+
+#             cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
+#             cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
+#             refund_amount = booking.amount - cancellation_charge_amount
+
+#             if refund_amount == 0:
+#                 # Perform booking cancellation without Razorpay API calls
+#                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+#                 if serializer.is_valid():
+#                     serializer.save(is_cancel=True, cancel_date=timezone.now())
+#                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+#                 else:
+#                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+#             commission_percent = booking.property.commission_percent
+#             commission_amount = (cancellation_charge_amount * commission_percent) / 100
+#             order_response = razorpay_request(f"/v1/transfers/{booking.transfer_id}", "patch", data={"on_hold": 1})
+#             if order_response.status_code != 200:
+#                 return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+#             refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
+
+#             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+#             if serializer.is_valid():
+#                 serializer.save(is_cancel=True, cancel_date=timezone.now())
+#                 return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+#             else:
+#                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+#         except Exception:
+#             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
 @csrf_exempt
 def razorpay_webhook(request):
     print("Received Razorpay webhook call")

@@ -26,5 +26,6 @@ urlpatterns = [
     path('subscriptionPlan/', SubscriptionPlanView.as_view(), name='subscription_plan'),
     path('subscription/', SubscriptionView.as_view(), name='subscription'),
     path('ratings/', RatingsListView.as_view(), name='rating_list'),
+    # path('cancelBooking/<int:id>/', CancelBookingView.as_view(), name="vendor_cancel_booking"),
     path('', include(router.urls)),
 ]

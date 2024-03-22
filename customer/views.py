@@ -401,8 +401,12 @@ class PayNowView(APIView):
 
     def calculate_on_hold_until(self, check_in_date_str):
         check_in_date_obj = datetime.datetime.strptime(check_in_date_str, '%Y-%m-%d').date()
-        check_in_datetime_obj = datetime.datetime.combine(check_in_date_obj, datetime.time.min)
-        on_hold_until_datetime_obj = check_in_datetime_obj - datetime.timedelta(days=1)
+        current_date = datetime.datetime.now().date()
+        if check_in_date_obj <= current_date:
+            on_hold_until_date_obj = check_in_date_obj + datetime.timedelta(days=1)
+        else:
+            on_hold_until_date_obj = check_in_date_obj
+        on_hold_until_datetime_obj = datetime.datetime.combine(on_hold_until_date_obj, datetime.time.max)
         return int(on_hold_until_datetime_obj.timestamp())
 
 
