@@ -31,7 +31,7 @@ def sort_properties_by_price(property_obj, high_to_low=False):
     return -price if high_to_low else price
 
 
-def calculate_avg_price_and_min_rooms(room_inventory_qs, start_date, end_date):
+def calculate_avg_price(room_inventory_qs, start_date, end_date):
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
     if isinstance(end_date, str):
@@ -81,7 +81,7 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
         available_rooms__gte=num_of_rooms
     ).order_by('default_price', '-available_rooms')
-    room_adjustments = calculate_avg_price_and_min_rooms(room_inventory_query, start_date, end_date)
+    room_adjustments = calculate_avg_price(room_inventory_query, start_date, end_date)
     valid_room_ids = [room_id for room_id, adjustments in room_adjustments.items() if adjustments['avg_price'] is not None]
     room_inventory_query = room_inventory_query.filter(id__in=valid_room_ids)
     room_inventory_query = room_inventory_query.annotate(
@@ -120,17 +120,21 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
     available_room_inventory = is_booking_overlapping(room_inventory_query, check_in_date, check_out_date, num_of_rooms, room_list=True)
     adjusted_availability = {
         room_inventory.id: {
-            'available_rooms': room_inventory.available_rooms,
-            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)  # Use effective_price if available, otherwise default_price
+            'available_rooms': min(
+                room_inventory.available_rooms,
+                room_inventory.adjusted_min_rooms if room_inventory.adjusted_min_rooms is not None else room_inventory.available_rooms
+            ),
+            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)
         }
         for room_inventory in available_room_inventory
     }
+
     for key, value in session.items():
         if key.startswith('room_id_'):
             session_room_id = int(key.split('_')[-1])
             session_num_of_rooms = value.get('num_of_rooms', 0)
             if session_room_id in adjusted_availability:
-                adjusted_availability[session_room_id] = max(0, adjusted_availability[session_room_id] - session_num_of_rooms)
+                adjusted_availability[session_room_id]['available_rooms'] = max(0, adjusted_availability[session_room_id]['available_rooms'] - session_num_of_rooms)
     available_room_inventory = [
         room_inventory for room_inventory in available_room_inventory
         if room_inventory.id in adjusted_availability

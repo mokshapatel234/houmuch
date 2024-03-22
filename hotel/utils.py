@@ -114,6 +114,7 @@ def generate_date_range(start_date, end_date):
 
 def update_period(updated_period_data, instance):
     dates = updated_period_data.pop('dates', [])
+    removed_dates = updated_period_data.pop('removed_dates', [])
     new_periods = []
     update_map = {}
     if not dates:
@@ -139,3 +140,10 @@ def update_period(updated_period_data, instance):
         UpdateInventoryPeriod.objects.bulk_create(new_periods)
     if update_map:
         UpdateInventoryPeriod.objects.bulk_update(update_map.values(), updated_period_data_copy.keys())
+    if removed_dates:
+        removed_dates = [parser.parse(date).date() if isinstance(date, str) else date for date in removed_dates]
+        instances_to_mark_deleted = UpdateInventoryPeriod.objects.filter(
+            room_inventory=instance,
+            date__in=removed_dates
+        )
+        instances_to_mark_deleted.update(is_deleted=True, deleted_at=now())
