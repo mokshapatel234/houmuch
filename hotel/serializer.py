@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, \
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, \
     Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
@@ -123,6 +123,12 @@ class CommonAmenitiesSerializer(serializers.ModelSerializer):
 class CancellationSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyCancellation
+        exclude = ['created_at', 'updated_at']
+
+
+class UpdateTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UpdateType
         exclude = ['created_at', 'updated_at']
 
 

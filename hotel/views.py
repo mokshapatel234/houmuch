@@ -5,14 +5,14 @@ from rest_framework.viewsets import ModelViewSet
 from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
-    PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, \
+    PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
     SubscriptionPlan, SubscriptionTransaction, CancellationReason, SubCancellationReason
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
-    PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, \
+    PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, SubCancellationReasonSerializer, TransactionSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
@@ -259,7 +259,8 @@ class MasterRetrieveView(ListAPIView):
                 RoomFeature: RoomFeatureSerializer,
                 CommonAmenities: CommonAmenitiesSerializer,
                 CancellationReason: CancellationReasonSerializer,
-                SubCancellationReason: SubCancellationReasonSerializer
+                SubCancellationReason: SubCancellationReasonSerializer,
+                UpdateType: UpdateTypeSerializer
             }
             data = {}
             for model, serializer_class in models_and_serializers.items():
