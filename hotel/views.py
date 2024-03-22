@@ -11,7 +11,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
-    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
+    CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, BookingRetrieveSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
@@ -28,7 +28,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     CANCELLATION_LIMIT_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from .paginator import CustomPagination
 from django.contrib.gis.geos import Point
 from django.http import Http404
@@ -653,6 +653,17 @@ class AccountGetApi(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class AccountListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = AccountSerializer
+    pagination_class = CustomPagination
+
+    def get_queryset(self):
+        queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user, status=True).all()
+        return queryset
+
+
 class AccountUpdateApi(APIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -681,6 +692,25 @@ class BookingListView(ListAPIView):
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('created_at')
         return queryset
+
+
+class BookingRetrieveView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = BookingRetrieveSerializer
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
+        except Http404:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class TransactionListView(ListAPIView):
