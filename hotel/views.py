@@ -14,7 +14,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
@@ -24,7 +24,8 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
-    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE
+    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
+    CANCELLATION_LIMIT_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
@@ -48,7 +49,6 @@ from django.utils.timezone import now
 from dateutil.relativedelta import relativedelta
 from django.db.models import F, Func
 import calendar
-from datetime import datetime
 
 
 class HotelRegisterView(APIView):
@@ -785,43 +785,30 @@ class CancelBookingView(APIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
 
-    def post(self, request, args, *kwargs):
+    def post(self, request, *args, **kwargs):
         try:
             id = self.kwargs.get('id')
             booking = BookingHistory.objects.get(id=id)
             check_in_date = booking.check_in_date.date()
-            current_month = now().month
-            current_year = now().year
             current_date = now().date()
-            print(current_date, current_month, current_year)
-
-            # Find bookings cancelled by the owner for the property in the current month and year
             cancellations_this_month = BookingHistory.objects.filter(
                 property__owner=self.request.user,
                 cancel_by_owner=True,
-                cancel_date__year=current_year,
-                cancel_date__month=current_month
+                cancel_date__year=now().year,
+                cancel_date__month=now().month
             ).count()
-            print(cancellations_this_month)
             if cancellations_this_month >= 2:
-                return error_response("Cancellation limit reached for the month", status.HTTP_400_BAD_REQUEST)
-            cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
+                return error_response(CANCELLATION_LIMIT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             days_before_check_in = (check_in_date - current_date).days
-            check_in_time = booking.property.check_in_time
-            current_time = datetime.now().time()
-            if current_time > check_in_time:
-                days_before_check_in -= 1
+            days_before_check_in = get_days_before_check_in(booking, days_before_check_in)
             refund_amount = booking.amount
-            print(days_before_check_in)
 
             if days_before_check_in <= 1:
-                refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post",
-                                                   data={"amount": refund_amount * 100,
-                                                         "reverse_all": 1
-                                                        })
+                refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100,
+                                                                                                              "reverse_all": 1})
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
-                    serializer.save(is_cancel=True, cancel_date=now())
+                    serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -838,7 +825,7 @@ class CancelBookingView(APIView):
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
