@@ -177,8 +177,7 @@ def calculate_available_rooms(room, check_in_date, check_out_date, session):
 
 def get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time_str):
     check_in_time = datetime.strptime(check_in_time_str, "%I:%M %p").time()
-    now = datetime.now()
-    current_time = now.time()
+    current_time = datetime.now().time()
     if current_time > check_in_time:
         days_before_check_in -= 1
     cancellation_charge_percentage = cancellation_policies.last().cancellation_percents

@@ -147,3 +147,12 @@ def update_period(updated_period_data, instance):
             date__in=removed_dates
         )
         instances_to_mark_deleted.update(is_deleted=True, deleted_at=now())
+
+
+def get_days_before_check_in(booking, days_before_check_in):
+    check_in_time_str = booking.property.check_in_time
+    current_time = datetime.now().time()
+    check_in_time = datetime.strptime(check_in_time_str, "%I:%M %p").time()
+    if current_time > check_in_time:
+        days_before_check_in -= 1
+    return days_before_check_in

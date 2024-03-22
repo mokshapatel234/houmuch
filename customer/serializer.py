@@ -145,12 +145,6 @@ class RatingSerializer(serializers.ModelSerializer):
         exclude = ['customer', 'property']
 
 
-class CancelBookingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BookingHistory
-        fields = ['cancel_reason']
-
-
 class BookingRetrieveSerializer(BookingHistorySerializer):
     cancellation_policy = serializers.SerializerMethodField()
 

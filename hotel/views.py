@@ -13,8 +13,8 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer
-from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, \
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
+from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
@@ -24,7 +24,8 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
-    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE
+    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
+    CANCELLATION_LIMIT_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView
@@ -780,58 +781,52 @@ class RatingsListView(ListAPIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-# class CancelBookingView(APIView):
-#     def post(self, request, *args, **kwargs):
-#         try:
-#             id = self.kwargs.get('id')
-#             booking = BookingHistory.objects.get(id=id)
-#             check_in_date = booking.check_in_date.date()
-#             current_month = timezone.now().month
-#             current_year = timezone.now().year
+class CancelBookingView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
 
-#             # Find bookings cancelled by the owner for the property in the current month and year
-#             cancellations_this_month = BookingHistory.objects.filter(
-#                 property__owner=request.user,
-#                 cancel_by_owner=True,
-#                 cancel_date__year=current_year,
-#                 cancel_date__month=current_month
-#             ).count()
-#             print(cancellations_this_month)
-#             if cancellations_this_month >= 2:
-#                 return error_response("Cancellation limit reached for the month", status.HTTP_400_BAD_REQUEST)
-#             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
-#             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
-#             days_before_check_in = (check_in_date - timezone.now().date()).days
-#             check_in_time = booking.property.check_in_time
+    def post(self, request, *args, **kwargs):
+        try:
+            id = self.kwargs.get('id')
+            booking = BookingHistory.objects.get(id=id)
+            check_in_date = booking.check_in_date.date()
+            current_date = now().date()
+            cancellations_this_month = BookingHistory.objects.filter(
+                property__owner=self.request.user,
+                cancel_by_owner=True,
+                cancel_date__year=now().year,
+                cancel_date__month=now().month
+            ).count()
+            if cancellations_this_month >= 2:
+                return error_response(CANCELLATION_LIMIT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            days_before_check_in = (check_in_date - current_date).days
+            days_before_check_in = get_days_before_check_in(booking, days_before_check_in)
+            refund_amount = booking.amount
 
-#             cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
-#             cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
-#             refund_amount = booking.amount - cancellation_charge_amount
-
-#             if refund_amount == 0:
-#                 # Perform booking cancellation without Razorpay API calls
-#                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
-#                 if serializer.is_valid():
-#                     serializer.save(is_cancel=True, cancel_date=timezone.now())
-#                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
-#                 else:
-#                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
-#             commission_percent = booking.property.commission_percent
-#             commission_amount = (cancellation_charge_amount * commission_percent) / 100
-#             order_response = razorpay_request(f"/v1/transfers/{booking.transfer_id}", "patch", data={"on_hold": 1})
-#             if order_response.status_code != 200:
-#                 return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-#             refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
-
-#             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
-#             if serializer.is_valid():
-#                 serializer.save(is_cancel=True, cancel_date=timezone.now())
-#                 return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
-#             else:
-#                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-#         except Exception:
-#             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            if days_before_check_in <= 1:
+                refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100,
+                                                                                                              "reverse_all": 1})
+                serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
+                    return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                else:
+                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            else:
+                order_response = razorpay_request(f"/v1/transfers/{booking.transfer_id}", "patch", data={"on_hold": 1})
+                if order_response.status_code != 200:
+                    return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
+                if refund_response.status_code != 200:
+                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+                serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save(is_cancel=True, cancel_date=now())
+                    return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                else:
+                    return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 @csrf_exempt
@@ -851,12 +846,21 @@ def razorpay_webhook(request):
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
             payment_id = payload['payload']['payment']['entity']['id']
-
             try:
                 booking = BookingHistory.objects.get(order_id=order_id)
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
+                print("TRUEE")
+                return HttpResponse(status=200)
+            except BookingHistory.DoesNotExist:
+                return HttpResponse(status=404)
+        if payload['event'] == 'subscription.activated"':
+            print(f"Event: {payload['event']}")
+            try:
+                subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=id)
+                subscription.payment_status = True
+                subscription.save()
                 print("TRUEE")
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
