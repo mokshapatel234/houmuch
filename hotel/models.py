@@ -297,6 +297,7 @@ class BookingHistory(models.Model):
     amount = models.FloatField()
     currency = models.CharField(max_length=3)
     is_cancel = models.BooleanField(default=False)
+    cancel_by_owner = models.BooleanField(default=False)
     cancel_date = models.DateTimeField(null=True)
     cancel_reason = models.TextField(null=True)
     book_status = models.BooleanField(default=False)
