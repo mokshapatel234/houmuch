@@ -363,3 +363,11 @@ class CancelBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingHistory
         fields = ['cancel_reason']
+
+
+class BookingRetrieveSerializer(BookingHistorySerializer):
+    cancellation_policy = serializers.SerializerMethodField()
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
