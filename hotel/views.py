@@ -660,7 +660,7 @@ class AccountListView(ListAPIView):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user, status=True).all()
+        queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user).order_by('created_at')
         return queryset
 
 
