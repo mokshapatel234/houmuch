@@ -494,10 +494,45 @@ class RoomInventoryViewSet(ModelViewSet):
             # cache_response("room_inventory_list", request.user)
             queryset = self.filter_queryset(RoomInventory.objects.filter(property__owner=request.user))
             page = self.paginate_queryset(queryset)
-            serializer = RoomInventoryOutSerializer(page, many=True)
-            response_data = self.get_paginated_response(serializer.data)
+            today = now().date()
+            start_date = today.replace(day=1)
+            end_date = start_date + relativedelta(months=+6)
+
+            def get_updated_inventory(room_inventory):
+                updated_inventory = UpdateInventoryPeriod.objects.filter(
+                    room_inventory=room_inventory,
+                    date__range=(start_date, end_date),
+                    is_deleted=False,
+                ).annotate(
+                    month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
+                    year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
+                ).order_by('year', 'month', 'type')
+
+                grouped_data = []
+                for item in updated_inventory:
+                    month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
+                    month_year_group = next((g for g in grouped_data if g['month_year'] == month_year), None)
+                    if not month_year_group:
+                        month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
+                        grouped_data.append(month_year_group)
+                    serialized_item = UpdateInventoryPeriodSerializer(item).data
+                    month_year_group['types'][item.type.type].append(serialized_item)
+                
+                for group in grouped_data:
+                    group['types'] = dict(group['types'])
+                return grouped_data
+
+            # Modify each RoomInventory in the page with its updated inventory
+            serialized_data = []
+            for room_inventory in page:
+                inventory_data = RoomInventoryOutSerializer(room_inventory).data
+                updated_inventory = get_updated_inventory(room_inventory)
+                inventory_data['updated_inventory'] = updated_inventory
+                serialized_data.append(inventory_data)
+
+            return self.get_paginated_response(serialized_data)
             # set_cache("room_inventory_list", request.user, serialized_data)
-            return response_data
+            # return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
