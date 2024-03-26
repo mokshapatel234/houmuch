@@ -704,7 +704,7 @@ class BookingRetrieveView(RetrieveAPIView):
     serializer_class = BookingRetrieveSerializer
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('-created_at')
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
