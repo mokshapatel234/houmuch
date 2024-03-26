@@ -15,7 +15,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -468,18 +468,22 @@ class RoomInventoryViewSet(ModelViewSet):
                 month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
                 year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
             ).order_by('year', 'month', 'type')
-            grouped_data = defaultdict(lambda: defaultdict(list))
+            grouped_data = []
             for item in updated_inventory:
                 month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
-                grouped_data[month_year][item.type.type].append(item)
-            for month, types in grouped_data.items():
-                for type, items in types.items():
-                    grouped_data[month][type] = [UpdateInventoryPeriodSerializer(item).data for item in items]
-            response_data = {
-                'room_inventory': RoomInventoryOutSerializer(instance).data,
-                'updated_inventory': grouped_data
-            }
-            return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
+                month_year_group = find_month_year(month_year, grouped_data)
+                if not month_year_group:
+                    month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
+                    grouped_data.append(month_year_group)
+                serialized_item = UpdateInventoryPeriodSerializer(item).data
+                month_year_group['types'][item.type.type].append(serialized_item)
+            for group in grouped_data:
+                group['types'] = dict(group['types'])
+                response_data = {
+                    'room_inventory': RoomInventoryOutSerializer(instance).data,
+                    'updated_inventory': grouped_data
+                }
+                return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
