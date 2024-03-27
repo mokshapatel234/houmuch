@@ -517,7 +517,7 @@ class RoomInventoryViewSet(ModelViewSet):
                         grouped_data.append(month_year_group)
                     serialized_item = UpdateInventoryPeriodSerializer(item).data
                     month_year_group['types'][item.type.type].append(serialized_item)
-                
+
                 for group in grouped_data:
                     group['types'] = dict(group['types'])
                 return grouped_data

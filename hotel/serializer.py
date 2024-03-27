@@ -367,7 +367,17 @@ class CancelBookingSerializer(serializers.ModelSerializer):
 
 class BookingRetrieveSerializer(BookingHistorySerializer):
     cancellation_policy = serializers.SerializerMethodField()
+    num_of_adults = serializers.SerializerMethodField()
+    num_of_children = serializers.SerializerMethodField()
 
     def get_cancellation_policy(self, obj):
         cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
         return cancellation_policies
+
+    def get_num_of_adults(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        return guests.no_of_adults
+
+    def get_num_of_children(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        return guests.no_of_children
