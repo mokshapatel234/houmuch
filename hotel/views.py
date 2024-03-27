@@ -729,7 +729,7 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('created_at')
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True, is_cancel=False).order_by('created_at')
         return queryset
 
 
@@ -894,7 +894,8 @@ class CancelBookingView(APIView):
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -910,8 +911,6 @@ def razorpay_webhook(request):
     if hmac.compare_digest(dig, received_signature):
         print("Signature verified successfully")
         payload = json.loads(body)
-        print(payload)
-        print(payload['event'], "EVENNNNNNNTTTT")
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
@@ -921,7 +920,7 @@ def razorpay_webhook(request):
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                print("TRUEE")
+                print("TRUEE BOOK")
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
                 return HttpResponse(status=404)
@@ -937,4 +936,6 @@ def razorpay_webhook(request):
             except BookingHistory.DoesNotExist:
                 return HttpResponse(status=404)
     else:
+        print("Signature verification failed")
         return HttpResponse(status=400)
+    return HttpResponse(status=500)
