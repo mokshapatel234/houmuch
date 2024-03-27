@@ -33,4 +33,4 @@ class SubscriptionPlanForm(forms.ModelForm):
 class BookingHistoryForm(forms.ModelForm):
     class Meta:
         model = BookingHistory
-        fields = ['property', 'rooms', 'amount', 'check_in_date', 'check_out_date', 'book_status', 'payment_id']
+        fields = ['property', 'rooms', 'amount', 'check_in_date', 'check_out_date', 'book_status', 'payment_id', 'is_cancel', 'cancel_date', 'cancel_reason', 'cancel_by_owner']
