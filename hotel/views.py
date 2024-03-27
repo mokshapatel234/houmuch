@@ -925,7 +925,7 @@ def razorpay_webhook(request):
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
                 return HttpResponse(status=404)
-        elif payload['event'] == 'subscription.completed"':
+        elif payload['event'] == 'subscription.completed':
             print(f"Event: {payload['event']}")
             subscription_id = payload['payload']['subscription']['entity']['id']
             try:
