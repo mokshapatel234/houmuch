@@ -911,7 +911,7 @@ def razorpay_webhook(request):
         print("Signature verified successfully")
         payload = json.loads(body)
         print(payload)
-
+        print(payload['event'], "EVENNNNNNNTTTT")
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
@@ -925,7 +925,7 @@ def razorpay_webhook(request):
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
                 return HttpResponse(status=404)
-        if payload['event'] == 'subscription.completed"':
+        elif payload['event'] == 'subscription.completed"':
             print(f"Event: {payload['event']}")
             subscription_id = payload['payload']['subscription']['entity']['id']
             try:
