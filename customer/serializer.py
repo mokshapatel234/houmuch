@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
 from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer
 from django.db.models import Avg
+from django.utils import timezone
+from datetime import datetime
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -146,6 +148,24 @@ class RatingSerializer(serializers.ModelSerializer):
 
 
 class CustomerBookingSerializer(BookingRetrieveSerializer):
+    cancellation_charges = serializers.SerializerMethodField()
+
+    def get_cancellation_charges(self, instance):
+        cancellation_policies = PropertyCancellation.objects.filter(property=instance.property).order_by('cancellation_days')
+        check_in_date = instance.check_in_date.date()
+        days_before_check_in = (check_in_date - timezone.now().date()).days
+        check_in_time_str = instance.property.check_in_time
+        check_in_time = datetime.strptime(check_in_time_str, "%I:%M %p").time()
+        current_time = datetime.now().time()
+        if current_time > check_in_time:
+            days_before_check_in -= 1
+        cancellation_charge_percentage = cancellation_policies.last().cancellation_percents
+        for policy in sorted(cancellation_policies, key=lambda x: x.cancellation_days):
+            if days_before_check_in <= policy.cancellation_days:
+                cancellation_charge_percentage = policy.cancellation_percents
+                break
+        cancellation_charge_amount = (instance.amount * cancellation_charge_percentage) / 100
+        return cancellation_charge_amount
 
     def to_representation(self, instance):
         ret = super(CustomerBookingSerializer, self).to_representation(instance)
