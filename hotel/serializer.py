@@ -61,7 +61,7 @@ class LoginSerializer(serializers.ModelSerializer):
         return ret
 
 
-class OwnerProfileSerializer(serializers.ModelSerializer):
+class OwnerProfileSerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Owner
@@ -327,6 +327,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 
 class SubscriptionOutSerializer(serializers.ModelSerializer):
     subscription_plan = SubscriptionPlanSerializer()
+    owner = OwnerProfileSerializer(fields=('hotel_name', 'email', 'phone_number'))
 
     class Meta:
         model = SubscriptionTransaction
