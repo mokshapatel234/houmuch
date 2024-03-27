@@ -152,6 +152,8 @@ class CustomerBookingSerializer(BookingRetrieveSerializer):
 
     def get_cancellation_charges(self, instance):
         cancellation_policies = PropertyCancellation.objects.filter(property=instance.property).order_by('cancellation_days')
+        if not cancellation_policies.exists():
+            return 0
         check_in_date = instance.check_in_date.date()
         days_before_check_in = (check_in_date - timezone.now().date()).days
         check_in_time_str = instance.property.check_in_time
