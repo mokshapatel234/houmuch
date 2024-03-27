@@ -479,11 +479,11 @@ class RoomInventoryViewSet(ModelViewSet):
                 month_year_group['types'][item.type.type].append(serialized_item)
             for group in grouped_data:
                 group['types'] = dict(group['types'])
-                response_data = {
-                    'room_inventory': RoomInventoryOutSerializer(instance).data,
-                    'updated_inventory': grouped_data
-                }
-                return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
+            response_data = {
+                'room_inventory': RoomInventoryOutSerializer(instance).data,
+                'updated_inventory': grouped_data
+            }
+            return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
@@ -910,6 +910,9 @@ def razorpay_webhook(request):
     if hmac.compare_digest(dig, received_signature):
         print("Signature verified successfully")
         payload = json.loads(body)
+        print(payload)
+
+        event_handled = False
 
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
@@ -920,19 +923,30 @@ def razorpay_webhook(request):
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                print("TRUEE")
-                return HttpResponse(status=200)
+                print("Booking payment status updated successfully.")
+                event_handled = True
             except BookingHistory.DoesNotExist:
-                return HttpResponse(status=404)
-        if payload['event'] == 'subscription.activated"':
+                print("BookingHistory not found for the given order_id.")
+                event_handled = True  # or False, depending on how you want to treat this case
+
+        elif payload['event'] == 'subscription.activated':  # Fixed the typo here
             print(f"Event: {payload['event']}")
+            id = payload['payload']['subscription']['entity']['id']  # Make sure you're getting the correct ID here
             try:
                 subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=id)
                 subscription.payment_status = True
                 subscription.save()
-                print("TRUEE")
-                return HttpResponse(status=200)
-            except BookingHistory.DoesNotExist:
-                return HttpResponse(status=404)
+                print("Subscription status updated successfully.")
+                event_handled = True
+            except SubscriptionTransaction.DoesNotExist:
+                print("SubscriptionTransaction not found for the given id.")
+                event_handled = True  # or False, depending on how you want to treat this case
+
+        if event_handled:
+            return HttpResponse(status=200)
+        else:
+            print("Unhandled event type.")
+            return HttpResponse("Unhandled event type.", status=400)
     else:
-        return HttpResponse(status=400)
+        print("Signature verification failed.")
+        return HttpResponse("Invalid signature.", status=400)
