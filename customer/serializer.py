@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
 from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings
-from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer
+from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer
 from django.db.models import Avg
 
 
@@ -143,3 +143,12 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ratings
         exclude = ['customer', 'property']
+
+
+class CustomerBookingSerializer(BookingRetrieveSerializer):
+
+    def to_representation(self, instance):
+        ret = super(CustomerBookingSerializer, self).to_representation(instance)
+        ret.pop('num_of_adults', None)
+        ret.pop('num_of_children', None)
+        return ret
