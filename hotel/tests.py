@@ -686,7 +686,7 @@ class BookingRetrieveViewTest(BaseHotelViewTest):
 
     def test_booking_retrieve_view(self):
         # Authenticate as the hotel owner
-        self.client.force_authenticate(user=self.customer, token=self.token)
+        self.client.force_authenticate(user=self.hotel, token=self.token)
 
         # Make GET request to the booking retrieve endpoint
         url = '/hotel/bookingRetrieve/{}/'.format(self.booking_history.pk)
