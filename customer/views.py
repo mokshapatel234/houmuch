@@ -3,14 +3,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
-    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer
+    OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
 from hotel.utils import error_response, send_mail, generate_response, deletion_success_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
 from hotel.paginator import CustomPagination
 from hotel.serializer import RoomInventoryOutSerializer, BookingHistorySerializer, RatingsOutSerializer, \
-    CancelBookingSerializer, BookingRetrieveSerializer
+    CancelBookingSerializer
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -427,7 +427,7 @@ class BookingListView(ListAPIView):
 class BookingRetrieveView(RetrieveAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
-    serializer_class = BookingRetrieveSerializer
+    serializer_class = CustomerBookingSerializer
 
     def get_queryset(self):
         queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')

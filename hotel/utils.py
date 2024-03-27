@@ -156,3 +156,10 @@ def get_days_before_check_in(booking, days_before_check_in):
     if current_time > check_in_time:
         days_before_check_in -= 1
     return days_before_check_in
+
+
+def find_month_year(month_year, grouped_data):
+    for item in grouped_data:
+        if item['month_year'] == month_year:
+            return item
+    return None

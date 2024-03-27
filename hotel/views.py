@@ -15,7 +15,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -468,18 +468,22 @@ class RoomInventoryViewSet(ModelViewSet):
                 month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
                 year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
             ).order_by('year', 'month', 'type')
-            grouped_data = defaultdict(lambda: defaultdict(list))
+            grouped_data = []
             for item in updated_inventory:
                 month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
-                grouped_data[month_year][item.type.type].append(item)
-            for month, types in grouped_data.items():
-                for type, items in types.items():
-                    grouped_data[month][type] = [UpdateInventoryPeriodSerializer(item).data for item in items]
-            response_data = {
-                'room_inventory': RoomInventoryOutSerializer(instance).data,
-                'updated_inventory': grouped_data
-            }
-            return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
+                month_year_group = find_month_year(month_year, grouped_data)
+                if not month_year_group:
+                    month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
+                    grouped_data.append(month_year_group)
+                serialized_item = UpdateInventoryPeriodSerializer(item).data
+                month_year_group['types'][item.type.type].append(serialized_item)
+            for group in grouped_data:
+                group['types'] = dict(group['types'])
+                response_data = {
+                    'room_inventory': RoomInventoryOutSerializer(instance).data,
+                    'updated_inventory': grouped_data
+                }
+                return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
@@ -490,10 +494,45 @@ class RoomInventoryViewSet(ModelViewSet):
             # cache_response("room_inventory_list", request.user)
             queryset = self.filter_queryset(RoomInventory.objects.filter(property__owner=request.user))
             page = self.paginate_queryset(queryset)
-            serializer = RoomInventoryOutSerializer(page, many=True)
-            response_data = self.get_paginated_response(serializer.data)
+            today = now().date()
+            start_date = today.replace(day=1)
+            end_date = start_date + relativedelta(months=+6)
+
+            def get_updated_inventory(room_inventory):
+                updated_inventory = UpdateInventoryPeriod.objects.filter(
+                    room_inventory=room_inventory,
+                    date__range=(start_date, end_date),
+                    is_deleted=False,
+                ).annotate(
+                    month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
+                    year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
+                ).order_by('year', 'month', 'type')
+
+                grouped_data = []
+                for item in updated_inventory:
+                    month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
+                    month_year_group = next((g for g in grouped_data if g['month_year'] == month_year), None)
+                    if not month_year_group:
+                        month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
+                        grouped_data.append(month_year_group)
+                    serialized_item = UpdateInventoryPeriodSerializer(item).data
+                    month_year_group['types'][item.type.type].append(serialized_item)
+
+                for group in grouped_data:
+                    group['types'] = dict(group['types'])
+                return grouped_data
+
+            # Modify each RoomInventory in the page with its updated inventory
+            serialized_data = []
+            for room_inventory in page:
+                inventory_data = RoomInventoryOutSerializer(room_inventory).data
+                updated_inventory = get_updated_inventory(room_inventory)
+                inventory_data['updated_inventory'] = updated_inventory
+                serialized_data.append(inventory_data)
+
+            return self.get_paginated_response(serialized_data)
             # set_cache("room_inventory_list", request.user, serialized_data)
-            return response_data
+            # return response_data
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -700,7 +739,7 @@ class BookingRetrieveView(RetrieveAPIView):
     serializer_class = BookingRetrieveSerializer
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('-created_at')
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
