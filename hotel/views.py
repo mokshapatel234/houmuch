@@ -912,8 +912,6 @@ def razorpay_webhook(request):
         payload = json.loads(body)
         print(payload)
 
-        event_handled = False
-
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
@@ -923,30 +921,20 @@ def razorpay_webhook(request):
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                print("Booking payment status updated successfully.")
-                event_handled = True
+                print("TRUEE")
+                return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
-                print("BookingHistory not found for the given order_id.")
-                event_handled = True  # or False, depending on how you want to treat this case
-
-        elif payload['event'] == 'subscription.activated':  # Fixed the typo here
+                return HttpResponse(status=404)
+        if payload['event'] == 'subscription.completed"':
             print(f"Event: {payload['event']}")
-            id = payload['payload']['subscription']['entity']['id']  # Make sure you're getting the correct ID here
+            subscription_id = payload['payload']['subscription']['entity']['id']
             try:
-                subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=id)
+                subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=subscription_id)
                 subscription.payment_status = True
                 subscription.save()
-                print("Subscription status updated successfully.")
-                event_handled = True
-            except SubscriptionTransaction.DoesNotExist:
-                print("SubscriptionTransaction not found for the given id.")
-                event_handled = True  # or False, depending on how you want to treat this case
-
-        if event_handled:
-            return HttpResponse(status=200)
-        else:
-            print("Unhandled event type.")
-            return HttpResponse("Unhandled event type.", status=400)
+                print("TRUEE")
+                return HttpResponse(status=200)
+            except BookingHistory.DoesNotExist:
+                return HttpResponse(status=404)
     else:
-        print("Signature verification failed.")
-        return HttpResponse("Invalid signature.", status=400)
+        return HttpResponse(status=400)
