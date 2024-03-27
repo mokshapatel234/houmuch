@@ -482,16 +482,16 @@ class CancelBookingView(APIView):
             check_in_date = booking.check_in_date.date()
 
             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
-            owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner)
+            owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner, status=True)
             days_before_check_in = (check_in_date - timezone.now().date()).days
             check_in_time = booking.property.check_in_time
-
-            cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
-            cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
-            refund_amount = booking.amount - cancellation_charge_amount
-
+            if not cancellation_policies.exists():
+                refund_amount = 0
+            else:
+                cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
+                cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
+                refund_amount = booking.amount - cancellation_charge_amount
             if refund_amount == 0:
-                # Perform booking cancellation without Razorpay API calls
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
@@ -524,5 +524,6 @@ class CancelBookingView(APIView):
                 return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
