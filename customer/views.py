@@ -5,7 +5,7 @@ from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
-from hotel.utils import error_response, send_mail, generate_response, deletion_success_response
+from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
 from hotel.paginator import CustomPagination
@@ -420,7 +420,7 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True, is_cancel=False).order_by('-created_at')
         return queryset
 
 
