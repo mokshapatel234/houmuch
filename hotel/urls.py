@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProfileView, \
     MasterRetrieveView, RoomInventoryViewSet, OTPVerificationView, CategoryRetrieveView, \
-    BookingListView, AccountCreateApi, AccountUpdateApi, AccountGetApi, SubscriptionView, \
+    BookingListView, AccountCreateApi, AccountUpdateApi, SubscriptionView, \
     SubscriptionPlanView, TransactionListView, RatingsListView, CancelBookingView, \
     BookingRetrieveView, AccountListView
 
@@ -21,7 +21,7 @@ urlpatterns = [
     path('verifyOtp/', OTPVerificationView.as_view(), name='otp_verification'),
     path('createAccount/', AccountCreateApi.as_view()),
     path('updateAccount/<int:id>/', AccountUpdateApi.as_view()),
-    path('getAccount/', AccountGetApi.as_view()),
+    # path('getAccount/', AccountGetApi.as_view()),
     path('getAccountList/', AccountListView.as_view(), name='account_list'),
     path('bookingHistory/', BookingListView.as_view(), name='booking_history'),
     path('transactions/', TransactionListView.as_view(), name='transaction_history'),
