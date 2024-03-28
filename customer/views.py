@@ -517,11 +517,11 @@ class CancelBookingView(APIView):
                 direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
-                return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:

@@ -257,7 +257,7 @@ class CustomerOutSerializer(serializers.ModelSerializer):
         fields = ('first_name', 'last_name', 'phone_number')
 
 
-class BookingHistorySerializer(serializers.ModelSerializer):
+class BookingHistorySerializer(DynamicFieldsModelSerializer):
     customer = CustomerOutSerializer()
     rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
     property = serializers.SerializerMethodField()
