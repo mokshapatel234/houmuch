@@ -237,7 +237,7 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
+        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
 
 
 class SettlementSerializer(serializers.Serializer):
