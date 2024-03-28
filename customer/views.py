@@ -32,6 +32,7 @@ from django.db import transaction
 from django.db.models import Avg
 from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
+from django.utils.dateparse import parse_date
 
 
 class CustomerRegisterView(APIView):
@@ -294,7 +295,10 @@ class OrderSummaryView(ListAPIView):
         room = RoomInventory.objects.get(id=room_id)
         total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
         adjusted_availability = available_rooms - session_rooms_booked
-        total_price = room.default_price * min(adjusted_availability, int(num_of_rooms))
+        check_in_date_obj = parse_date(check_in_date)
+        check_out_date_obj = parse_date(check_out_date)
+        num_nights = (check_out_date_obj - check_in_date_obj).days
+        total_price = room.default_price * min(adjusted_availability, int(num_of_rooms)) * num_nights
         gst_rate = 0.12 if total_price <= 7500 else 0.18
         gst_amount = total_price * gst_rate
         final_price = total_price + gst_amount
