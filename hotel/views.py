@@ -593,7 +593,7 @@ class AccountCreateApi(APIView):
 
     def post(self, request):
         try:
-            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user).first()
+            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user, status=True).first()
             if existing_account:
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             user = Owner.objects.get(id=request.user.id)
