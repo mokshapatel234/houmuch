@@ -22,10 +22,9 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     PROFILE_ERROR_MESSAGE, DATA_RETRIEVAL_MESSAGE, DATA_CREATE_MESSAGE, DATA_UPDATE_MESSAGE, \
     EMAIL_ALREADY_PRESENT_MESSAGE, OTP_VERIFICATION_SUCCESS_MESSAGE, OTP_VERIFICATION_INVALID_MESSAGE, \
     INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
-    ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, OWNER_ID_NOT_PROVIDED_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE, \
+    ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, CANCELLATION_LIMIT_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
-    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
-    CANCELLATION_LIMIT_MESSAGE
+    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -594,7 +593,7 @@ class AccountCreateApi(APIView):
 
     def post(self, request):
         try:
-            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user).first()
+            existing_account = OwnerBankingDetail.objects.filter(hotel_owner=request.user, status=True).first()
             if existing_account:
                 return error_response(ACCOUNT_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             user = Owner.objects.get(id=request.user.id)
@@ -674,22 +673,22 @@ class AccountCreateApi(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-class AccountGetApi(APIView):
-    authentication_classes = (JWTAuthentication,)
-    permission_classes = (permissions.IsAuthenticated,)
+# class AccountGetApi(APIView):
+#     authentication_classes = (JWTAuthentication,)
+#     permission_classes = (permissions.IsAuthenticated,)
 
-    def get(self, request):
-        try:
-            owner_id = request.user.id
-            if not owner_id:
-                return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            try:
-                account = OwnerBankingDetail.objects.get(hotel_owner_id=owner_id)
-            except OwnerBankingDetail.DoesNotExist:
-                return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-            return generate_response(account, DATA_CREATE_MESSAGE, status.HTTP_200_OK, AccountSerializer)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+#     def get(self, request):
+#         try:
+#             owner_id = request.user.id
+#             if not owner_id:
+#                 return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
+#             try:
+#                 account = OwnerBankingDetail.objects.get(hotel_owner_id=owner_id, status=True)
+#             except OwnerBankingDetail.DoesNotExist:
+#                 return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+#             return generate_response(account, DATA_CREATE_MESSAGE, status.HTTP_200_OK, AccountSerializer)
+#         except Exception:
+#             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class AccountListView(ListAPIView):
@@ -729,7 +728,7 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('created_at')
+        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True, is_cancel=False).order_by('created_at')
         return queryset
 
 
@@ -894,7 +893,8 @@ class CancelBookingView(APIView):
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -910,10 +910,6 @@ def razorpay_webhook(request):
     if hmac.compare_digest(dig, received_signature):
         print("Signature verified successfully")
         payload = json.loads(body)
-        print(payload)
-
-        event_handled = False
-
         if payload['event'] == 'payment.captured':
             print(f"Event: {payload['event']}")
             order_id = payload['payload']['payment']['entity']['order_id']
@@ -923,30 +919,22 @@ def razorpay_webhook(request):
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                print("Booking payment status updated successfully.")
-                event_handled = True
+                print("TRUEE BOOK")
+                return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:
-                print("BookingHistory not found for the given order_id.")
-                event_handled = True  # or False, depending on how you want to treat this case
-
-        elif payload['event'] == 'subscription.activated':  # Fixed the typo here
+                return HttpResponse(status=404)
+        elif payload['event'] == 'subscription.completed':
             print(f"Event: {payload['event']}")
-            id = payload['payload']['subscription']['entity']['id']  # Make sure you're getting the correct ID here
+            subscription_id = payload['payload']['subscription']['entity']['id']
             try:
-                subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=id)
+                subscription = SubscriptionTransaction.objects.get(razorpay_subscription_id=subscription_id)
                 subscription.payment_status = True
                 subscription.save()
-                print("Subscription status updated successfully.")
-                event_handled = True
-            except SubscriptionTransaction.DoesNotExist:
-                print("SubscriptionTransaction not found for the given id.")
-                event_handled = True  # or False, depending on how you want to treat this case
-
-        if event_handled:
-            return HttpResponse(status=200)
-        else:
-            print("Unhandled event type.")
-            return HttpResponse("Unhandled event type.", status=400)
+                print("TRUEE")
+                return HttpResponse(status=200)
+            except BookingHistory.DoesNotExist:
+                return HttpResponse(status=404)
     else:
-        print("Signature verification failed.")
-        return HttpResponse("Invalid signature.", status=400)
+        print("Signature verification failed")
+        return HttpResponse(status=400)
+    return HttpResponse(status=500)

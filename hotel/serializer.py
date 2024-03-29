@@ -237,7 +237,7 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
+        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
 
 
 class SettlementSerializer(serializers.Serializer):
@@ -257,7 +257,7 @@ class CustomerOutSerializer(serializers.ModelSerializer):
         fields = ('first_name', 'last_name', 'phone_number')
 
 
-class BookingHistorySerializer(serializers.ModelSerializer):
+class BookingHistorySerializer(DynamicFieldsModelSerializer):
     customer = CustomerOutSerializer()
     rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type'))
     property = serializers.SerializerMethodField()

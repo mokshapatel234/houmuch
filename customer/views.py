@@ -5,7 +5,7 @@ from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
-from hotel.utils import error_response, send_mail, generate_response, deletion_success_response
+from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
 from hotel.paginator import CustomPagination
@@ -32,6 +32,7 @@ from django.db import transaction
 from django.db.models import Avg
 from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
+from django.utils.dateparse import parse_date
 
 
 class CustomerRegisterView(APIView):
@@ -294,7 +295,10 @@ class OrderSummaryView(ListAPIView):
         room = RoomInventory.objects.get(id=room_id)
         total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
         adjusted_availability = available_rooms - session_rooms_booked
-        total_price = room.default_price * min(adjusted_availability, int(num_of_rooms))
+        check_in_date_obj = parse_date(check_in_date)
+        check_out_date_obj = parse_date(check_out_date)
+        num_nights = (check_out_date_obj - check_in_date_obj).days
+        total_price = room.default_price * min(adjusted_availability, int(num_of_rooms)) * num_nights
         gst_rate = 0.12 if total_price <= 7500 else 0.18
         gst_amount = total_price * gst_rate
         final_price = total_price + gst_amount
@@ -420,7 +424,7 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True, is_cancel=False).order_by('-created_at')
         return queryset
 
 
@@ -495,7 +499,8 @@ class CancelBookingView(APIView):
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
-                    return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                    response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                    return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -517,11 +522,11 @@ class CancelBookingView(APIView):
                 direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
-                return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
+                response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
