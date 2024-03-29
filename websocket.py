@@ -1,25 +1,18 @@
-import re
-import uuid
 from fastapi import FastAPI, WebSocket, Query, HTTPException, Depends, Request
 from starlette.middleware.cors import CORSMiddleware
-from typing import Optional
 from starlette.websockets import WebSocketState
-import random
 import uvicorn
 from fastapi import WebSocketDisconnect
 import jwt
 from asgiref.sync import sync_to_async
 from rest_framework import exceptions
 import os
-from django import setup
 import django
-from typing import List
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
-django.setup()
-
-from hotel.models import Owner, BiddingSession, Property, PropertyDeal
+from hotel.models import Owner, BiddingSession, PropertyDeal
 from customer.models import Customer
 
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
+django.setup()
 
 app = FastAPI()
 
@@ -30,6 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class Singleton:
     _instances = {}
@@ -48,6 +42,7 @@ class Singleton:
         if cls not in cls._instances:
             cls._instances[cls] = cls(*args, **kwargs)
 
+
 class ConnectionManager(Singleton):
     def __init__(self):
         self.active_connections = []
@@ -55,7 +50,7 @@ class ConnectionManager(Singleton):
 
     async def connect(self, websocket: WebSocket):
         try:
-            await websocket.accept()  
+            await websocket.accept()
         except Exception as e:
             print(e)
 
@@ -66,7 +61,7 @@ class ConnectionManager(Singleton):
     async def save_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id] = [websocket]
         print(self.room_clients)
-    
+
     async def update_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id].append(websocket)
         print(self.room_clients)
@@ -85,7 +80,10 @@ class ConnectionManager(Singleton):
                 combined_message = f"{message}"
                 await connection.send_text(combined_message)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3c247939757474dc6d01b9ce7c7aa7b49d29738f
     async def broadcast_to_room(self, room_id: str, message: str):
         for websocket in self.room_clients[room_id]:
             try:
@@ -93,7 +91,66 @@ class ConnectionManager(Singleton):
             except Exception as e:
                 print(f"Failed to send message to client : {e}")
 
+<<<<<<< HEAD
 manager = ConnectionManager()
+=======
+    # async def create_bidding_session():
+    #     print("Creating bidding session...")
+    #     try:
+    #         await save_bidding_session(is_open=True)
+    #     except Exception as e:
+    #         print("An error occurred while creating bidding session:", e)
+    #         return None
+
+
+manager = ConnectionManager()
+
+
+@sync_to_async
+def save_bidding_session():
+    result_instance = BiddingSession.objects.create(
+        is_open=True,
+    )
+    return result_instance.id
+
+
+@sync_to_async
+def save_property_deal(session_id, customer_id, property_id):
+    try:
+        property_deal = PropertyDeal.objects.create(
+            session_id=session_id,
+            customer_id=customer_id,
+            property_id=property_id,
+            is_winning_bid=False
+        )
+        return property_deal.id
+    except Exception as e:
+        print("An error occurred while creating property deal:", e)
+        return None
+
+
+async def create_bidding_session():
+    print("Creating bidding session...")
+    try:
+        bidding_session_id = await save_bidding_session()
+        return bidding_session_id
+    except Exception as e:
+        print("An error occurred while creating bidding session:", e)
+        return None
+
+
+async def create_property_deal(session_id, customer_id, property_id):
+    try:
+
+        await save_property_deal(session_id, customer_id, property_id)
+    except Exception as e:
+        print("An error occurred while creating property deal:", e)
+        return None
+
+
+active_rooms = {}
+>>>>>>> 3c247939757474dc6d01b9ce7c7aa7b49d29738f
+
 
 class JWTAuthentication:
     async def authenticate(self, request, token, user_type):
@@ -127,7 +184,7 @@ class JWTAuthentication:
         request.user = user
 
         return (request.user, token)
-    
+
     @sync_to_async
     def get_business_owner(self, user_id):
         try:
@@ -141,7 +198,8 @@ class JWTAuthentication:
             return Customer.objects.get(id=user_id)
         except Customer.DoesNotExist:
             return None
-    
+
+
 async def verify_token(token: str, user_type: str, request: Request = Depends()):
     try:
         payload = jwt.decode(token, 'secret', algorithms=['HS256'])
@@ -156,6 +214,7 @@ async def verify_token(token: str, user_type: str, request: Request = Depends())
         raise HTTPException(status_code=400, detail="Authorization Token is invalid")
 
     return user
+
 
 async def get_current_user(token: str, user_type: str):
     """Helper function for auth with Firebase."""
@@ -221,15 +280,15 @@ async def room_connection(
     user_type: str = Query(None),
     session_id: str = Query(None),  # Updated parameter name from room_id to session_id
     token: str = Query(None),
-    property_ids: str = Query(None) 
+    property_ids: str = Query(None)
 ):
     global customer_socket_id
-    
+
     user_info = await get_current_user(token, user_type)
     if not user_info:
         await websocket.close(code=1008, reason="Unauthorized")
         return
-    
+
     try:
         if isinstance(user_info, Customer):
             customer_socket_id = id(websocket)
@@ -251,11 +310,12 @@ async def room_connection(
             else:
                 await websocket.close(code=1008, reason="Invalid Session ID or Session not found.")  # Updated message
         else:
-            if property_ids:  
+            if property_ids:
                 customer_id = user_info.id
                 session_id = str(await create_bidding_session())  # Updated variable name
                 property_ids_list = [int(prop_id) for prop_id in property_ids.split(",")]
                 for property_id in property_ids_list:
+<<<<<<< HEAD
                     await create_property_deal(session_id, customer_id, property_id)  # Updated parameter name
                 await manager.save_active_room(websocket, session_id)
                 active_rooms[session_id] = customer_socket_id
@@ -269,6 +329,13 @@ async def room_connection(
         except WebSocketDisconnect:
             await manager.disconnect(websocket, session_id)
                  
+=======
+                    await create_property_deal(room_id, customer_id, property_id)
+                await manager.save_active_room(websocket, room_id)
+                active_rooms[room_id] = customer_socket_id
+                await websocket.send_text(f"Room ID: {room_id}")
+                await websocket.send_text("You are now connected to the room.")
+>>>>>>> 3c247939757474dc6d01b9ce7c7aa7b49d29738f
     except Exception as e:
         print("An error occurred:", e)
 
