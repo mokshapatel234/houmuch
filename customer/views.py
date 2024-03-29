@@ -335,7 +335,7 @@ class PayNowView(APIView):
                 room_instance = RoomInventory.objects.select_for_update().get(id=room_id)
                 property_instance = Property.objects.get(id=booking_data.get('property'))
 
-                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
+                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner, status=True)
                 account_id = owner_banking_detail.account_id
                 amount = float(booking_data.get('amount'))
                 currency = 'INR'
