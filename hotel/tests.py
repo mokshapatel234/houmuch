@@ -389,33 +389,6 @@ class RoomInventoryViewSetTest(BaseHotelViewTest):
         self.assertEqual(response_exception_retrieve.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-# class AccountGetApiTest(BaseHotelViewTest):
-#     def get_account_data(self):
-#         # Helper method to get account data
-#         return {
-#             "hotel_owner": self.hotel,
-#             "email": "test@example.com",
-#             "phone": "1234567890",
-#             "contact_name": "John Doe",
-#             "type": "type",
-#             "account_id": "1234567890",
-#             "legal_business_name": "Test Business",
-#             "business_type": "Test Type",
-#             "status": True
-#         }
-
-#     def test_get_account_successful(self):
-#         OwnerBankingDetail.objects.create(**self.get_account_data())
-#         self.client.force_authenticate(user=self.hotel, token=self.token)
-#         response = self.client.get('/hotel/getAccount/', format='json')
-#         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-#     def test_get_account_not_found(self):
-#         self.client.force_authenticate(user=self.hotel, token=self.token)
-#         response = self.client.get('/hotel/getAccount/', format='json')
-#         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-
 class AccountListViewTest(BaseHotelViewTest):
     def get_account_list(self):
         self.client.force_authenticate(user=self.hotel, token=self.token)
