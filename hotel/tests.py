@@ -7,17 +7,12 @@ from django.contrib.gis.geos import Point
 from django.contrib.auth.models import User
 from customer.models import Customer
 from django.utils import timezone
-from django.urls import reverse
 
 
 class BaseHotelViewTest(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        self.hotel = Owner.objects.create(
-            phone_number="1234567890",
-            hotel_name="Hotel 1",
-            address="This is address"
-        )
+        self.hotel = self.create_hotel()
         self.login_data = {
             'phone_number': '1234567890',
             'fcm_token': 'new_fcm',
@@ -25,10 +20,77 @@ class BaseHotelViewTest(APITestCase):
         self.token = None
         self.login_hotel()
 
+    def create_hotel(self):
+        return Owner.objects.create(
+            phone_number="1234567890",
+            hotel_name="Hotel 1",
+            address="This is address"
+        )
+
     def login_hotel(self):
         response = self.client.post('/hotel/login/', self.login_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.token = response.data['data'].get('token')
+
+    def create_property(self):
+        property_type_instance = PropertyType.objects.create(property_type='Hotel')
+        return Property.objects.create(
+            parent_hotel_group="Parent Group",
+            hotel_nick_name="Hotel Nick Name",
+            manager_name="Manager Name",
+            hotel_phone_number="1234567890",
+            hotel_website="http://samplehotel.com",
+            number_of_rooms=50,
+            check_in_time="12:00 PM",
+            check_out_time="12:00 PM",
+            location=Point(12.971598, 77.594562),
+            nearby_popular_landmark="Nearby Landmark",
+            owner=self.hotel,
+            property_type=property_type_instance,
+            commission_percent=10.0,
+            hotel_class=3,
+            pet_friendly=True,
+            breakfast_included=True,
+            is_cancellation=True,
+            status=True,
+            is_online=True,
+            is_verified=True
+        )
+
+    def create_customer(self):
+        return Customer.objects.create(
+            first_name="John",
+            last_name="Doe",
+            email="john@example.com",
+            phone_number="1234567890",
+            profile_image="profile.jpg",
+            address="Sample Address",
+            government_id="1234567890",
+            fcm_token="token",
+            device_id="device_id"
+        )
+
+    def create_booking(self, property_instance, customer_instance):
+        return BookingHistory.objects.create(
+            property=property_instance,
+            customer=customer_instance,
+            property_deal=None,
+            num_of_rooms=2,
+            rooms=None,
+            order_id="123456789",
+            transfer_id=None,
+            check_in_date=timezone.now(),
+            check_out_date=timezone.now() + timezone.timedelta(days=1),
+            amount=500.00,
+            currency="USD",
+            is_cancel=False,
+            cancel_by_owner=False,
+            cancel_date=None,
+            cancel_reason=None,
+            book_status=True,
+            payment_id="payment123",
+            is_confirmed=True
+        )
 
 
 class HotelRegisterViewTest(APITestCase):
@@ -300,8 +362,6 @@ class RoomInventoryViewSetTest(BaseHotelViewTest):
         else:
             # Handle the case where the response is None
             print("The response is None. Unable to perform assertions.")
-
-
         updated_data = {
             "room_name": "Updated Name"
         }
@@ -357,6 +417,10 @@ class AccountGetApiTest(BaseHotelViewTest):
 
 
 class AccountListViewTest(BaseHotelViewTest):
+    def get_account_list(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/getAccountList/', format='json')
+
     def get_account_data_1(self):
         # Helper method to get the first account data
         return {
@@ -398,8 +462,7 @@ class AccountListViewTest(BaseHotelViewTest):
         self.assertEqual(len(response.data['data']), 2)
 
     def test_get_account_list_empty(self):
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/getAccountList/', format='json')
+        response = self.get_account_list()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         self.assertIn('data', response.data)
@@ -407,106 +470,29 @@ class AccountListViewTest(BaseHotelViewTest):
 
 
 class BookingListViewTest(BaseHotelViewTest):
-    def create_property(self):
-        # Helper method to create a Property instance
-        property_type_instance = PropertyType.objects.create(property_type='Hotel')
-        return Property.objects.create(
-            parent_hotel_group="Parent Group",
-            hotel_nick_name="Hotel Nick Name",
-            manager_name="Manager Name",
-            hotel_phone_number="1234567890",
-            hotel_website="http://samplehotel.com",
-            number_of_rooms=50,
-            check_in_time="12:00 PM",
-            check_out_time="12:00 PM",
-            location=Point(12.971598, 77.594562),
-            nearby_popular_landmark="Nearby Landmark",
-            owner=self.hotel,
-            property_type=property_type_instance,  # Adjust with the correct ID
-            commission_percent=10.0,
-            hotel_class=3,  # Adjust with the correct class
-            pet_friendly=True,
-            breakfast_included=True,
-            is_cancellation=True,
-            status=True,
-            is_online=True,
-            is_verified=True
-        )
-
-    def create_customer(self):
-        # Helper method to create a Customer instance
-        return Customer.objects.create(
-            first_name="John",
-            last_name="Doe",
-            email="john@example.com",
-            phone_number="1234567890",
-            profile_image="profile.jpg",
-            address="Sample Address",
-            government_id="1234567890",
-            fcm_token="token",
-            device_id="device_id"
-        )
+    def get_booking_history(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/bookingHistory/', format='json')
 
     def test_booking_list_view(self):
         property_instance = self.create_property()
         customer_instance = self.create_customer()
 
         # Create a BookingHistory instance
-        BookingHistory.objects.create(
-            property=property_instance,
-            customer=customer_instance,
-            property_deal=None,
-            num_of_rooms=2,
-            rooms=None,
-            order_id="123456789",
-            transfer_id=None,
-            check_in_date=timezone.now(),
-            check_out_date=timezone.now() + timezone.timedelta(days=1),
-            amount=500.00,
-            currency="USD",
-            is_cancel=False,
-            cancel_by_owner=False,
-            cancel_date=None,
-            cancel_reason=None,
-            book_status=True,
-            payment_id="payment123",
-            is_confirmed=True
-        )
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/bookingHistory/', format='json')
+        self.create_booking(property_instance, customer_instance)
 
-        # Check if the response is successful
+        response = self.get_booking_history()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class TransactionListViewTest(BaseHotelViewTest):
+    def make_transaction_list_request(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/transactions/')
+
     def test_transaction_list_view_single_data(self):
-        # Create a Customer instance related to the hotel owner
-        customer = Customer.objects.create(
-            first_name="John",
-            last_name="Doe",
-            email="john@example.com",
-            phone_number="1234567890",
-            address="123 Main St"
-        )
-        property_type_instance = PropertyType.objects.create(property_type='Hotel')
-        property_instance = Property.objects.create(
-            parent_hotel_group="Updated group",
-            hotel_nick_name="Nick name",
-            manager_name="Manager",
-            hotel_phone_number="1234567890",
-            number_of_rooms=50,
-            hotel_website="http://samplehotel.com",
-            location=Point(12.971598, 77.594562),
-            nearby_popular_landmark="Sample Landmark",
-            property_type=property_type_instance,
-            pet_friendly=True,
-            breakfast_included=True,
-            is_cancellation=True,
-            status=True,
-            is_online=True,
-            owner=self.hotel
-        )
+        property_instance = self.create_property()
+        customer_instance = self.create_customer()
         room_type = RoomType.objects.create(room_type='Suite')
         bed_type = BedType.objects.create(bed_type='Queen')
         bathroom_type = BathroomType.objects.create(bathroom_type='Private')
@@ -534,10 +520,9 @@ class TransactionListViewTest(BaseHotelViewTest):
         room.room_features.add(room_feature)
         room.common_amenities.add(common_amenities)
 
-        # Create a BookingHistory instance related to the hotel owner
         BookingHistory.objects.create(
             property=property_instance,
-            customer=customer,
+            customer=customer_instance,
             num_of_rooms=2,
             rooms=room,
             order_id="123456",
@@ -550,35 +535,29 @@ class TransactionListViewTest(BaseHotelViewTest):
             created_at=timezone.now()
         )
 
-        # Log in the hotel owner
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-
-        # Make GET request to the transactions endpoint
-        url = reverse('transaction_history')
-        response = self.client.get(url)
-
-        # Check if the response is successful
+        response = self.make_transaction_list_request()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class SubscriptionPlanViewTest(BaseHotelViewTest):
+    def make_subscription_plan_request(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/subscriptionPlan/')
+
     def test_subscription_plan_view_single_data(self):
-        # Create a SubscriptionPlan instance
         SubscriptionPlan.objects.create(
             name='3 months plan',
             price=100,
             duration=3,
             description='3 months subscription plan'
         )
-
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/subscriptionPlan/')
+        response = self.make_subscription_plan_request()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class SubscriptionViewTest(BaseHotelViewTest):
     def setUp(self):
-        super().setUp()  # Call the setUp method of BaseHotelViewTest
+        super().setUp()
         # Create a subscription plan
         self.plan = SubscriptionPlan.objects.create(
             name='3 months plan',
@@ -586,6 +565,10 @@ class SubscriptionViewTest(BaseHotelViewTest):
             duration=3,
             description='3 months subscription plan'
         )
+
+    def make_subscription_request(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/subscription/')
 
     def test_get_subscription_view(self):
         # Create a SubscriptionTransaction instance
@@ -595,10 +578,7 @@ class SubscriptionViewTest(BaseHotelViewTest):
             razorpay_subscription_id='test_subscription_id',
             payment_status=True
         )
-        # Make GET request to the subscription endpoint
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/subscription/')
-
+        response = self.make_subscription_request()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_post_subscription_view(self):
@@ -610,99 +590,41 @@ class SubscriptionViewTest(BaseHotelViewTest):
 
 
 class RatingsListViewTest(BaseHotelViewTest):
-    def setUp(self):
-        super().setUp()
-        default_property_type = PropertyType.objects.create(property_type="Default Type")
-        # Create a property
-        self.property = Property.objects.create(
-            owner=self.hotel,
-            parent_hotel_group="Group 1",
-            hotel_nick_name="Hotel 1",
-            manager_name="Manager",
-            hotel_phone_number="1234567890",
-            number_of_rooms=50,
-            hotel_website="http://samplehotel.com",
-            location=Point(12.971598, 77.594562),
-            nearby_popular_landmark="Sample Landmark",
-            pet_friendly=True,
-            breakfast_included=True,
-            is_cancellation=True,
-            status=True,
-            is_online=True,
-            property_type=default_property_type
-        )
-        # Create a customer
-        self.customer = Customer.objects.create(
-            first_name="John",
-            last_name="Doe",
-            email="john@example.com",
-            phone_number="1234567890",
-            address="123 Main St"
-        )
-        # Create a rating
-        self.rating = Ratings.objects.create(
-            property=self.property,
-            customer=self.customer,
+    def authenticate_and_get_ratings(self):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get('/hotel/ratings/')
+
+    def test_ratings_list_view(self):
+        property_instance = self.create_property()
+        customer_instance = self.create_customer()
+
+        Ratings.objects.create(
+            property=property_instance,
+            customer=customer_instance,
             ratings=5,
             review="Excellent service!"
         )
-
-    def test_ratings_list_view(self):
-        # Make GET request to the ratings endpoint
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/ratings/')
+        response = self.authenticate_and_get_ratings()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
 class BookingRetrieveViewTest(BaseHotelViewTest):
-    def setUp(self):
-        super().setUp()
-        # Create a property
-        property_type_instance = PropertyType.objects.create(property_type="Type")
-        self.property = Property.objects.create(
-            owner=self.hotel,
-            hotel_nick_name="Hotel 1",
-            manager_name="Manager",
-            hotel_phone_number="1234567890",
-            number_of_rooms=50,
-            nearby_popular_landmark="Sample Landmark",
-            property_type=property_type_instance
-        )
-        # Create a customer
-        self.customer = Customer.objects.create(
-            first_name="John",
-            last_name="Doe",
-            email="john@example.com",
-            phone_number="1234567890",
-            address="123 Main St"
-        )
-        # Create a booking history
-        self.booking_history = BookingHistory.objects.create(
-            property=self.property,
-            customer=self.customer,
-            num_of_rooms=1,
-            order_id="123456",
-            check_in_date=timezone.now(),
-            check_out_date=timezone.now() + timezone.timedelta(days=1),
-            amount=100.0,
-            currency="USD",
-            book_status=True
-        )
+    def get_booking(self, booking_id):
+        self.client.force_authenticate(user=self.hotel, token=self.token)
+        return self.client.get(f'/hotel/bookingRetrieve/{booking_id}/')
+
+    def test_booking_retrieve_view(self):
+        property_instance = self.create_property()
+        customer_instance = self.create_customer()
+
+        booking_history_instance = self.create_booking(property_instance, customer_instance)
+
         # Create a guest detail
-        self.guest_detail = GuestDetail.objects.create(
-            booking=self.booking_history,
+        GuestDetail.objects.create(
+            booking=booking_history_instance,
             no_of_adults=2,
             no_of_children=1,
             age_of_children="5,7",
         )
-
-    def test_booking_retrieve_view(self):
-        # Authenticate as the hotel owner
-        self.client.force_authenticate(user=self.hotel, token=self.token)
-
-        # Make GET request to the booking retrieve endpoint
-        response = self.client.get(f'/hotel/bookingRetrieve/{self.booking_history.pk}/')
-
-        # Check if the response is successful
+        response = self.get_booking(booking_history_instance.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
