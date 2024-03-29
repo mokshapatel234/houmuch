@@ -102,8 +102,7 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
 
 def get_room_inventory(property, property_list, num_of_rooms, min_price, max_price, room_type,
                        check_in_date, check_out_date, num_of_adults, num_of_children, high_to_low, session):
-    room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True,
-                                                        adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children
+    room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True
                                                         ).order_by('default_price')
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
@@ -124,7 +123,9 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
                 room_inventory.available_rooms,
                 room_inventory.adjusted_min_rooms if room_inventory.adjusted_min_rooms is not None else room_inventory.available_rooms
             ),
-            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)
+            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price),
+            'adult_capacity': room_inventory.adult_capacity,
+            'children_capacity': room_inventory.children_capacity
         }
         for room_inventory in available_room_inventory
     }
@@ -139,6 +140,8 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
         room_inventory for room_inventory in available_room_inventory
         if room_inventory.id in adjusted_availability
         and adjusted_availability[room_inventory.id]['available_rooms'] >= num_of_rooms
+        and adjusted_availability[room_inventory.id]['adult_capacity'] * num_of_rooms >= num_of_adults
+        and adjusted_availability[room_inventory.id]['children_capacity'] * num_of_rooms >= num_of_children
     ]
     include_property = False
     if available_room_inventory:
