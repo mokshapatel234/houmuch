@@ -33,7 +33,10 @@ class RoomInventoryFilter(filters.FilterSet):
             excluded_room_ids = []
             adjusted_availability = {
                 room_inventory.id: {
-                    'available_rooms': room_inventory.available_rooms,
+                    'available_rooms': min(
+                        room_inventory.available_rooms,
+                        room_inventory.adjusted_min_rooms if room_inventory.adjusted_min_rooms is not None else room_inventory.available_rooms
+                    ),
                     'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)  # Use effective_price if available, otherwise default_price
                 }
                 for room_inventory in queryset
