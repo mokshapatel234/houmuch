@@ -612,6 +612,7 @@ class AccountCreateApi(APIView):
             tnc_accepted = request.data.pop('tnc_accepted', False)
 
             response = razorpay_request("/v2/accounts", "post", data=request.data)
+            print(response.json(), "ACCOUNT")
             # response = requests.post(url, json=request.data, headers=headers)
             if response.status_code == 200:
                 account_data = response.json()
@@ -630,6 +631,7 @@ class AccountCreateApi(APIView):
                 # url = settings.RAZORPAY_BASE_URL + endpoint
                 # response = requests.post(url, json=product_data, headers=headers)
                 response = razorpay_request(f"/v2/accounts/{account_data.get('id', '')}/products", "post", data=product_data)
+                print(response.json())
                 if response.status_code == 200 and instance is not None:
                     product_data = response.json()
                     product_id = product_data.get("id")
