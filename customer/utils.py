@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from hotel.models import BookingHistory, UpdateInventoryPeriod
 from hotel.models import RoomInventory
 from .serializer import RoomInventorySerializer
-from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Q, Min, Avg, FloatField, Case, When
+from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Q, Min, Avg
 from django.db.models.functions import Coalesce
 from django.db.models import Func
 
@@ -57,53 +57,37 @@ def calculate_avg_price(room_inventory_qs, start_date, end_date):
 def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_rooms, room_list=False):
     total_booked_subquery = BookingHistory.objects.filter(
         rooms=OuterRef('pk'),
-        check_out_date__date__gte=start_date,
-        check_in_date__date__lte=end_date,
+        check_out_date__gte=start_date,
+        check_in_date__lte=end_date,
         book_status=True,
         is_cancel=False
-    ).annotate(total=Sum('num_of_rooms')).values('total')
-
+    ).values('rooms').annotate(total_booked=Sum('num_of_rooms')).values('total_booked')
+    total_booked_subquery = Subquery(total_booked_subquery[:1], output_field=IntegerField())
     update_inventory_subquery = UpdateInventoryPeriod.objects.filter(
         room_inventory_id=OuterRef('pk'),
-        date__date__gte=start_date,
-        date__date__lte=end_date,
+        date__gte=start_date,
+        date__lte=end_date,
         status=True
     ).order_by().values('room_inventory_id').annotate(
         min_rooms=Min('num_of_rooms')
     ).values('min_rooms')[:1]
-
     room_inventory_query = room_inventory_query.annotate(
-        total_booked=Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
-        available_rooms=F('num_of_rooms') - Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
-        adjusted_min_rooms=Subquery(update_inventory_subquery.values('min_rooms'), output_field=IntegerField())
+        total_booked=Coalesce(total_booked_subquery, Value(0)),
+        available_rooms=F('num_of_rooms') - Coalesce(total_booked_subquery, Value(0)),
+        adjusted_min_rooms=Subquery(update_inventory_subquery, output_field=IntegerField())
     )
     room_inventory_query = room_inventory_query.filter(
         Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
         available_rooms__gte=num_of_rooms
     ).order_by('default_price', '-available_rooms')
-    room_adjustments = calculate_avg_price(room_inventory_query, start_date, end_date)
-    valid_room_ids = [room_id for room_id, adjustments in room_adjustments.items() if adjustments['avg_price'] is not None]
-    room_inventory_query = room_inventory_query.filter(id__in=valid_room_ids)
-    room_inventory_query = room_inventory_query.annotate(
-        effective_price=Round(
-            Case(
-                *[When(id=room_id, then=Value(adjustments['avg_price'])) for room_id, adjustments in room_adjustments.items()],
-                default=F('default_price'),
-                output_field=FloatField()
-            ),
-            output_field=FloatField()
-        )
-    )
     if room_list:
         return room_inventory_query
-
     return room_inventory_query.first()
 
 
 def get_room_inventory(property, property_list, num_of_rooms, min_price, max_price, room_type,
                        check_in_date, check_out_date, num_of_adults, num_of_children, high_to_low, session):
-    room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True,
-                                                        adult_capacity__gte=num_of_adults, children_capacity__gte=num_of_children
+    room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True
                                                         ).order_by('default_price')
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
@@ -124,7 +108,9 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
                 room_inventory.available_rooms,
                 room_inventory.adjusted_min_rooms if room_inventory.adjusted_min_rooms is not None else room_inventory.available_rooms
             ),
-            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)
+            'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price),
+            'adult_capacity': room_inventory.adult_capacity,
+            'children_capacity': room_inventory.children_capacity
         }
         for room_inventory in available_room_inventory
     }
@@ -134,11 +120,14 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
             session_room_id = int(key.split('_')[-1])
             session_num_of_rooms = value.get('num_of_rooms', 0)
             if session_room_id in adjusted_availability:
-                adjusted_availability[session_room_id]['available_rooms'] = max(0, adjusted_availability[session_room_id]['available_rooms'] - session_num_of_rooms)
+                adjusted_availability[session_room_id]['available_rooms'] -= session_num_of_rooms
+                adjusted_availability[session_room_id]['available_rooms'] = max(0, adjusted_availability[session_room_id]['available_rooms'])
     available_room_inventory = [
         room_inventory for room_inventory in available_room_inventory
         if room_inventory.id in adjusted_availability
         and adjusted_availability[room_inventory.id]['available_rooms'] >= num_of_rooms
+        and adjusted_availability[room_inventory.id]['adult_capacity'] * num_of_rooms >= num_of_adults
+        and adjusted_availability[room_inventory.id]['children_capacity'] * num_of_rooms >= num_of_children
     ]
     include_property = False
     if available_room_inventory:
