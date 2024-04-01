@@ -281,7 +281,7 @@ class PropertyDeal(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.session
+        return self.session.created_at
 
 
 class BookingHistory(models.Model):
@@ -319,7 +319,7 @@ class GuestDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.no_of_adults
+        return str(self.no_of_adults + self.no_of_children)
 
 
 class OwnerBankingDetail(models.Model):

@@ -236,14 +236,18 @@ class CategoryRetrieveView(ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
+
     def list(self, request, *args, **kwargs):
-        serializer = super().list(request, *args, **kwargs)
-        response_data = {
-            'result': True,
-            'data': serializer.data,
-            'message': DATA_RETRIEVAL_MESSAGE,
-        }
-        return Response(response_data, status=status.HTTP_200_OK)
+        try:
+            serializer = super().list(request, *args, **kwargs)
+            response_data = {
+                'result': True,
+                'data': serializer.data,
+                'message': DATA_RETRIEVAL_MESSAGE,
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class MasterRetrieveView(ListAPIView):
@@ -709,8 +713,11 @@ class AccountListView(ListAPIView):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user).order_by('created_at')
-        return queryset
+        try:
+            queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user).order_by('created_at')
+            return queryset
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class AccountUpdateApi(APIView):
@@ -739,8 +746,11 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True, is_cancel=False).order_by('created_at')
-        return queryset
+        try:
+            queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True, is_cancel=False).order_by('created_at')
+            return queryset
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class BookingRetrieveView(RetrieveAPIView):
@@ -775,28 +785,31 @@ class TransactionListView(ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
 
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            queryset = page
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                queryset = page
 
-        grouped_data = defaultdict(list)
-        for obj in queryset:
-            serializer = self.get_serializer(obj)
-            data = serializer.data
-            created_at = data['created_at']
-            created_at_date = parse_datetime(created_at).date()
-            grouped_data[str(created_at_date)].append(data)
+            grouped_data = defaultdict(list)
+            for obj in queryset:
+                serializer = self.get_serializer(obj)
+                data = serializer.data
+                created_at = data['created_at']
+                created_at_date = parse_datetime(created_at).date()
+                grouped_data[str(created_at_date)].append(data)
 
-        result_data = []
-        for created_at, bookings in grouped_data.items():
-            result_data.append({
-                "created_at": created_at,
-                "data": bookings
-            })
-        if page is not None:
-            return self.get_paginated_response(result_data)
+            result_data = []
+            for created_at, bookings in grouped_data.items():
+                result_data.append({
+                    "created_at": created_at,
+                    "data": bookings
+                })
+            if page is not None:
+                return self.get_paginated_response(result_data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class SubscriptionPlanView(ListAPIView):
