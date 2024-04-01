@@ -572,7 +572,8 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception as e:
+            print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):

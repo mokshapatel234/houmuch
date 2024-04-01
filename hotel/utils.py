@@ -122,10 +122,10 @@ def update_period(updated_period_data, instance):
     if 'type' in updated_period_data:
         type_id = updated_period_data['type']
         updated_period_data['type'] = UpdateType.objects.get(id=type_id)
-    if type_id == 3 and len(dates) >= 2:
-        start_date = parser.parse(dates[0]).date()
-        end_date = parser.parse(dates[-1]).date()
-        dates = [date for date in generate_date_range(start_date, end_date)]
+        if type_id == 3 and len(dates) >= 2:
+            start_date = parser.parse(dates[0]).date()
+            end_date = parser.parse(dates[-1]).date()
+            dates = [date for date in generate_date_range(start_date, end_date)]
     for date in dates:
         updated_period_data_copy = copy.deepcopy(updated_period_data)
         updated_period_data_copy['date'] = date
