@@ -24,7 +24,8 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     INVALID_INPUT_MESSAGE, OBJECT_NOT_FOUND_MESSAGE, DATA_DELETE_MESSAGE, SENT_OTP_MESSAGE, PLAN_EXPIRY_MESSAGE, \
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, CANCELLATION_LIMIT_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
-    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE
+    PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
+    ADD_ROOM_LIMIT_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -48,6 +49,7 @@ from django.utils.timezone import now
 from dateutil.relativedelta import relativedelta
 from django.db.models import F, Func
 import calendar
+from django.db.models import Sum
 
 
 class HotelRegisterView(APIView):
@@ -417,6 +419,11 @@ class RoomInventoryViewSet(ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
+            number_of_rooms_limit = property_instance.number_of_rooms
+            total_rooms = RoomInventory.objects.filter(property=property_instance).aggregate(total_rooms=Sum('num_of_rooms'))['total_rooms'] or 0
+            number_of_rooms_limit = property_instance.number_of_rooms
+            if total_rooms >= number_of_rooms_limit:
+                return error_response(ADD_ROOM_LIMIT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             instance = serializer.save(property=property_instance)
             image_instances = []
             if updated_period_data:
