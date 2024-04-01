@@ -96,13 +96,21 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 class OrderSummarySerializer(RoomInventorySerializer):
     property_name = serializers.SerializerMethodField()
     room_type = RoomTypeSerializer()
+    owner_email = serializers.SerializerMethodField()
+    owner_phone_number = serializers.SerializerMethodField()
 
     def get_property_name(self, obj):
         return obj.property.owner.hotel_name
 
+    def get_owner_email(self, obj):
+        return obj.property.owner.email
+
+    def get_owner_phone_number(self, obj):
+        return obj.property.owner.phone_number
+
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'is_verified', 'status']
+        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'owner_email', 'owner_phone_number', 'is_verified', 'status']
 
 
 class BookingSerializer(serializers.ModelSerializer):

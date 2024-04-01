@@ -260,7 +260,7 @@ class OTP(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.user
+        return self.user.hotel_name
 
 
 class BiddingSession(models.Model):
