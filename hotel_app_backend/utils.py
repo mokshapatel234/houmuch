@@ -7,6 +7,10 @@ from rest_framework import exceptions, status
 from hotel.utils import generate_response, error_response
 from .messages import EXCEPTION_MESSAGE, DATA_CREATE_MESSAGE, FAILED_PRESIGNED_RESPONSE
 from .boto_utils import s3_client
+import razorpay
+
+
+razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
 
 
 def delete_image_from_s3(image_url):
