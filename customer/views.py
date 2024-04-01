@@ -33,7 +33,7 @@ from django.db.models import Avg
 from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
 from django.utils.dateparse import parse_date
-
+from django.core.exceptions import ObjectDoesNotExist
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -162,62 +162,65 @@ class PropertyListView(generics.GenericAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get(self, request, *args, **kwargs):
-        longitude = self.request.query_params.get('longitude')
-        latitude = self.request.query_params.get('latitude')
-        num_of_rooms = self.request.query_params.get('num_of_rooms')
-        property_type = self.request.query_params.get('property_type')
-        nearby_popular_landmark = self.request.query_params.get('nearby_popular_landmark')
-        room_type = self.request.query_params.get('room_type')
-        min_price = self.request.query_params.get('min_price')
-        max_price = self.request.query_params.get('max_price')
-        num_of_adults = self.request.query_params.get('num_of_adults')
-        num_of_children = self.request.query_params.get('num_of_children')
-        check_in_date = self.request.query_params.get('check_in_date', None)
-        check_out_date = self.request.query_params.get('check_out_date', None)
-        high_to_low = self.request.query_params.get('high_to_low', False)
-        ratings = self.request.query_params.get('ratings', None)
-        hotel_class = self.request.query_params.get('hotel_class', None)
-        # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
-        #     (int(num_of_children) if num_of_children is not None else 0)
-        queryset = self.get_queryset()
-        if nearby_popular_landmark:
-            queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
-        if latitude and longitude:
-            point = Point(float(longitude), float(latitude), srid=4326)
-            queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
-        if property_type:
-            property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
-            queryset = queryset.filter(property_type__id__in=property_type_ids)
-        if ratings:
-            rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
-            properties_with_desired_ratings = Ratings.objects \
-                .annotate(average_rating=Avg('ratings')) \
-                .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
-                        average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
-                .values_list('property', flat=True).distinct()
-            queryset = queryset.filter(id__in=properties_with_desired_ratings)
-        if hotel_class:
-            queryset = queryset.filter(hotel_class=int(hotel_class))
-        # if total_guests > 5:
-        #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
-        property_list = []
-        for property in queryset:
-            property_list = get_room_inventory(property,
-                                               property_list if property_list else [],
-                                               num_of_rooms=int(num_of_rooms) if num_of_rooms else 0,
-                                               min_price=int(min_price) if min_price else None,
-                                               max_price=int(max_price) if max_price else None,
-                                               room_type=room_type if room_type else None,
-                                               check_in_date=check_in_date if check_in_date else None,
-                                               check_out_date=check_out_date if check_out_date else None,
-                                               num_of_adults=int(num_of_adults if num_of_adults else 0),
-                                               num_of_children=int(num_of_children if num_of_children else 0),
-                                               high_to_low=high_to_low,
-                                               session=self.request.session)
-        sorted_properties = sorted(property_list, key=lambda x: sort_properties_by_price(x, high_to_low=high_to_low))
-        page = self.paginate_queryset(sorted_properties)
-        serializer = self.serializer_class(page, many=True)
-        return self.get_paginated_response(serializer.data)
+        try:
+            longitude = self.request.query_params.get('longitude')
+            latitude = self.request.query_params.get('latitude')
+            num_of_rooms = self.request.query_params.get('num_of_rooms')
+            property_type = self.request.query_params.get('property_type')
+            nearby_popular_landmark = self.request.query_params.get('nearby_popular_landmark')
+            room_type = self.request.query_params.get('room_type')
+            min_price = self.request.query_params.get('min_price')
+            max_price = self.request.query_params.get('max_price')
+            num_of_adults = self.request.query_params.get('num_of_adults')
+            num_of_children = self.request.query_params.get('num_of_children')
+            check_in_date = self.request.query_params.get('check_in_date', None)
+            check_out_date = self.request.query_params.get('check_out_date', None)
+            high_to_low = self.request.query_params.get('high_to_low', False)
+            ratings = self.request.query_params.get('ratings', None)
+            hotel_class = self.request.query_params.get('hotel_class', None)
+            # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
+            #     (int(num_of_children) if num_of_children is not None else 0)
+            queryset = self.get_queryset()
+            if nearby_popular_landmark:
+                queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
+            if latitude and longitude:
+                point = Point(float(longitude), float(latitude), srid=4326)
+                queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
+            if property_type:
+                property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
+                queryset = queryset.filter(property_type__id__in=property_type_ids)
+            if ratings:
+                rating_ranges = [(float(rating.strip()), float(rating.strip()) + 0.5) for rating in ratings.split(',') if rating.replace('.', '', 1).isdigit()]
+                properties_with_desired_ratings = Ratings.objects \
+                    .annotate(average_rating=Avg('ratings')) \
+                    .filter(average_rating__gte=min(rating_range[0] for rating_range in rating_ranges),
+                            average_rating__lte=max(rating_range[1] for rating_range in rating_ranges)) \
+                    .values_list('property', flat=True).distinct()
+                queryset = queryset.filter(id__in=properties_with_desired_ratings)
+            if hotel_class:
+                queryset = queryset.filter(hotel_class=int(hotel_class))
+            # if total_guests > 5:
+            #     queryset = queryset.filter(property_type__id__in=settings.PREFERRED_PROPERTY_TYPES)
+            property_list = []
+            for property in queryset:
+                property_list = get_room_inventory(property,
+                                                property_list if property_list else [],
+                                                num_of_rooms=int(num_of_rooms) if num_of_rooms else 0,
+                                                min_price=int(min_price) if min_price else None,
+                                                max_price=int(max_price) if max_price else None,
+                                                room_type=room_type if room_type else None,
+                                                check_in_date=check_in_date if check_in_date else None,
+                                                check_out_date=check_out_date if check_out_date else None,
+                                                num_of_adults=int(num_of_adults if num_of_adults else 0),
+                                                num_of_children=int(num_of_children if num_of_children else 0),
+                                                high_to_low=high_to_low,
+                                                session=self.request.session)
+            sorted_properties = sorted(property_list, key=lambda x: sort_properties_by_price(x, high_to_low=high_to_low))
+            page = self.paginate_queryset(sorted_properties)
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRetriveView(RetrieveAPIView):
@@ -258,13 +261,16 @@ class RoomInventoryListView(ListAPIView):
         return queryset if queryset.exists() else self.queryset
 
     def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        adjusted_availability = getattr(request, 'adjusted_availability', {})
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True, context={'request': request, 'adjusted_availability': adjusted_availability})
-            return self.get_paginated_response(serializer.data)
-        return Response(serializer.data)
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            adjusted_availability = getattr(request, 'adjusted_availability', {})
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True, context={'request': request, 'adjusted_availability': adjusted_availability})
+                return self.get_paginated_response(serializer.data)
+            return Response(serializer.data)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class RoomRetriveView(RetrieveAPIView):
@@ -288,38 +294,43 @@ class OrderSummaryView(ListAPIView):
     serializer_class = OrderSummarySerializer
 
     def list(self, request, *args, **kwargs):
-        room_id = self.request.query_params.get('room_id')
-        check_in_date = self.request.query_params.get('check_in_date')
-        check_out_date = self.request.query_params.get('check_out_date')
-        num_of_rooms = self.request.query_params.get('num_of_rooms')
-        room = RoomInventory.objects.get(id=room_id)
-        total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
-        adjusted_availability = available_rooms - session_rooms_booked
-        check_in_date_obj = parse_date(check_in_date)
-        check_out_date_obj = parse_date(check_out_date)
-        num_nights = (check_out_date_obj - check_in_date_obj).days
-        total_price = room.default_price * min(adjusted_availability, int(num_of_rooms)) * num_nights
-        gst_rate = 0.12 if total_price <= 7500 else 0.18
-        gst_amount = total_price * gst_rate
-        final_price = total_price + gst_amount
-        booked_info = BOOKED_INFO_MESSAGE.format(total_booked=total_booked)
-        session_info = SESSION_INFO_MESSAGE.format(session_rooms_booked=session_rooms_booked)
-        availability_info = AVAILABILITY_INFO_MESSAGE.format(adjusted_availability=adjusted_availability)
-        requirement_info = REQUIREMENT_INFO_MESSAGE.format(additional_rooms_needed=int(num_of_rooms) - adjusted_availability)
-        serializer = self.serializer_class(room, context={"start_date": check_in_date, "end_date": check_out_date})
-        return Response({
-            'result': True,
-            'data': {
-                **serializer.data,
-                'num_of_rooms': int(num_of_rooms),
-                'available_rooms': adjusted_availability,
-                'total_price': total_price,
-                'gst_rate': gst_rate * 100,
-                'gst_amount': gst_amount,
-                'final_price': final_price,
-            },
-            'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
-        }, status=status.HTTP_200_OK)
+        try:
+            room_id = self.request.query_params.get('room_id')
+            check_in_date = self.request.query_params.get('check_in_date')
+            check_out_date = self.request.query_params.get('check_out_date')
+            num_of_rooms = self.request.query_params.get('num_of_rooms')
+            room = RoomInventory.objects.get(id=room_id)
+            total_booked, available_rooms, session_rooms_booked = calculate_available_rooms(room, check_in_date, check_out_date, self.request.session)
+            adjusted_availability = available_rooms - session_rooms_booked
+            check_in_date_obj = parse_date(check_in_date)
+            check_out_date_obj = parse_date(check_out_date)
+            num_nights = (check_out_date_obj - check_in_date_obj).days
+            total_price = room.default_price * min(adjusted_availability, int(num_of_rooms)) * num_nights
+            gst_rate = 0.12 if total_price <= 7500 else 0.18
+            gst_amount = total_price * gst_rate
+            final_price = total_price + gst_amount
+            booked_info = BOOKED_INFO_MESSAGE.format(total_booked=total_booked)
+            session_info = SESSION_INFO_MESSAGE.format(session_rooms_booked=session_rooms_booked)
+            availability_info = AVAILABILITY_INFO_MESSAGE.format(adjusted_availability=adjusted_availability)
+            requirement_info = REQUIREMENT_INFO_MESSAGE.format(additional_rooms_needed=int(num_of_rooms) - adjusted_availability)
+            serializer = self.serializer_class(room, context={"start_date": check_in_date, "end_date": check_out_date})
+            return Response({
+                'result': True,
+                'data': {
+                    **serializer.data,
+                    'num_of_rooms': int(num_of_rooms),
+                    'available_rooms': adjusted_availability,
+                    'total_price': total_price,
+                    'gst_rate': gst_rate * 100,
+                    'gst_amount': gst_amount,
+                    'final_price': final_price,
+                },
+                'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
+            }, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist:
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class PayNowView(APIView):
@@ -426,8 +437,11 @@ class BookingListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True, is_cancel=False).order_by('-created_at')
-        return queryset
+        try:
+            queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True, is_cancel=False).order_by('-created_at')
+            return queryset
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class BookingRetrieveView(RetrieveAPIView):
