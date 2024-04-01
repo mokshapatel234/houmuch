@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from hotel.models import BookingHistory, UpdateInventoryPeriod
 from hotel.models import RoomInventory
 from .serializer import RoomInventorySerializer
-from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Q, Min, Avg, Case, When, FloatField
+from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Q, Min, Avg, Case, When, FloatField, Exists
 from django.db.models.functions import Coalesce
 from django.db.models import Func
 
@@ -68,12 +68,18 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         date__date__gte=start_date,
         date__date__lte=end_date,
         status=True
-    ).order_by().annotate(updated_min_rooms=Min('num_of_rooms')).values('updated_min_rooms')[:1]
+    ).annotate(updated_min_rooms=Min('num_of_rooms')).values('updated_min_rooms')[:1]
+    rooms_with_false_status = UpdateInventoryPeriod.objects.filter(
+        room_inventory_id=OuterRef('pk'),
+        date__date__gte=start_date,
+        date__date__lte=end_date,
+        status=False
+    )
     room_inventory_query = room_inventory_query.annotate(
         total_booked=Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
         available_rooms=F('num_of_rooms') - Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
         adjusted_min_rooms=Subquery(update_inventory_subquery.values('updated_min_rooms'), output_field=IntegerField())
-    )
+    ).exclude(Exists(rooms_with_false_status))
     room_inventory_query = room_inventory_query.filter(
         Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
         available_rooms__gte=num_of_rooms
