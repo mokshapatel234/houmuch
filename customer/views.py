@@ -311,6 +311,7 @@ class OrderSummaryView(ListAPIView):
             'result': True,
             'data': {
                 **serializer.data,
+                'num_of_rooms': int(num_of_rooms),
                 'available_rooms': adjusted_availability,
                 'total_price': total_price,
                 'gst_rate': gst_rate * 100,

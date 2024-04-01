@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
-from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage
+from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer, CancellationSerializer
 from django.db.models import Avg
 from django.utils import timezone
 from datetime import datetime
@@ -98,6 +98,8 @@ class OrderSummarySerializer(RoomInventorySerializer):
     room_type = RoomTypeSerializer()
     owner_email = serializers.SerializerMethodField()
     owner_phone_number = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    cancellation_policy = serializers.SerializerMethodField()
 
     def get_property_name(self, obj):
         return obj.property.owner.hotel_name
@@ -108,9 +110,17 @@ class OrderSummarySerializer(RoomInventorySerializer):
     def get_owner_phone_number(self, obj):
         return obj.property.owner.phone_number
 
+    def get_image(self, obj):
+        image = RoomImage.objects.filter(room=obj).first()
+        return image.image
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
+
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'owner_email', 'owner_phone_number', 'is_verified', 'status']
+        fields = ['id', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type', 'owner_email', 'owner_phone_number', 'is_verified', 'status', 'image', 'cancellation_policy']
 
 
 class BookingSerializer(serializers.ModelSerializer):
