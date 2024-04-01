@@ -17,7 +17,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, \
     OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
-    REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE
+    REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
@@ -318,6 +318,7 @@ class OrderSummaryView(ListAPIView):
                 'result': True,
                 'data': {
                     **serializer.data,
+                    'num_of_rooms': int(num_of_rooms),
                     'available_rooms': adjusted_availability,
                     'total_price': total_price,
                     'gst_rate': gst_rate * 100,
@@ -327,7 +328,7 @@ class OrderSummaryView(ListAPIView):
                 'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
             }, status=status.HTTP_200_OK)
         except ObjectDoesNotExist:
-            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_404_NOT_FOUND)
+            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
