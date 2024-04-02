@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
 import os
+from corsheaders.defaults import default_headers
 import dotenv
 import boto3
 dotenv.load_dotenv()
@@ -31,7 +32,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
 
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'device-id',
+]
 # Application definition
 
 INSTALLED_APPS = [
@@ -42,13 +50,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'customer',
-    'hotel'
+    'hotel',
+    'django.contrib.gis',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'hotel.middleware.custom_middleware.CustomMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -62,7 +73,8 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            BASE_DIR / "hotel/templates"
+            BASE_DIR / "hotel/templates",
+            BASE_DIR / "customer/templates"
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -164,7 +176,8 @@ EMAIL_PORT = os.getenv("EMAIL_PORT")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-
+AWS_BASE_URL = 'https://s3.amazonaws.com/'
+DEFAULT_FROM_EMAIL = os.getenv("AWS_SES_EMAIL")
 
 boto3.setup_default_session(
     aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -201,3 +214,11 @@ LOGGING = {
         },
     },
 }
+
+
+RAZORPAY_API_KEY = os.getenv("RAZORPAY_API_KEY")
+RAZORPAY_API_SECRET = os.getenv("RAZORPAY_API_SECRET")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET")
+RAZORPAY_BASE_URL = os.getenv("RAZORPAY_BASE_URL")
+RAZORPAY_AUTH_TOKEN = os.getenv("RAZORPAY_AUTH_TOKEN")
+BACKEND_URL = os.getenv("BACKEND_URL")
