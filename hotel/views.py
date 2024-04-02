@@ -237,7 +237,6 @@ class CategoryRetrieveView(ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-
     def list(self, request, *args, **kwargs):
         try:
             serializer = super().list(request, *args, **kwargs)

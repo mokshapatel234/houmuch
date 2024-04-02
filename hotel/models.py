@@ -323,7 +323,6 @@ class GuestDetail(models.Model):
 
 
 class OwnerBankingDetail(models.Model):
-
     hotel_owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='banking_details')
     email = models.EmailField(unique=True)
     phone = models.CharField(validators=[RegexValidator(regex=r"^\+?1?\d{10}$")], max_length=10, unique=True)
