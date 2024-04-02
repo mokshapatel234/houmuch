@@ -35,6 +35,7 @@ from hotel_app_backend.razorpay_utils import razorpay_request
 from django.utils.dateparse import parse_date
 from django.core.exceptions import ObjectDoesNotExist
 
+
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
 
@@ -204,17 +205,17 @@ class PropertyListView(generics.GenericAPIView):
             property_list = []
             for property in queryset:
                 property_list = get_room_inventory(property,
-                                                property_list if property_list else [],
-                                                num_of_rooms=int(num_of_rooms) if num_of_rooms else 0,
-                                                min_price=int(min_price) if min_price else None,
-                                                max_price=int(max_price) if max_price else None,
-                                                room_type=room_type if room_type else None,
-                                                check_in_date=check_in_date if check_in_date else None,
-                                                check_out_date=check_out_date if check_out_date else None,
-                                                num_of_adults=int(num_of_adults if num_of_adults else 0),
-                                                num_of_children=int(num_of_children if num_of_children else 0),
-                                                high_to_low=high_to_low,
-                                                session=self.request.session)
+                                                   property_list if property_list else [],
+                                                   num_of_rooms=int(num_of_rooms) if num_of_rooms else 0,
+                                                   min_price=int(min_price) if min_price else None,
+                                                   max_price=int(max_price) if max_price else None,
+                                                   room_type=room_type if room_type else None,
+                                                   check_in_date=check_in_date if check_in_date else None,
+                                                   check_out_date=check_out_date if check_out_date else None,
+                                                   num_of_adults=int(num_of_adults if num_of_adults else 0),
+                                                   num_of_children=int(num_of_children if num_of_children else 0),
+                                                   high_to_low=high_to_low,
+                                                   session=self.request.session)
             sorted_properties = sorted(property_list, key=lambda x: sort_properties_by_price(x, high_to_low=high_to_low))
             page = self.paginate_queryset(sorted_properties)
             serializer = self.serializer_class(page, many=True)
@@ -254,10 +255,7 @@ class RoomInventoryListView(ListAPIView):
     def get_queryset(self):
         self.adjusted_availability = {}
         property_id = self.kwargs.get('property_id')
-        num_of_adults = self.request.query_params.get('num_of_adults')
-        num_of_children = self.request.query_params.get('num_of_children')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True,
-                                                adult_capacity__gte=int(num_of_adults if num_of_adults else 0), children_capacity__gte=int(num_of_children if num_of_children else 0)).order_by('default_price')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
         return queryset if queryset.exists() else self.queryset
 
     def list(self, request, *args, **kwargs):
