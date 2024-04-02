@@ -33,3 +33,4 @@ django-filter==23.5
 fastapi==0.109.2
 starlette==0.36.3
 razorpay==1.4.1
+watchfiles==0.21.0
