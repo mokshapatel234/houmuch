@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 import os
 from corsheaders.defaults import default_headers
 import dotenv
+import boto3
 dotenv.load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'hotel.middleware.custom_middleware.CustomMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -143,7 +145,7 @@ LANGUAGES = [
     ('en', _('English')),
 ]
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
@@ -177,14 +179,40 @@ AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 AWS_BASE_URL = 'https://s3.amazonaws.com/'
 DEFAULT_FROM_EMAIL = os.getenv("AWS_SES_EMAIL")
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
+boto3.setup_default_session(
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    region_name='ap-south-1'
+)
+
+LOGGING_CONFIG = None
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': "[%(asctime)s.%(msecs)03d] %(levelname)s [%(name)s:%(lineno)s] [%(funcName)s] %(message)s",
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'cloudwatch': {
+            'level': 'INFO',
+            'class': 'watchtower.CloudWatchLogHandler',
+            'log_group': 'HouMuch',
+            'stream_name': 'HouMuchLogs',
+            'create_log_group': True,
+            'use_queues': False,
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['cloudwatch'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
 }
 
 
