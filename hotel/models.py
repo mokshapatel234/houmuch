@@ -3,6 +3,7 @@ from hotel_app_backend.validator import PhoneNumberRegex
 from django.contrib.gis.db import models as geo_models
 from django.contrib.gis.geos import Point
 from customer.models import Customer
+from django.core.validators import RegexValidator
 
 
 class Category(models.Model):
@@ -146,6 +147,7 @@ class Property(models.Model):
     property_type = models.ForeignKey(PropertyType, on_delete=models.CASCADE, related_name='owner_property_type')
     room_types = models.ManyToManyField(RoomType, related_name='owner_room_type')
     commission_percent = models.FloatField('Commission', default=10.0)
+    hotel_class = models.IntegerField(default=0)
     pet_friendly = models.BooleanField('Pet Friendly', default=False)
     breakfast_included = models.BooleanField('Breakfast Included', default=False)
     is_cancellation = models.BooleanField('Is Cancellation Allowed', default=False)
@@ -170,7 +172,7 @@ class PropertyCancellation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.property
+        return self.property.hotel_nick_name
 
 
 class RoomInventory(models.Model):
@@ -203,19 +205,32 @@ class RoomInventory(models.Model):
         verbose_name_plural = "Room inventories"
 
 
-class UpdateInventoryPeriod(models.Model):
-    update_duration = models.CharField(('Update Duration'), max_length=255)
-    room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
-    common_amenities = models.ManyToManyField(CommonAmenities, related_name='updated_common_amenities')
-    default_price = models.IntegerField(('Default Price'))
-    deal_price = models.IntegerField(('Deal Price'), default=None, null=True)
-    min_price = models.IntegerField(('Min Price'))
-    max_price = models.IntegerField(('Max Price'))
+class UpdateType(models.Model):
+    type = models.CharField(("Type"), max_length=255)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.update_duration
+        return self.type
+
+
+class UpdateInventoryPeriod(models.Model):
+    room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
+    type = models.ForeignKey(UpdateType, on_delete=models.CASCADE, related_name="update_type", null=True)
+    default_price = models.IntegerField(('Default Price'), default=0)
+    deal_price = models.IntegerField(('Deal Price'), default=0, null=True)
+    min_price = models.IntegerField(('Min Price'), default=0)
+    max_price = models.IntegerField(('Max Price'), default=0)
+    num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
+    date = models.DateTimeField(blank=True, null=True)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return self.type.type
 
 
 class RoomImage(models.Model):
@@ -245,7 +260,7 @@ class OTP(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.user
+        return self.user.hotel_name
 
 
 class BiddingSession(models.Model):
@@ -254,7 +269,7 @@ class BiddingSession(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.is_open
+        return self.created_at
 
 
 class PropertyDeal(models.Model):
@@ -266,7 +281,7 @@ class PropertyDeal(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.session
+        return self.session.created_at
 
 
 class BookingHistory(models.Model):
@@ -276,24 +291,27 @@ class BookingHistory(models.Model):
     num_of_rooms = models.IntegerField(verbose_name='number_of_book_rooms')
     rooms = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_book', null=True)
     order_id = models.CharField(max_length=20)
+    transfer_id = models.CharField(max_length=20, null=True)
     check_in_date = models.DateTimeField()
     check_out_date = models.DateTimeField()
     amount = models.FloatField()
     currency = models.CharField(max_length=3)
     is_cancel = models.BooleanField(default=False)
+    cancel_by_owner = models.BooleanField(default=False)
     cancel_date = models.DateTimeField(null=True)
     cancel_reason = models.TextField(null=True)
     book_status = models.BooleanField(default=False)
+    payment_id = models.CharField(max_length=20, null=True)
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.property
+        return self.property.hotel_nick_name
 
 
 class GuestDetail(models.Model):
-    booking_id = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
+    booking = models.ForeignKey(BookingHistory, on_delete=models.CASCADE, related_name='booking_history')
     no_of_adults = models.IntegerField()
     no_of_children = models.IntegerField()
     age_of_children = models.CharField(max_length=255, blank=True, null=True)
@@ -301,4 +319,97 @@ class GuestDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.no_of_adults
+        return str(self.no_of_adults + self.no_of_children)
+
+
+class OwnerBankingDetail(models.Model):
+    hotel_owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='banking_details')
+    email = models.EmailField(unique=True)
+    phone = models.CharField(validators=[RegexValidator(regex=r"^\+?1?\d{10}$")], max_length=10, unique=True)
+    contact_name = models.CharField(max_length=16)
+    type = models.CharField(max_length=16)
+    account_id = models.CharField(max_length=20)
+    legal_business_name = models.CharField(max_length=16)
+    business_type = models.CharField(max_length=50)
+    status = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(blank=True, null=True, default=None)
+
+    def __str__(self):
+        return self.contact_name
+
+
+class Product(models.Model):
+    product_id = models.CharField(max_length=30)
+    owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_id')
+    settlements_account_number = models.CharField(max_length=30)
+    settlements_ifsc_code = models.CharField(max_length=30)
+    settlements_beneficiary_name = models.CharField(max_length=30)
+    tnc_accepted = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.product_id
+
+
+class SubscriptionPlan(models.Model):
+    Plans = (
+        (3, '3 months'),
+        (6, '6 months'),
+        (12, '12 months'),
+    )
+    name = models.CharField(('Plan'), max_length=30, null=False)
+    price = models.IntegerField(('Price'), null=False)
+    duration = models.IntegerField(('Plan Duration'), choices=Plans)
+    description = models.TextField(('Description'), max_length=255, null=False)
+    razorpay_plan_id = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SubscriptionTransaction(models.Model):
+    subscription_plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE, related_name='subscription_plan')
+    owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='owner_subscription')
+    razorpay_subscription_id = models.CharField(max_length=255, blank=True, null=True)
+    payment_status = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.subscription_plan.name
+
+
+class Ratings(models.Model):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_ratings')
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_ratings')
+    ratings = models.IntegerField()
+    review = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.ratings
+
+
+class CancellationReason(models.Model):
+    reason = models.CharField(('Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.reason
+
+
+class SubCancellationReason(models.Model):
+    main_reason = models.ForeignKey(CancellationReason, on_delete=models.CASCADE, related_name='main_cancel_reason')
+    sub_reason = models.CharField(('Sub Reason'), max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.sub_reason
