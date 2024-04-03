@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Customer
-from hotel.serializer import PropertyOutSerializer
+from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
 from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage
 from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer, CancellationSerializer
 from django.db.models import Avg
@@ -26,7 +26,7 @@ class LoginSerializer(serializers.ModelSerializer):
         read_only_fields = ['first_name', 'last_name', 'email', 'profile_image', 'address', 'government_id', 'created_at', 'updated_at', 'deleted_at']
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class ProfileSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Customer
         fields = ['first_name', 'last_name', 'phone_number', 'email', 'address', 'government_id', 'profile_image']
@@ -102,6 +102,11 @@ class OrderSummarySerializer(RoomInventorySerializer):
     hotel_class = serializers.IntegerField(source='property.hotel_class')
     image = serializers.SerializerMethodField()
     cancellation_policy = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
+
+    def get_customer(self, obj):
+        user = self.context.get('user', {})
+        return ProfileSerializer(user, fields=['first_name', 'last_name', 'email', 'phone_number']).data
 
     def get_image(self, obj):
         image = RoomImage.objects.filter(room=obj).first()
@@ -113,7 +118,7 @@ class OrderSummarySerializer(RoomInventorySerializer):
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type',
+        fields = ['id', 'customer', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type',
                   'address', 'owner_email', 'owner_phone_number', 'hotel_class', 'is_verified', 'status', 'image', 'cancellation_policy']
 
 

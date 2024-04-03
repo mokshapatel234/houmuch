@@ -33,7 +33,6 @@ from django.db.models import Avg
 from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
 from django.utils.dateparse import parse_date
-from django.core.exceptions import ObjectDoesNotExist
 
 
 class CustomerRegisterView(APIView):
@@ -311,7 +310,7 @@ class OrderSummaryView(ListAPIView):
             session_info = SESSION_INFO_MESSAGE.format(session_rooms_booked=session_rooms_booked)
             availability_info = AVAILABILITY_INFO_MESSAGE.format(adjusted_availability=adjusted_availability)
             requirement_info = REQUIREMENT_INFO_MESSAGE.format(additional_rooms_needed=int(num_of_rooms) - adjusted_availability)
-            serializer = self.serializer_class(room, context={"start_date": check_in_date, "end_date": check_out_date})
+            serializer = self.serializer_class(room, context={"user": self.request.user})
             return Response({
                 'result': True,
                 'data': {
@@ -327,8 +326,6 @@ class OrderSummaryView(ListAPIView):
                 },
                 'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
             }, status=status.HTTP_200_OK)
-        except ObjectDoesNotExist:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
