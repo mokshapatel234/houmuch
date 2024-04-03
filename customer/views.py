@@ -316,6 +316,8 @@ class OrderSummaryView(ListAPIView):
                 'result': True,
                 'data': {
                     **serializer.data,
+                    'check_in_date': check_in_date,
+                    'check_out_date': check_out_date,
                     'num_of_rooms': int(num_of_rooms),
                     'available_rooms': adjusted_availability,
                     'total_price': total_price,

@@ -94,21 +94,14 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
 
 class OrderSummarySerializer(RoomInventorySerializer):
-    property_name = serializers.SerializerMethodField()
+    property_name = serializers.CharField(source='property.owner.hotel_name')
     room_type = RoomTypeSerializer()
-    owner_email = serializers.SerializerMethodField()
-    owner_phone_number = serializers.SerializerMethodField()
+    owner_email = serializers.CharField(source='property.owner.email')
+    owner_phone_number = serializers.CharField(source='property.owner.phone_number')
+    address = serializers.CharField(source='property.owner.address')
+    hotel_class = serializers.IntegerField(source='property.hotel_class')
     image = serializers.SerializerMethodField()
     cancellation_policy = serializers.SerializerMethodField()
-
-    def get_property_name(self, obj):
-        return obj.property.owner.hotel_name
-
-    def get_owner_email(self, obj):
-        return obj.property.owner.email
-
-    def get_owner_phone_number(self, obj):
-        return obj.property.owner.phone_number
 
     def get_image(self, obj):
         image = RoomImage.objects.filter(room=obj).first()
@@ -120,7 +113,8 @@ class OrderSummarySerializer(RoomInventorySerializer):
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type', 'owner_email', 'owner_phone_number', 'is_verified', 'status', 'image', 'cancellation_policy']
+        fields = ['id', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type',
+                  'address', 'owner_email', 'owner_phone_number', 'hotel_class', 'is_verified', 'status', 'image', 'cancellation_policy']
 
 
 class BookingSerializer(serializers.ModelSerializer):
