@@ -17,7 +17,8 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, \
     OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
-    REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE
+    REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE, \
+    PROPERTY_NOT_FOUND_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
@@ -34,6 +35,7 @@ from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
 from django.utils.dateparse import parse_date
 from django.core.exceptions import ObjectDoesNotExist
+
 
 class CustomerRegisterView(APIView):
     permission_classes = (permissions.AllowAny, )
@@ -391,7 +393,12 @@ class PayNowView(APIView):
                     }, status=status.HTTP_200_OK)
                 else:
                     return error_response(serializer.errors, status.HTTP_400_BAD_REQUEST)
-
+        except RoomInventory.DoesNotExist:
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Property.DoesNotExist:
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except OwnerBankingDetail.DoesNotExist:
+            return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
