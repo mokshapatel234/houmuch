@@ -326,8 +326,8 @@ class OrderSummaryView(ListAPIView):
                 },
                 'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
             }, status=status.HTTP_200_OK)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class PayNowView(APIView):
