@@ -18,7 +18,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
     REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE, \
-    PROPERTY_NOT_FOUND_MESSAGE, PROVIDER_NOT_FOUND_MESSAGE
+    PROPERTY_NOT_FOUND_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
@@ -348,7 +348,7 @@ class PayNowView(APIView):
                 room_instance = RoomInventory.objects.select_for_update().get(id=room_id)
                 property_instance = Property.objects.get(id=booking_data.get('property'))
 
-                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner, status=True)
+                owner_banking_detail = OwnerBankingDetail.objects.get(hotel_owner=property_instance.owner)
                 account_id = owner_banking_detail.account_id
                 amount = float(booking_data.get('amount'))
                 currency = 'INR'
@@ -398,7 +398,7 @@ class PayNowView(APIView):
         except Property.DoesNotExist:
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except OwnerBankingDetail.DoesNotExist:
-            return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
