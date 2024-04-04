@@ -355,6 +355,7 @@ class PropertyViewSet(ModelViewSet):
             images = request.data.pop('images', None)
             cancellation_data_list = request.data.pop('cancellation_data', None)
             removed_cancellation_poilcies = request.data.pop('removed_cancellation_poilcies', None)
+            is_cancellation = request.data.get('is_cancellation', True)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
@@ -371,6 +372,8 @@ class PropertyViewSet(ModelViewSet):
                     for image_url in set(images) - set(stored_images.values_list('image', flat=True))
                 ]
                 PropertyImage.objects.bulk_create(new_images)
+            if not is_cancellation:
+                PropertyCancellation.objects.filter(property=instance).delete()
             if cancellation_data_list:
                 for cancellation_data in cancellation_data_list:
                     PropertyCancellation.objects.update_or_create(
