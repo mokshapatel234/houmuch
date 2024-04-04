@@ -688,36 +688,32 @@ class AccountCreateApi(APIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
-# class AccountGetApi(APIView):
-#     authentication_classes = (JWTAuthentication,)
-#     permission_classes = (permissions.IsAuthenticated,)
+class AccountGetApi(APIView):
+    authentication_classes = (JWTAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
 
-#     def get(self, request):
-#         try:
-#             owner_id = request.user.id
-#             if not owner_id:
-#                 return error_response(OWNER_ID_NOT_PROVIDED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-#             try:
-#                 account = OwnerBankingDetail.objects.get(hotel_owner_id=owner_id, status=True)
-#             except OwnerBankingDetail.DoesNotExist:
-#                 return error_response(PROVIDER_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-#             return generate_response(account, DATA_CREATE_MESSAGE, status.HTTP_200_OK, AccountSerializer)
-#         except Exception:
-#             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
-
-class AccountListView(ListAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
-    serializer_class = AccountSerializer
-    pagination_class = CustomPagination
-
-    def get_queryset(self):
+    def get(self, request):
         try:
-            queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user).order_by('created_at')
-            return queryset
+            account = OwnerBankingDetail.objects.get(hotel_owner=self.request.user)
+            return generate_response(account, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, AccountSerializer)
+        except OwnerBankingDetail.DoesNotExist:
+            return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+# class AccountListView(ListAPIView):
+#     authentication_classes = (JWTAuthentication, )
+#     permission_classes = (permissions.IsAuthenticated, )
+#     serializer_class = AccountSerializer
+#     pagination_class = CustomPagination
+
+#     def get_queryset(self):
+#         try:
+#             queryset = OwnerBankingDetail.objects.filter(hotel_owner=self.request.user).order_by('created_at')
+#             return queryset
+#         except Exception:
+#             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class AccountUpdateApi(APIView):
@@ -727,9 +723,18 @@ class AccountUpdateApi(APIView):
     def patch(self, request, id):
         try:
             account = OwnerBankingDetail.objects.get(id=id)
-            serializer = HotelOwnerBankingSerializer(account, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
+            product = Product.objects.get(owner_banking=account.id)
+            response = razorpay_request(f"/v2/accounts/{account.account_id}/products/{product.product_id}/", "patch", data=request.data)
+            if response.status_code == 200:
+                serializer = PatchRequestSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+
+                data = serializer.validated_data
+                product.settlements_account_number = data['settlements']['account_number']
+                product.settlements_ifsc_code = data['settlements']['ifsc_code']
+                product.settlements_beneficiary_name = data['settlements']['beneficiary_name']
+                product.tnc_accepted = data['tnc_accepted']
+                product.save()
             return generate_response(serializer.data, ACCOUNT_DETAIL_UPDATE_MESSAGE, status.HTTP_200_OK)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
