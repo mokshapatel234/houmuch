@@ -616,12 +616,18 @@ class AccountCreateApi(APIView):
 
             # endpoint = "/v2/accounts"
             # url = settings.RAZORPAY_BASE_URL + endpoint
-
             request.data['type'] = 'route'
             request.data['email'] = user.email
             request.data['phone'] = user.phone_number
-
-            serializer = HotelOwnerBankingSerializer(data=request.data)
+            account_data = request.data.copy()
+            category = request.data.get('profile', {}).get('category')
+            subcategory = request.data.get('profile', {}).get('subcategory')
+            account_data['category'] = category
+            account_data['subcategory'] = subcategory
+            addresses_data = request.data.get('profile', {}).get('addresses', {}).get('registered')
+            if addresses_data:
+                account_data['addresses'] = addresses_data
+            serializer = HotelOwnerBankingSerializer(data=account_data)
             serializer.is_valid(raise_exception=True)
 
             settlements_data = request.data.pop('settlements', {})
