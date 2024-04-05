@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, \
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, BankingAddress, \
     Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
 
@@ -225,6 +225,12 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
         fields = ('otp',)
 
 
+class BankingAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankingAddress
+        exclude = ['created_at', 'updated_at', 'owner_banking']
+
+
 class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     email = serializers.CharField(required=False)
     phone = serializers.CharField(required=False)
@@ -234,10 +240,18 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     type = serializers.CharField(required=False)
     account_id = serializers.CharField(required=False)
     status = serializers.BooleanField(required=False)
+    addresses = BankingAddressSerializer(required=False, write_only=True)
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
+        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name',
+                  'business_type', 'type', 'status', 'category', 'subcategory', 'addresses']
+
+    def create(self, validated_data):
+        address_data = validated_data.pop('addresses', {})
+        owner_banking_detail = OwnerBankingDetail.objects.create(**validated_data)
+        BankingAddress.objects.create(owner_banking=owner_banking_detail, **address_data)
+        return owner_banking_detail
 
 
 class SettlementSerializer(serializers.Serializer):
@@ -303,7 +317,9 @@ class AccountSerializer(HotelOwnerBankingSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         try:
+            address = BankingAddress.objects.get(owner_banking=instance)
             product = Product.objects.get(owner_banking=instance)
+            data['postal_code'] = address.postal_code if address else None
             data['product_id'] = product.product_id
             data['settlements_ifsc_code'] = product.settlements_ifsc_code
             data['settlements_beneficiary_name'] = product.settlements_beneficiary_name

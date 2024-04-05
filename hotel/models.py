@@ -331,6 +331,8 @@ class OwnerBankingDetail(models.Model):
     account_id = models.CharField(max_length=20)
     legal_business_name = models.CharField(max_length=16)
     business_type = models.CharField(max_length=50)
+    category = models.CharField(max_length=255, null=True)
+    subcategory = models.CharField(max_length=255, null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -352,6 +354,20 @@ class Product(models.Model):
 
     def __str__(self):
         return self.product_id
+
+
+class BankingAddress(models.Model):
+    owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_address')
+    street1 = models.CharField(max_length=30)
+    street2 = models.CharField(max_length=30)
+    city = models.CharField(max_length=30)
+    state = models.CharField(max_length=30)
+    postal_code = models.CharField(max_length=30)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.postal_code
 
 
 class SubscriptionPlan(models.Model):
