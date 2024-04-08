@@ -693,8 +693,8 @@ class AccountCreateApi(APIView):
 
             return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class AccountGetApi(APIView):
