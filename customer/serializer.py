@@ -34,6 +34,7 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 
 class RoomInventorySerializer(serializers.ModelSerializer):
     available_rooms = serializers.IntegerField()
+    room_type = RoomTypeSerializer()
     # updated_period = serializers.SerializerMethodField()
     # is_updated_period = serializers.SerializerMethodField()
 
