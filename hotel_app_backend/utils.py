@@ -1,20 +1,16 @@
 from datetime import datetime
 from rest_framework.decorators import api_view
 from django.conf import settings
-import boto3
 from hotel.authentication import JWTAuthentication as JWTAuthenticationForOwner
 from customer.authentication import JWTAuthentication as JWTAuthenticationForCustomer
 from rest_framework import exceptions, status
 from hotel.utils import generate_response, error_response
 from .messages import EXCEPTION_MESSAGE, DATA_CREATE_MESSAGE, FAILED_PRESIGNED_RESPONSE
+from .boto_utils import s3_client
+import razorpay
 
 
-s3_client = boto3.client(
-    's3',
-    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    region_name='ap-south-1'
-)
+razorpay_client = razorpay.Client(auth=(settings.RAZORPAY_API_KEY, settings.RAZORPAY_API_SECRET))
 
 
 def delete_image_from_s3(image_url):
