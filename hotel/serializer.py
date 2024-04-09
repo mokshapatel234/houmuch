@@ -4,6 +4,7 @@ from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFe
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, BankingAddress, \
     Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
+from dateutil.relativedelta import relativedelta
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -62,20 +63,12 @@ class LoginSerializer(serializers.ModelSerializer):
 
 
 class OwnerProfileSerializer(DynamicFieldsModelSerializer):
+    category = CategorySerializer()
 
     class Meta:
         model = Owner
         fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
         read_only_fields = ('id', 'is_verified', 'is_active', 'is_email_verified')
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        category_instance = instance.category
-        if category_instance:
-            ret['category'] = CategorySerializer(category_instance).data
-        else:
-            ret['category'] = None
-        return ret
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -146,6 +139,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
     address = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     cancellation_policy = serializers.SerializerMethodField()
+    owner = OwnerProfileSerializer(fields=('hotel_name', 'email', 'phone_number'))
 
     def get_address(self, instance):
         owner = instance.owner
@@ -169,7 +163,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Property
-        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+        fields = ['id', 'owner', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                   'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                   'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
                   'is_cancellation', 'status', 'is_online', 'address', 'images', 'cancellation_policy', 'hotel_class',
@@ -344,10 +338,16 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class SubscriptionOutSerializer(serializers.ModelSerializer):
     subscription_plan = SubscriptionPlanSerializer()
     owner = OwnerProfileSerializer(fields=('hotel_name', 'email', 'phone_number'))
+    start_date = serializers.DateTimeField(source='created_at', format='%Y-%m-%d')
+    end_date = serializers.SerializerMethodField()
+
+    def get_end_date(self, obj):
+        end_date = obj.created_at + relativedelta(months=obj.subscription_plan.duration)
+        return end_date.strftime('%Y-%m-%d')
 
     class Meta:
         model = SubscriptionTransaction
-        fields = '__all__'
+        fields = ['id', 'subscription_plan', 'owner', 'razorpay_subscription_id', 'payment_status', 'start_date', 'end_date']
 
 
 class RatingsOutSerializer(serializers.ModelSerializer):
