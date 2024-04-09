@@ -358,10 +358,10 @@ class Product(models.Model):
 
 class BankingAddress(models.Model):
     owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_address')
-    street1 = models.CharField(max_length=30)
-    street2 = models.CharField(max_length=30)
-    city = models.CharField(max_length=30)
-    state = models.CharField(max_length=30)
+    street1 = models.CharField(max_length=255)
+    street2 = models.CharField(max_length=255)
+    city = models.CharField(max_length=255)
+    state = models.CharField(max_length=255)
     postal_code = models.CharField(max_length=30)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
