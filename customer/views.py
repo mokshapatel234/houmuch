@@ -18,7 +18,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
     REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE, \
-    PROPERTY_NOT_FOUND_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE
+    PROPERTY_NOT_FOUND_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_CUSTOMER_MESSAGE
 from .authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.gis.geos import Point
@@ -35,6 +35,7 @@ from django.utils import timezone
 from hotel_app_backend.razorpay_utils import razorpay_request
 from django.utils.dateparse import parse_date
 from django.core.exceptions import ObjectDoesNotExist
+from hotel.models import Owner
 
 
 class CustomerRegisterView(APIView):
@@ -49,6 +50,8 @@ class CustomerRegisterView(APIView):
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Customer.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            if Owner.objects.filter(phone_number=phone_number).exists():
+                return error_response(NOT_ALLOWED_TO_REGISTER_AS_CUSTOMER_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
                 serializer.save()
                 user_id = serializer.instance.id
