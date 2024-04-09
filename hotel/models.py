@@ -265,6 +265,7 @@ class OTP(models.Model):
 
 class BiddingSession(models.Model):
     is_open = models.BooleanField(default=False)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_bid_id', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
