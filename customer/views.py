@@ -190,7 +190,7 @@ class PropertyListView(generics.GenericAPIView):
                 queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
             if latitude and longitude:
                 point = Point(float(longitude), float(latitude), srid=4326)
-                queryset = queryset.filter(location__distance_lte=(point, D(m=5000)))
+                queryset = queryset.filter(location__distance_lte=(point, D(km=20)))
             if property_type:
                 property_type_ids = [int(id) for id in property_type.split(',') if id.isdigit()]
                 queryset = queryset.filter(property_type__id__in=property_type_ids)
