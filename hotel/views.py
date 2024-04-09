@@ -25,7 +25,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, CANCELLATION_LIMIT_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
     PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
-    ADD_ROOM_LIMIT_MESSAGE
+    ADD_ROOM_LIMIT_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -50,6 +50,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import F, Func
 import calendar
 from django.db.models import Sum
+from customer.models import Customer
 
 
 class HotelRegisterView(APIView):
@@ -65,6 +66,8 @@ class HotelRegisterView(APIView):
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            if Customer.objects.filter(phone_number=phone_number).exists():
+                return error_response(NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
                 user = serializer.save()
                 if email:
