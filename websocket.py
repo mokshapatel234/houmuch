@@ -167,18 +167,13 @@ async def get_current_user(token: str, user_type: str):
     except HTTPException as e:
         raise e
 
+
 @sync_to_async
-def save_bidding_session(customer_id):
-    existing_open_session = BiddingSession.objects.filter(customer_id=customer_id, is_open=True).first()
-    
-    if existing_open_session:
-        return "You have already created one session."  # or raise Exception("Customer already has an open session")
-    
-    # Create a new session for the customer
-    result_instance = BiddingSession.objects.create(is_open=True, customer_id=customer_id)
-    
-    # Return the ID of the created session
-    return result_instance.id
+def save_bidding_session():
+    result_instance =BiddingSession.objects.create(
+        is_open=True,
+    )
+    return result_instance.id 
 
 @sync_to_async
 def save_property_deal(session_id, customer_id, property_id):
@@ -195,10 +190,10 @@ def save_property_deal(session_id, customer_id, property_id):
         return None
     
 
-async def create_bidding_session(customer_id):
-
+async def create_bidding_session():
+    print("Creating bidding session...")
     try:
-        bidding_session_id = await save_bidding_session(customer_id)
+        bidding_session_id = await save_bidding_session()
         return bidding_session_id
     except Exception as e:
         print("An error occurred while creating bidding session:", e)
@@ -256,19 +251,16 @@ async def room_connection(
             else:
                 await websocket.close(code=1008, reason="Invalid Session ID or Session not found.")  # Updated message
         else:
-            if property_ids:
+            if property_ids:  
+                customer_id = user_info.id
+                session_id = str(await create_bidding_session())  # Updated variable name
                 property_ids_list = [int(prop_id) for prop_id in property_ids.split(",")]
-                if len(property_ids_list) > 5:
-                    await websocket.send_text("It is not allowed to add more than 5 properties in the bidding.")
-                else:
-                    customer_id = user_info.id
-                    session_id = str(await create_bidding_session(customer_id))  # Updated variable name
-                    for property_id in property_ids_list:
-                        await create_property_deal(session_id, customer_id, property_id)  # Updated parameter name
-                    await manager.save_active_room(websocket, session_id)
-                    active_rooms[session_id] = customer_socket_id
-                    await websocket.send_text(f"Session ID: {session_id}")  # Updated message
-                    await websocket.send_text("You are now connected to the session.")
+                for property_id in property_ids_list:
+                    await create_property_deal(session_id, customer_id, property_id)  # Updated parameter name
+                await manager.save_active_room(websocket, session_id)
+                active_rooms[session_id] = customer_socket_id
+                await websocket.send_text(f"Session ID: {session_id}")  # Updated message
+                await websocket.send_text("You are now connected to the session.")  # Updated message
 
         try:
             while True:
