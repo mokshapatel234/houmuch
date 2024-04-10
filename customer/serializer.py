@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
 from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage
-from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer, CancellationSerializer
+from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, CancellationSerializer
 from django.db.models import Avg
 from django.utils import timezone
 from datetime import datetime
@@ -165,8 +165,32 @@ class RatingSerializer(serializers.ModelSerializer):
         exclude = ['customer', 'property']
 
 
-class CustomerBookingSerializer(BookingRetrieveSerializer):
+class CustomerBookingSerializer(serializers.ModelSerializer):
+    customer = ProfileSerializer(fields=('first_name', 'last_name', 'phone_number'))
+    rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type', 'room_view', 'area_sqft', 'bed_type', 'room_features'))
+    property = PropertyOutSerializer(fields=('parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+                                             'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
+                                             'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
+                                             'is_cancellation', 'address', 'images', 'hotel_class'))
+    guest_details = serializers.SerializerMethodField()
+    cancellation_policy = serializers.SerializerMethodField()
     cancellation_charges = serializers.SerializerMethodField()
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
+
+    def get_guest_details(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        if not guests:
+            return None
+        details = {
+            'num_of_adults': guests.no_of_adults,
+            'num_of_children': guests.no_of_children,
+            'ages_of_children': guests.age_of_children,
+            'total_guests': guests.no_of_adults + guests.no_of_children,
+        }
+        return details
 
     def get_cancellation_charges(self, instance):
         cancellation_policies = PropertyCancellation.objects.filter(property=instance.property).order_by('cancellation_days')
@@ -187,8 +211,9 @@ class CustomerBookingSerializer(BookingRetrieveSerializer):
         cancellation_charge_amount = (instance.amount * cancellation_charge_percentage) / 100
         return cancellation_charge_amount
 
-    def to_representation(self, instance):
-        ret = super(CustomerBookingSerializer, self).to_representation(instance)
-        ret.pop('num_of_adults', None)
-        ret.pop('num_of_children', None)
-        return ret
+    class Meta:
+        model = BookingHistory
+        fields = ['id', 'customer', 'rooms', 'property', 'guest_details', 'cancellation_policy',
+                  'cancellation_charges', 'num_of_rooms', 'order_id', 'transfer_id', 'check_in_date',
+                  'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_by_owner', 'cancel_date',
+                  'cancel_reason', 'book_status', 'payment_id', 'is_confirmed', 'created_at', 'property_deal']
