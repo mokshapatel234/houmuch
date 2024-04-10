@@ -177,6 +177,7 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
     cancellation_charges = serializers.SerializerMethodField()
     room_image = serializers.SerializerMethodField()
     property_image = serializers.SerializerMethodField()
+    owner_email = serializers.CharField(source='property.owner.email')
 
     def get_room_image(self, obj):
         return RoomImage.objects.filter(room=obj.rooms).first().image
@@ -224,4 +225,5 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
         fields = ['id', 'customer', 'rooms', 'property', 'guest_details', 'cancellation_policy',
                   'cancellation_charges', 'num_of_rooms', 'order_id', 'transfer_id', 'check_in_date',
                   'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_by_owner', 'cancel_date',
-                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'payment_id', 'is_confirmed', 'created_at', 'property_deal']
+                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'owner_email',
+                  'payment_id', 'is_confirmed', 'created_at', 'property_deal']
