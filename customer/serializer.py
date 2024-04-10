@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Customer
 from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage, PropertyImage
 from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, CancellationSerializer
 from django.db.models import Avg
 from django.utils import timezone
@@ -171,10 +171,18 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
     property = PropertyOutSerializer(fields=('parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                                              'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                                              'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
-                                             'is_cancellation', 'address', 'images', 'hotel_class'))
+                                             'is_cancellation', 'address', 'hotel_class'))
     guest_details = serializers.SerializerMethodField()
     cancellation_policy = serializers.SerializerMethodField()
     cancellation_charges = serializers.SerializerMethodField()
+    room_image = serializers.SerializerMethodField()
+    property_image = serializers.SerializerMethodField()
+
+    def get_room_image(self, obj):
+        return RoomImage.objects.filter(room=obj.rooms).first().image
+
+    def get_property_image(self, obj):
+        return PropertyImage.objects.filter(property=obj.property).first().image
 
     def get_cancellation_policy(self, obj):
         cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
@@ -216,4 +224,4 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
         fields = ['id', 'customer', 'rooms', 'property', 'guest_details', 'cancellation_policy',
                   'cancellation_charges', 'num_of_rooms', 'order_id', 'transfer_id', 'check_in_date',
                   'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_by_owner', 'cancel_date',
-                  'cancel_reason', 'book_status', 'payment_id', 'is_confirmed', 'created_at', 'property_deal']
+                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'payment_id', 'is_confirmed', 'created_at', 'property_deal']
