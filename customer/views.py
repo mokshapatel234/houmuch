@@ -308,7 +308,7 @@ class OrderSummaryView(ListAPIView):
             check_out_date_obj = parse_date(check_out_date)
             num_nights = (check_out_date_obj - check_in_date_obj).days
             total_price = room.default_price * min(adjusted_availability, int(num_of_rooms)) * num_nights
-            gst_rate = 0.12 if total_price <= 7500 else 0.18
+            gst_rate = 0.12 if room.default_price <= 7500 else 0.18
             gst_amount = total_price * gst_rate
             final_price = total_price + gst_amount
             booked_info = BOOKED_INFO_MESSAGE.format(total_booked=total_booked)
@@ -447,7 +447,7 @@ class BookingListView(ListAPIView):
 
     def get_queryset(self):
         try:
-            queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True, is_cancel=False).order_by('-created_at')
+            queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
             return queryset
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

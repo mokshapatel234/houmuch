@@ -168,6 +168,17 @@ class BookingHistoryAdmin(admin.ModelAdmin):
         return obj.property.owner.hotel_name
 
 
+class UpdateTypeAdmin(admin.ModelAdmin):
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_add_permission(self, request, obj=None):
+        num_entries = UpdateType.objects.count()
+        if num_entries >= 3:
+            return False
+        return True
+
+
 admin.site.register(Owner, OwnerAdmin)
 admin.site.register(Category, CategoryAdmin)
 admin.site.register(PropertyType, PropertyTypeAdmin)
@@ -183,4 +194,4 @@ admin.site.register(SubscriptionPlan, SubscriptionPlanAdmin)
 admin.site.register(BookingHistory, BookingHistoryAdmin)
 admin.site.register(CancellationReason, CancellationAdmin)
 admin.site.register(SubCancellationReason, SubCancellationAdmin)
-admin.site.register(UpdateType)
+admin.site.register(UpdateType, UpdateTypeAdmin)

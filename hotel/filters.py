@@ -15,7 +15,7 @@ class BookingFilter(filters.FilterSet):
     start_date = filters.DateFilter(field_name="check_in_date__date", lookup_expr='gte')
     end_date = filters.DateFilter(field_name="check_in_date__date", lookup_expr='lte')
     is_confirmed = filters.BooleanFilter(field_name="is_confirmed")
-    is_cancel = filters.BooleanFilter(field_name='is_cancel')
+    is_cancel = filters.BooleanFilter(method='filter_by_is_cancel')
     is_today = filters.BooleanFilter(method='filter_by_is_today')
 
     class Meta:
@@ -28,6 +28,12 @@ class BookingFilter(filters.FilterSet):
             return queryset.filter(check_in_date__date=today)
         else:
             return queryset.exclude(check_in_date__date=today)
+
+    def filter_by_is_cancel(self, queryset, name, value):
+        if value:
+            return queryset.filter(is_cancel=True)
+        else:
+            return queryset.exclude(is_cancel=True)
 
 
 class TransactionFilter(filters.FilterSet):

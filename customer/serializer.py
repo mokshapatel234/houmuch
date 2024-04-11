@@ -73,7 +73,7 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
         updated_availability = self.context.get('adjusted_availability', {})
         if instance.id in updated_availability:
             ret['available_rooms'] = updated_availability[instance.id]['available_rooms']
-            ret['default_price'] = updated_availability[instance.id]['effective_price']
+            ret['default_price'] = round(updated_availability[instance.id]['effective_price'])
         return ret
 
 

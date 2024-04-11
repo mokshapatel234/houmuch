@@ -764,7 +764,7 @@ class BookingListView(ListAPIView):
 
     def get_queryset(self):
         try:
-            queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True, is_cancel=False).order_by('created_at')
+            queryset = BookingHistory.objects.filter(property__owner=self.request.user, book_status=True).order_by('created_at')
             return queryset
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -911,7 +911,6 @@ class CancelBookingView(APIView):
             days_before_check_in = (check_in_date - current_date).days
             days_before_check_in = get_days_before_check_in(booking, days_before_check_in)
             refund_amount = booking.amount
-
             if days_before_check_in <= 1:
                 refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100,
                                                                                                               "reverse_all": 1})

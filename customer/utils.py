@@ -152,7 +152,7 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
         room_inventory_instance = available_room_inventory[0]
         serialized_data = RoomInventorySerializer(room_inventory_instance, context={"start_date": check_in_date, "end_date": check_out_date}).data
         serialized_data['available_rooms'] = adjusted_availability[room_inventory_instance.id]['available_rooms']
-        serialized_data['default_price'] = adjusted_availability[room_inventory_instance.id]['effective_price']
+        serialized_data['default_price'] = round(adjusted_availability[room_inventory_instance.id]['effective_price'])
         property.room_inventory = serialized_data
         include_property = True
         if property_list is not None and include_property:
