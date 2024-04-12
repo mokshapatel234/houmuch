@@ -6,7 +6,7 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
-    SubscriptionPlan, SubscriptionTransaction, CancellationReason
+    SubscriptionPlan, SubscriptionTransaction, CancellationReason, GuestDetail
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -956,9 +956,46 @@ def razorpay_webhook(request):
             payment_id = payload['payload']['payment']['entity']['id']
             try:
                 booking = BookingHistory.objects.get(order_id=order_id)
+                guest = GuestDetail.objects.get(booking=booking)
+                policies = PropertyCancellation.objects.filter(property=booking.property)
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
+                customer_data = {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
+                                 "email": booking.customer.email,
+                                 "template": "customer_confirm_booking.html",
+                                 "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+                                             'property_name': booking.property.owner.hotel_name,
+                                             'property_email': booking.property.owner.email,
+                                             'property_phone_number': booking.property.owner.phone_number,
+                                             'address': booking.property.owner.address,
+                                             'property_id': booking.property.id,
+                                             'room_name': booking.rooms.room_name,
+                                             'room_type': booking.rooms.room_type,
+                                             'floor': booking.rooms.floor,
+                                             'amount': booking.amount,
+                                             'num_of_adults': guest.no_of_adults,
+                                             'num_of_children': guest.no_of_adults,
+                                             'check_in_date': booking.check_in_date.date(),
+                                             'check_out_date': booking.check_out_date.date(),
+                                             'policies': policies}}
+                send_mail(customer_data)
+                vendor_data = {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
+                               "email": booking.customer.email,
+                               "template": "vendor_confirm_booking.html",
+                               "context": {'guest_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+                                           'property_name': booking.property.owner.hotel_name,
+                                           'guest_email': booking.customer.email,
+                                           'guest_number': booking.customer.phone_number,
+                                           'room_name': booking.rooms.room_name,
+                                           'room_type': booking.rooms.room_type,
+                                           'amount': booking.amount,
+                                           'num_of_rooms': booking.num_of_rooms,
+                                           'num_of_adults': guest.no_of_adults,
+                                           'num_of_children': guest.no_of_adults,
+                                           'check_in_date': booking.check_in_date.date(),
+                                           'check_out_date': booking.check_out_date.date()}}
+                send_mail(vendor_data)
                 print("TRUEE BOOK")
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:

@@ -2,7 +2,7 @@ from rest_framework import permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
-from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
+from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, GuestDetail, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
 from hotel.utils import error_response, send_mail, generate_response
@@ -387,8 +387,48 @@ class PayNowView(APIView):
                                                                                'room': room_instance,
                                                                                'order_id': order['id'],
                                                                                'transfer_id': order['transfers'][0]['id']})
+                policies = PropertyCancellation.objects.filter(property=property_instance)
                 if serializer.is_valid():
-                    serializer.save()
+                    instance = serializer.save()
+                    data = {"subject": f"Booking Confirmation: Check-in on {instance['booking'].check_in_date.date()}",
+                            "email": instance['booking'].customer.email,
+                            "template": "customer_confirm_booking.html",
+                            "context": {'customer_name': request.user.first_name + ' ' + request.user.last_name,
+                                        'property_name': instance['booking'].property.owner.hotel_name,
+                                        'property_email': instance['booking'].property.owner.email,
+                                        'property_phone_number': instance['booking'].property.owner.phone_number,
+                                        'address': instance['booking'].property.owner.address,
+                                        'property_id': instance['booking'].property.id,
+                                        'room_name': instance['booking'].rooms.room_name,
+                                        'room_type': instance['booking'].rooms.room_type,
+                                        'floor': instance['booking'].rooms.floor,
+                                        'amount': instance['booking'].amount,
+                                        'num_of_adults': instance['guest'].no_of_adults,
+                                        'num_of_children': instance['guest'].no_of_adults,
+                                        'check_in_date': instance['booking'].check_in_date.date(),
+                                        'check_out_date': instance['booking'].check_out_date.date(),
+                                        'room_id': instance['booking'].rooms.id,
+                                        'policies': policies,
+                                        # 'backend_url': settings.BACKEND_URL
+                                        }
+                            }
+                    vendor_data = {"subject": f"Booking Confirmation: Check-in on {instance['booking'].check_in_date.date()}",
+                                   "email": instance['booking'].customer.email,
+                                   "template": "vendor_confirm_booking.html",
+                                   "context": {'guest_name': instance['booking'].customer.first_name + ' ' + instance['booking'].customer.last_name,
+                                               'property_name': instance['booking'].property.owner.hotel_name,
+                                               'guest_email': instance['booking'].customer.email,
+                                               'guest_number': instance['booking'].customer.phone_number,
+                                               'room_name': instance['booking'].rooms.room_name,
+                                               'room_type': instance['booking'].rooms.room_type,
+                                               'amount': instance['booking'].amount,
+                                               'num_of_rooms': instance['booking'].num_of_rooms,
+                                               'num_of_adults': instance['guest'].no_of_adults,
+                                               'num_of_children': instance['guest'].no_of_adults,
+                                               'check_in_date': instance['booking'].check_in_date.date(),
+                                               'check_out_date': instance['booking'].check_out_date.date()}}
+                    send_mail(data)
+                    send_mail(vendor_data)
                     return Response({
                         'result': True,
                         'data': {'order_id': order['id']},
@@ -404,7 +444,7 @@ class PayNowView(APIView):
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         order_data = {
@@ -508,7 +548,7 @@ class CancelBookingView(APIView):
             id = self.kwargs.get('id')
             booking = BookingHistory.objects.get(id=id)
             check_in_date = booking.check_in_date.date()
-
+            guest = GuestDetail.objects.get(booking=booking)
             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner, status=True)
             days_before_check_in = (check_in_date - timezone.now().date()).days
@@ -524,6 +564,26 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
                     response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                    data = {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
+                            "email": booking.customer.email,
+                            "template": "customer_cancellation.html",
+                            "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+                                        'property_name': booking.property.owner.hotel_name,
+                                        'property_email': booking.property.owner.email,
+                                        'property_number': booking.property.owner.phone_number,
+                                        'address': booking.property.owner.address,
+                                        'room_name': booking.rooms.room_name,
+                                        'room_type': booking.rooms.room_type,
+                                        'amount': booking.amount,
+                                        'num_of_rooms': booking.num_of_rooms,
+                                        'num_of_adults': guest.no_of_adults,
+                                        'num_of_children': guest.no_of_adults,
+                                        'check_in_date': booking.check_in_date.date(),
+                                        'check_out_date': booking.check_out_date.date(),
+                                        'cancel_reason': booking.cancel_reason,
+                                        'cancellation_percents': cancellation_charge_percentage,
+                                        'refund_amount': refund_amount}}
+                    send_mail(data)
                     return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -543,6 +603,26 @@ class CancelBookingView(APIView):
                     "currency": booking.currency,
                     "account": owner.account_id
                 }
+                data = {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
+                        "email": booking.customer.email,
+                        "template": "customer_cancellation.html",
+                        "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+                                    'property_name': booking.property.owner.hotel_name,
+                                    'property_email': booking.property.owner.email,
+                                    'property_number': booking.property.owner.phone_number,
+                                    'address': booking.property.owner.address,
+                                    'room_name': booking.rooms.room_name,
+                                    'room_type': booking.rooms.room_type,
+                                    'amount': booking.amount,
+                                    'num_of_rooms': booking.num_of_rooms,
+                                    'num_of_adults': guest.no_of_adults,
+                                    'num_of_children': guest.no_of_adults,
+                                    'check_in_date': booking.check_in_date.date(),
+                                    'check_out_date': booking.check_out_date.date(),
+                                    'cancel_reason': booking.cancel_reason,
+                                    'cancellation_percents': cancellation_charge_percentage,
+                                    'refund_amount': refund_amount}}
+                send_mail(data)
                 direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
