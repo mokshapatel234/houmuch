@@ -51,6 +51,8 @@ from django.db.models import F, Func
 import calendar
 from django.db.models import Sum
 from customer.models import Customer
+from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, \
+    vendor_otp_data, vendor_property_verification_data, vendor_room_verification_data
 
 
 class HotelRegisterView(APIView):
@@ -73,12 +75,7 @@ class HotelRegisterView(APIView):
                 if email:
                     otp = generate_otp()
                     OTP.objects.create(user=user, otp=otp)
-                    data = {
-                        "subject": 'OTP Verification',
-                        "email": email,
-                        "template": "otp.html",
-                        "context": {'otp': otp}
-                    }
+                    data = vendor_otp_data(email, otp)
                     send_mail(data)
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
@@ -173,12 +170,7 @@ class OwnerProfileView(APIView):
                         otp = generate_otp()
                         OTP.objects.create(user=request.user, otp=otp)
                         # Send OTP email
-                        data = {
-                            "subject": 'OTP Verification',
-                            "email": email,
-                            "template": "otp.html",
-                            "context": {'otp': otp}
-                        }
+                        data = vendor_otp_data(email, otp)
                         send_mail(data)
 
                 serializer.save()
@@ -204,12 +196,7 @@ class OTPVerificationView(APIView):
             if user.email:
                 otp = generate_otp()
                 OTP.objects.create(user=request.user, otp=otp)
-                data = {
-                    "subject": 'OTP Verification',
-                    "email": user.email,
-                    "template": "otp.html",
-                    "context": {'otp': otp}
-                }
+                data = vendor_otp_data(user.email, otp)
                 send_mail(data)
                 return Response({'result': True, 'message': SENT_OTP_MESSAGE}, status=status.HTTP_200_OK)
         except Exception:
@@ -323,18 +310,7 @@ class PropertyViewSet(ModelViewSet):
                     ) for cancellation_data in cancellation_data_list
                 ])
             admin_email = User.objects.filter(is_superuser=True).first().email
-            data = {
-                "subject": 'Property Verification',
-                "email": admin_email,
-                "template": "property_verify.html",
-                "context": {
-                    'property_name': instance.owner.hotel_name,
-                    'parent_hotel_group': instance.parent_hotel_group,
-                    'address': instance.owner.address,
-                    'property_id': instance.id,
-                    'backend_url': settings.BACKEND_URL
-                }
-            }
+            data = vendor_property_verification_data(admin_email, instance)
             send_mail(data)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Exception:
@@ -451,19 +427,7 @@ class RoomInventoryViewSet(ModelViewSet):
             if image_instances:
                 RoomImage.objects.bulk_create(image_instances)
             admin_email = User.objects.filter(is_superuser=True).first().email
-            data = {
-                "subject": 'Room Verification',
-                "email": admin_email,
-                "template": "room_verify.html",
-                "context": {
-                    'room_name': instance.room_name,
-                    'property_name': property_instance.owner.hotel_name,
-                    'floor': instance.floor,
-                    'address': property_instance.owner.address,
-                    'room_id': instance.id,
-                    'backend_url': settings.BACKEND_URL
-                }
-            }
+            data = vendor_room_verification_data(admin_email, instance, property_instance)
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
@@ -961,40 +925,9 @@ def razorpay_webhook(request):
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
-                customer_data = {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
-                                 "email": booking.customer.email,
-                                 "template": "customer_confirm_booking.html",
-                                 "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
-                                             'property_name': booking.property.owner.hotel_name,
-                                             'property_email': booking.property.owner.email,
-                                             'property_phone_number': booking.property.owner.phone_number,
-                                             'address': booking.property.owner.address,
-                                             'property_id': booking.property.id,
-                                             'room_name': booking.rooms.room_name,
-                                             'room_type': booking.rooms.room_type,
-                                             'floor': booking.rooms.floor,
-                                             'amount': booking.amount,
-                                             'num_of_adults': guest.no_of_adults,
-                                             'num_of_children': guest.no_of_adults,
-                                             'check_in_date': booking.check_in_date.date(),
-                                             'check_out_date': booking.check_out_date.date(),
-                                             'policies': policies}}
+                customer_data = customer_booking_confirmation_data(booking, guest, policies)
                 send_mail(customer_data)
-                vendor_data = {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
-                               "email": booking.customer.email,
-                               "template": "vendor_confirm_booking.html",
-                               "context": {'guest_name': booking.customer.first_name + ' ' + booking.customer.last_name,
-                                           'property_name': booking.property.owner.hotel_name,
-                                           'guest_email': booking.customer.email,
-                                           'guest_number': booking.customer.phone_number,
-                                           'room_name': booking.rooms.room_name,
-                                           'room_type': booking.rooms.room_type,
-                                           'amount': booking.amount,
-                                           'num_of_rooms': booking.num_of_rooms,
-                                           'num_of_adults': guest.no_of_adults,
-                                           'num_of_children': guest.no_of_adults,
-                                           'check_in_date': booking.check_in_date.date(),
-                                           'check_out_date': booking.check_out_date.date()}}
+                vendor_data = vendor_booking_confirmation_data(booking, guest)
                 send_mail(vendor_data)
                 print("TRUEE BOOK")
                 return HttpResponse(status=200)
