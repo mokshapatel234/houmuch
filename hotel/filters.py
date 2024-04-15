@@ -14,13 +14,13 @@ class RoomInventoryFilter(filters.FilterSet):
 class BookingFilter(filters.FilterSet):
     start_date = filters.DateFilter(field_name="check_in_date__date", lookup_expr='gte')
     end_date = filters.DateFilter(field_name="check_in_date__date", lookup_expr='lte')
-    is_confirmed = filters.BooleanFilter(field_name="is_confirmed")
+    is_complete = filters.BooleanFilter(method="filter_by_is_complete")
     is_cancel = filters.BooleanFilter(method='filter_by_is_cancel')
     is_today = filters.BooleanFilter(method='filter_by_is_today')
 
     class Meta:
         model = BookingHistory
-        fields = ['start_date', 'end_date', 'is_confirmed', 'is_cancel', 'is_today']
+        fields = ['start_date', 'end_date', 'is_complete', 'is_cancel', 'is_today']
 
     def filter_by_is_today(self, queryset, name, value):
         today = timezone.now().date()
@@ -34,6 +34,13 @@ class BookingFilter(filters.FilterSet):
             return queryset.filter(is_cancel=True)
         else:
             return queryset.exclude(is_cancel=True)
+
+    def filter_by_is_complete(self, queryset, name, value):
+        today = timezone.now().date()
+        if value:
+            return queryset.filter(check_out_date__date__lt=today)
+        else:
+            return queryset.exclude(check_out_date__date__lt=today)
 
 
 class TransactionFilter(filters.FilterSet):
