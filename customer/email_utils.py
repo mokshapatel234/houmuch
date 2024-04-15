@@ -1,7 +1,7 @@
 from django.conf import settings
 
 
-def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage=0, \
+def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage=0,
                              transfer_amount=0, cancellation_charge_amount=0, commission_percent=0, is_cancel=False):
     return {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
             "email": booking.property.owner.email,
@@ -26,6 +26,7 @@ def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_
                         'commission_percent': commission_percent,
                         'is_cancel': is_cancel}}
 
+
 def customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=False):
     return {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
             "email": booking.customer.email,
@@ -48,6 +49,7 @@ def customer_cancellation_data(booking, guest, cancellation_charge_percentage, r
                         'refund_amount': refund_amount,
                         'is_cancel': is_cancel}}
 
+
 def vendor_booking_confirmation_data(booking, guest):
     return {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
             "email": booking.property.owner.email,
@@ -64,6 +66,7 @@ def vendor_booking_confirmation_data(booking, guest):
                         'num_of_children': guest.no_of_adults,
                         'check_in_date': booking.check_in_date.date(),
                         'check_out_date': booking.check_out_date.date()}}
+
 
 def customer_booking_confirmation_data(booking, guest, policies):
     {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
@@ -85,11 +88,13 @@ def customer_booking_confirmation_data(booking, guest, policies):
                  'check_out_date': booking.check_out_date.date(),
                  'policies': policies}}
 
+
 def customer_welcome_data(request, email):
     return {"subject": f'Welcome {request.user.first_name}',
             "email": email,
             "template": "welcome_customer.html",
             "context": {'first_name': request.user.first_name, 'last_name': request.user.last_name}}
+
 
 def vendor_welcome_data(instance):
     return {"subject": f'Welcome {instance.hotel_name}',
@@ -97,11 +102,13 @@ def vendor_welcome_data(instance):
             "template": "welcome_email.html",
             "context": {'hotel_name': instance.hotel_name}}
 
+
 def vendor_otp_data(email, otp):
     return {"subject": 'OTP Verification',
             "email": email,
             "template": "otp.html",
             "context": {'otp': otp}}
+
 
 def vendor_property_verification_data(admin_email, instance):
     return {"subject": 'Property Verification',
@@ -113,6 +120,7 @@ def vendor_property_verification_data(admin_email, instance):
                 'address': instance.owner.address,
                 'property_id': instance.id,
                 'backend_url': settings.BACKEND_URL}}
+
 
 def vendor_room_verification_data(admin_email, instance, property_instance):
     return {"subject": 'Room Verification',

@@ -137,7 +137,7 @@ class CustomerProfileView(APIView):
                     if Customer.objects.filter(email=email).exists():
                         return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
                     else:
-                        customer_data = customer_welcome_data(request, email)
+                        data = customer_welcome_data(request, email)
                         send_mail(data)
                 serializer.save()
                 response_data = {
@@ -383,48 +383,8 @@ class PayNowView(APIView):
                                                                                'room': room_instance,
                                                                                'order_id': order['id'],
                                                                                'transfer_id': order['transfers'][0]['id']})
-                policies = PropertyCancellation.objects.filter(property=property_instance)
                 if serializer.is_valid():
-                    instance = serializer.save()
-                    # data = {"subject": f"Booking Confirmation: Check-in on {instance['booking'].check_in_date.date()}",
-                    #         "email": instance['booking'].customer.email,
-                    #         "template": "customer_confirm_booking.html",
-                    #         "context": {'customer_name': request.user.first_name + ' ' + request.user.last_name,
-                    #                     'property_name': instance['booking'].property.owner.hotel_name,
-                    #                     'property_email': instance['booking'].property.owner.email,
-                    #                     'property_phone_number': instance['booking'].property.owner.phone_number,
-                    #                     'address': instance['booking'].property.owner.address,
-                    #                     'property_id': instance['booking'].property.id,
-                    #                     'room_name': instance['booking'].rooms.room_name,
-                    #                     'room_type': instance['booking'].rooms.room_type,
-                    #                     'floor': instance['booking'].rooms.floor,
-                    #                     'amount': instance['booking'].amount,
-                    #                     'num_of_adults': instance['guest'].no_of_adults,
-                    #                     'num_of_children': instance['guest'].no_of_adults,
-                    #                     'check_in_date': instance['booking'].check_in_date.date(),
-                    #                     'check_out_date': instance['booking'].check_out_date.date(),
-                    #                     'room_id': instance['booking'].rooms.id,
-                    #                     'policies': policies,
-                    #                     # 'backend_url': settings.BACKEND_URL
-                    #                     }
-                    #         }
-                    # vendor_data = {"subject": f"Booking Confirmation: Check-in on {instance['booking'].check_in_date.date()}",
-                    #                "email": instance['booking'].customer.email,
-                    #                "template": "vendor_confirm_booking.html",
-                    #                "context": {'guest_name': instance['booking'].customer.first_name + ' ' + instance['booking'].customer.last_name,
-                    #                            'property_name': instance['booking'].property.owner.hotel_name,
-                    #                            'guest_email': instance['booking'].customer.email,
-                    #                            'guest_number': instance['booking'].customer.phone_number,
-                    #                            'room_name': instance['booking'].rooms.room_name,
-                    #                            'room_type': instance['booking'].rooms.room_type,
-                    #                            'amount': instance['booking'].amount,
-                    #                            'num_of_rooms': instance['booking'].num_of_rooms,
-                    #                            'num_of_adults': instance['guest'].no_of_adults,
-                    #                            'num_of_children': instance['guest'].no_of_adults,
-                    #                            'check_in_date': instance['booking'].check_in_date.date(),
-                    #                            'check_out_date': instance['booking'].check_out_date.date()}}
-                    # send_mail(data)
-                    # send_mail(vendor_data)
+                    serializer.save()
                     return Response({
                         'result': True,
                         'data': {'order_id': order['id']},
