@@ -75,7 +75,7 @@ def customer_booking_confirmation_data(booking, guest, policies):
             "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
                         'property_name': booking.property.owner.hotel_name,
                         'property_email': booking.property.owner.email,
-                        'property_phone_number': booking.property.owner.phone_number,
+                        'property_number': booking.property.owner.phone_number,
                         'address': booking.property.owner.address,
                         'property_id': booking.property.id,
                         'room_name': booking.rooms.room_name,

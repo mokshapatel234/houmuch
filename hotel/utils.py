@@ -77,7 +77,6 @@ def send_mail(data):
             }
         }
     )
-    print(response, "RESSPONSSEE")
     return response
 
 
