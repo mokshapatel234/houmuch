@@ -8,7 +8,7 @@ from hotel_app_backend.boto_utils import ses_client
 from django.conf import settings
 from django.utils import timezone
 import copy
-from .models import UpdateInventoryPeriod, UpdateType
+from .models import UpdateInventoryPeriod, UpdateType, UpdateRequest
 from dateutil import parser
 from django.utils.timezone import now
 
@@ -115,6 +115,11 @@ def generate_date_range(start_date, end_date):
 def update_period(updated_period_data, instance):
     dates = updated_period_data.pop('dates', [])
     removed_dates = updated_period_data.pop('removed_dates', [])
+
+    dates_str = ', '.join(dates)
+    update_request = UpdateRequest(request=dates_str)
+    update_request.save()
+
     new_periods = []
     update_map = {}
     if not dates:
@@ -130,6 +135,7 @@ def update_period(updated_period_data, instance):
                     start_date, end_date = sorted_dates[i], sorted_dates[i + 1]
                     all_dates_within_ranges.extend(generate_date_range(start_date, end_date))
             dates = all_dates_within_ranges
+
     for date in dates:
         updated_period_data_copy = copy.deepcopy(updated_period_data)
         updated_period_data_copy['date'] = date
@@ -139,7 +145,7 @@ def update_period(updated_period_data, instance):
                 setattr(existing_instance, key, value)
             update_map[existing_instance.id] = existing_instance
         else:
-            new_periods.append(UpdateInventoryPeriod(room_inventory=instance, **updated_period_data_copy))
+            new_periods.append(UpdateInventoryPeriod(room_inventory=instance, request=update_request, **updated_period_data_copy))
     if new_periods:
         UpdateInventoryPeriod.objects.bulk_create(new_periods)
     if update_map:
