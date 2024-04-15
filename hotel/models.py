@@ -214,6 +214,15 @@ class UpdateType(models.Model):
         return self.type
 
 
+class UpdateRequest(models.Model):
+    request = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.request
+
+
 class UpdateInventoryPeriod(models.Model):
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
     type = models.ForeignKey(UpdateType, on_delete=models.CASCADE, related_name="update_type", null=True)
@@ -223,6 +232,7 @@ class UpdateInventoryPeriod(models.Model):
     max_price = models.IntegerField(('Max Price'), default=0)
     num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
     date = models.DateTimeField(blank=True, null=True)
+    request = models.ForeignKey(UpdateRequest, on_delete=models.CASCADE, related_name="update_request", null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
