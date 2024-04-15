@@ -3,17 +3,13 @@ from django.dispatch import receiver
 from .models import Owner, SubscriptionPlan
 from .utils import send_mail
 from hotel_app_backend.utils import razorpay_client
+from customer.email_utils import vendor_welcome_data
 
 
 @receiver(post_save, sender=Owner)
 def notify_user(sender, instance, created, **kwargs):
     if instance.is_verified and instance.welcome_mail_sent is False:
-        data = {
-            "subject": f'Welcome {instance.hotel_name}',
-            "email": instance.email,
-            "template": "welcome_email.html",
-            "context": {'hotel_name': instance.hotel_name}
-        }
+        data = vendor_welcome_data(instance)
         response = send_mail(data)
         if response['MessageId']:
             instance.welcome_mail_sent = True

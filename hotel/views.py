@@ -6,7 +6,7 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
-    SubscriptionPlan, SubscriptionTransaction, CancellationReason
+    SubscriptionPlan, SubscriptionTransaction, CancellationReason, GuestDetail
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -51,6 +51,8 @@ from django.db.models import F, Func
 import calendar
 from django.db.models import Sum
 from customer.models import Customer
+from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, \
+    vendor_otp_data, vendor_property_verification_data, vendor_room_verification_data
 
 
 class HotelRegisterView(APIView):
@@ -73,12 +75,7 @@ class HotelRegisterView(APIView):
                 if email:
                     otp = generate_otp()
                     OTP.objects.create(user=user, otp=otp)
-                    data = {
-                        "subject": 'OTP Verification',
-                        "email": email,
-                        "template": "otp.html",
-                        "context": {'otp': otp}
-                    }
+                    data = vendor_otp_data(email, otp)
                     send_mail(data)
                 user_id = serializer.instance.id
                 token = generate_token(user_id)
@@ -173,12 +170,7 @@ class OwnerProfileView(APIView):
                         otp = generate_otp()
                         OTP.objects.create(user=request.user, otp=otp)
                         # Send OTP email
-                        data = {
-                            "subject": 'OTP Verification',
-                            "email": email,
-                            "template": "otp.html",
-                            "context": {'otp': otp}
-                        }
+                        data = vendor_otp_data(email, otp)
                         send_mail(data)
 
                 serializer.save()
@@ -204,12 +196,7 @@ class OTPVerificationView(APIView):
             if user.email:
                 otp = generate_otp()
                 OTP.objects.create(user=request.user, otp=otp)
-                data = {
-                    "subject": 'OTP Verification',
-                    "email": user.email,
-                    "template": "otp.html",
-                    "context": {'otp': otp}
-                }
+                data = vendor_otp_data(user.email, otp)
                 send_mail(data)
                 return Response({'result': True, 'message': SENT_OTP_MESSAGE}, status=status.HTTP_200_OK)
         except Exception:
@@ -323,18 +310,7 @@ class PropertyViewSet(ModelViewSet):
                     ) for cancellation_data in cancellation_data_list
                 ])
             admin_email = User.objects.filter(is_superuser=True).first().email
-            data = {
-                "subject": 'Property Verification',
-                "email": admin_email,
-                "template": "property_verify.html",
-                "context": {
-                    'property_name': instance.owner.hotel_name,
-                    'parent_hotel_group': instance.parent_hotel_group,
-                    'address': instance.owner.address,
-                    'property_id': instance.id,
-                    'backend_url': settings.BACKEND_URL
-                }
-            }
+            data = vendor_property_verification_data(admin_email, instance)
             send_mail(data)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Exception:
@@ -451,19 +427,7 @@ class RoomInventoryViewSet(ModelViewSet):
             if image_instances:
                 RoomImage.objects.bulk_create(image_instances)
             admin_email = User.objects.filter(is_superuser=True).first().email
-            data = {
-                "subject": 'Room Verification',
-                "email": admin_email,
-                "template": "room_verify.html",
-                "context": {
-                    'room_name': instance.room_name,
-                    'property_name': property_instance.owner.hotel_name,
-                    'floor': instance.floor,
-                    'address': property_instance.owner.address,
-                    'room_id': instance.id,
-                    'backend_url': settings.BACKEND_URL
-                }
-            }
+            data = vendor_room_verification_data(admin_email, instance, property_instance)
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
@@ -956,9 +920,15 @@ def razorpay_webhook(request):
             payment_id = payload['payload']['payment']['entity']['id']
             try:
                 booking = BookingHistory.objects.get(order_id=order_id)
+                guest = GuestDetail.objects.get(booking=booking)
+                policies = PropertyCancellation.objects.filter(property=booking.property)
                 booking.payment_id = payment_id
                 booking.book_status = True
                 booking.save()
+                customer_data = customer_booking_confirmation_data(booking, guest, policies)
+                send_mail(customer_data)
+                vendor_data = vendor_booking_confirmation_data(booking, guest)
+                send_mail(vendor_data)
                 print("TRUEE BOOK")
                 return HttpResponse(status=200)
             except BookingHistory.DoesNotExist:

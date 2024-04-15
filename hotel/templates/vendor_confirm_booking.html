@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-
-
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8">
   	<meta name="viewport" content="width=device-width, initial-scale=1.0;">
  	<meta name="format-detection" content="telephone=no"/>
+
+
 	<style>
 /* Reset styles */ 
 body { margin: 0; padding: 0; min-width: 100%; width: 100% !important; height: 100% !important;}
@@ -32,7 +31,7 @@ a, a:hover {
  	</style>
 
 	<!-- MESSAGE SUBJECT -->
-	<title>Welcome</title>
+	<title>Booking Confirmation</title>
 
 </head>
 
@@ -51,26 +50,7 @@ a, a:hover {
 
 <!-- WRAPPER -->
 <!-- Set wrapper width (twice) -->
-<table border="0" cellpadding="0" cellspacing="0" align="center"
-	width="560" style="border-collapse: collapse; border-spacing: 0; padding: 0; ;
-	max-width: 560px;" class="wrapper">
 
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 6.25%; padding-right: 6.25%; width: 87.5%;
-			padding-top: 20px;
-			padding-bottom: 20px;">
-
-			<!-- PREHEADER -->
-			<!-- Set text color to background color -->
-
-			<!-- LOGO -->
-			
-			
-		</td>
-	</tr>
-
-<!-- End of WRAPPER -->
-</table>
 
 <!-- WRAPPER / CONTEINER -->
 <!-- Set conteiner background color -->
@@ -81,7 +61,6 @@ a, a:hover {
 
 	<!-- HEADER -->
 	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
-	
 
 	<tr>
 		<td align="center" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 24px; font-weight: bold; line-height: 130%;
@@ -89,8 +68,8 @@ a, a:hover {
 			color: #000000;
 			font-family: sans-serif;" class="header">
 			<img border="0" vspace="0" hspace="0"
-			src="https://houmuch.s3.amazonaws.com/houmuch/verification.jpg"
-			width="302" height="213"
+			src="https://houmuch.s3.amazonaws.com/houmuch/lights.png"
+			width="210" height="157"
 			alt="Logo" title="Logo" style="
 			color: #000000;
 			font-size: 10px; margin: 0; padding: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; border: none; display: block;" />
@@ -98,34 +77,64 @@ a, a:hover {
 	</tr>
 
 	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 24px; font-weight: bold; line-height: 130%;
-			padding-top: 50px;
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 24px; font-weight: bold; line-height: 130%;
+            padding-top: 50px;
+            color: #000000;
+            font-family: sans-serif;" class="header">
+            Congratulations! A new booking for "{{ property_name }}" has been confirmed!
+        </td>
+    </tr>
+
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+            padding-top: 20px;
+            color: #000000;
+            font-family: sans-serif;" class="subheader">
+            Please find below the details of the upcoming stay. This includes information about the guest, the check in and check out date of their stay, and any specific requirements or notes they have provided. Please review the following information to ensure a smooth and welcoming experience for your guest:
+        </td>
+    </tr>
+    
+
+	<tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
 			color: #000000;
 			font-family: sans-serif;" class="header">
-				Hello {{hotel_name}}!
-				
-		</td>
-	</tr>
-	
-	<!-- SUBHEADER -->
-	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
-			padding-top: 20px;
-			color: #000000;
-			font-family: sans-serif;" class="subheader">
-			Welcome to our community of business owners! Your account has been successfully verified and is now partially activated. <br>
-			We're thrilled to have you with us! <br>
-			To fully unlock all the features of your account, please complete the email verification process.
+            Booking Detail:
 		</td>
 	</tr>
 
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+            padding-top: 20px;
+            color: #000000;
+            font-family: sans-serif;" class="subheader">
+            Lead Guest: {{ guest_name }} <br>
+			Room Name: {{ room_name }} <br>
+            Room Type: {{ room_type }} <br>
+            Occupancy: {{ num_of_adults }} adults, {{ num_of_children }} children <br>
+            Amount: {{ amount }} <br>
+            Check-in Date: {{ check_in_date }} <br>
+            Check-out Date: {{ check_out_date }} <br>
+            Number of Rooms: {{ num_of_rooms }} <br>
+            Guest Email: {{ guest_email }} <br>
+            Guest Phone Number: {{ guest_number }} <br>
+        </td>
+    </tr>
+
+
+	<tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+            padding-top: 20px;
+            color: #000000;
+            font-family: sans-serif;" class="subheader">
+            We hope you are prepared for the upcoming stay at {{ property_name }}. Please ensure all areas are clean, welcoming, and ready for our guests to facilitate a smooth check-in process. <br>
+        </td>
+    </tr>
 
 
 	<!-- BUTTON -->
-
-
-	<tr>
+	
+    <tr>
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
 			padding-top: 20px;
 			color: #000000;

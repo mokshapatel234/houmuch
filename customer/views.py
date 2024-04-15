@@ -2,9 +2,10 @@ from rest_framework import permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
-from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
+from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, GuestDetail, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
+from .email_utils import vendor_cancellation_data, customer_cancellation_data, customer_welcome_data
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
@@ -136,12 +137,7 @@ class CustomerProfileView(APIView):
                     if Customer.objects.filter(email=email).exists():
                         return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
                     else:
-                        data = {
-                            "subject": f'Welcome {request.user.first_name}',
-                            "email": email,
-                            "template": "welcome_customer.html",
-                            "context": {'first_name': request.user.first_name, 'last_name': request.user.last_name}
-                        }
+                        data = customer_welcome_data(request, email)
                         send_mail(data)
                 serializer.save()
                 response_data = {
@@ -404,7 +400,7 @@ class PayNowView(APIView):
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         order_data = {
@@ -508,13 +504,14 @@ class CancelBookingView(APIView):
             id = self.kwargs.get('id')
             booking = BookingHistory.objects.get(id=id)
             check_in_date = booking.check_in_date.date()
-
+            guest = GuestDetail.objects.get(booking=booking)
             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner, status=True)
             days_before_check_in = (check_in_date - timezone.now().date()).days
             check_in_time = booking.property.check_in_time
             if not cancellation_policies.exists():
                 refund_amount = 0
+                cancellation_charge_percentage = 0
             else:
                 cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
                 cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
@@ -524,6 +521,10 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
                     response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                    customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage, is_cancel=True if cancellation_policies.exists() else False)
+                    send_mail(customer_data)
+                    send_mail(vendor_data)
                     return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -543,6 +544,10 @@ class CancelBookingView(APIView):
                     "currency": booking.currency,
                     "account": owner.account_id
                 }
+                customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
+                vendor_data = vendor_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, transfer_amount, cancellation_charge_amount, commission_percent, is_cancel=True)
+                send_mail(customer_data)
+                send_mail(vendor_data)
                 direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
