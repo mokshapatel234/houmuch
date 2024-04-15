@@ -1,8 +1,8 @@
 from django.conf import settings
 
 
-def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage=0,
-                             transfer_amount=0, cancellation_charge_amount=0, commission_percent=0, is_cancel=False):
+def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage=0, transfer_amount=0,
+                             cancellation_charge_amount=0, commission_percent=0, cancellations_this_month=0, is_cancel=False, cancel_by_owner=False):
     return {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
             "email": booking.property.owner.email,
             "template": "vendor_cancellation.html",
@@ -18,16 +18,19 @@ def vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_
                         'num_of_adults': guest.no_of_adults,
                         'num_of_children': guest.no_of_adults,
                         'check_in_date': booking.check_in_date.date(),
+                        'check_out_date': booking.check_out_date.date(),
                         'cancel_reason': booking.cancel_reason,
                         'cancellation_percents': cancellation_charge_percentage,
                         'refund_amount': refund_amount,
                         'transfer_amount': transfer_amount,
                         'non_refunded_amount': cancellation_charge_amount,
                         'commission_percent': commission_percent,
-                        'is_cancel': is_cancel}}
+                        'is_cancel': is_cancel,
+                        'cancel_by_owner': cancel_by_owner,
+                        'cancellations_this_month': cancellations_this_month}}
 
 
-def customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=False):
+def customer_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage=0, is_cancel=False, cancel_by_owner=False):
     return {"subject": f"Booking Cancellation: Check-in on {booking.check_in_date.date()}",
             "email": booking.customer.email,
             "template": "customer_cancellation.html",

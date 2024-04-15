@@ -109,7 +109,7 @@ a, a:hover {
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
 			color: #000000;
 			font-family: sans-serif;" class="header">
-            Cancellation Detail:
+            Cancellation Details:
 		</td>
 	</tr>
 
@@ -144,7 +144,9 @@ a, a:hover {
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-top: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 16px; line-height: 150%;
 			color: #000000;
 			font-family: sans-serif;">
-			{% if is_cancel %}
+			{% if cancel_by_owner %}
+			We sincerely apologize for the inconvenience, but due to unforeseen circumstances requiring urgent attention at the property, the owner has had to cancel your booking. Rest assured, you will receive a full refund of the booking amount. This refund will be processed and returned to your account within 5-7 business days.
+			{% elif is_cancel %}
 			According to our cancellation policy, a cancellation fee of {{ cancellation_percents }}% of the total booking amount is charged upon cancellation.
 			{% if refund_amount > 0 %}
 			As a result, the refundable amount of {{ refund_amount }} will be processed and returned to your account within 5-7 business days.

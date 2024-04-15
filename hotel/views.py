@@ -51,8 +51,8 @@ from django.db.models import F, Func
 import calendar
 from django.db.models import Sum
 from customer.models import Customer
-from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, \
-    vendor_otp_data, vendor_property_verification_data, vendor_room_verification_data
+from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, vendor_cancellation_data, \
+    vendor_otp_data, vendor_property_verification_data, vendor_room_verification_data, customer_cancellation_data
 
 
 class HotelRegisterView(APIView):
@@ -862,6 +862,7 @@ class CancelBookingView(APIView):
         try:
             id = self.kwargs.get('id')
             booking = BookingHistory.objects.get(id=id)
+            guest = GuestDetail.objects.get(booking=booking)
             check_in_date = booking.check_in_date.date()
             current_date = now().date()
             cancellations_this_month = BookingHistory.objects.filter(
@@ -881,6 +882,10 @@ class CancelBookingView(APIView):
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
+                    customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month, cancel_by_owner=True, )
+                    send_mail(customer_data)
+                    send_mail(vendor_data)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -893,6 +898,10 @@ class CancelBookingView(APIView):
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
+                    customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month, cancel_by_owner=True)
+                    send_mail(customer_data)
+                    send_mail(vendor_data)
                     serializer.save(is_cancel=True, cancel_date=now())
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:

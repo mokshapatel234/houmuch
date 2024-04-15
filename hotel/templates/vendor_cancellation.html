@@ -100,44 +100,64 @@ a, a:hover {
             padding-top: 20px;
             color: #000000;
             font-family: sans-serif;" class="subheader">
-            We regret to inform you that the booking (Booking ID: {{ booking_id }}) scheduled for check-in on {{ check_in_date }} has been canceled due to unforeseen circumstances.
+            {% if cancel_by_owner %}
+                The cancellation of the booking (Booking ID: {{ booking_id }}) scheduled for check-in on {{ check_in_date }} has been successfully processed as per your request.
+            {% else %}
+                We regret to inform you that the booking (Booking ID: {{ booking_id }}) scheduled for check-in on {{ check_in_date }} has been canceled due to unforeseen circumstances.
+            {% endif %}
         </td>
     </tr>
     
-    
-
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
-			color: #000000;
-			font-family: sans-serif;" class="header">
-            Cancellation Details:
-		</td>
-	</tr>
-
     <tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
-			padding-top: 20px;
-			color: #000000;
-			font-family: sans-serif;" class="subheader">
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
+            color: #000000;
+            font-family: sans-serif;" class="header">
+            Cancellation Details:
+        </td>
+    </tr>
+    
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+            padding-top: 20px;
+            color: #000000;
+            font-family: sans-serif;" class="subheader">
             Lead Guest: {{ guest_name }} <br>
-			Room Name: {{ room_name }} <br>
-			Room Type: {{ room_type }} <br>
-			Guest Email: {{ guest_email }} <br>
+            Room Name: {{ room_name }} <br>
+            Room Type: {{ room_type }} <br>
+            Guest Email: {{ guest_email }} <br>
             Guest Phone Number: {{ guest_number }} <br>
             Check-in Date: {{ check_in_date }} <br>
-			Check-out Date: {{ check_out_date }} <br>
-			Occupancy: {{ num_of_adults }} adults, {{ num_of_children }} children <br>
-			Number Of Rooms: {{num_of_rooms}} <br>
-			Amount: {{ amount }} <br>
-            Cancellation Reason: {{cancel_reason}}
-		</td>
-	</tr>
+            Check-out Date: {{ check_out_date }} <br>
+            Occupancy: {{ num_of_adults }} adults, {{ num_of_children }} children <br>
+            Number Of Rooms: {{ num_of_rooms }} <br>
+            Amount: {{ amount }} <br>
+            Cancellation Reason: {{ cancel_reason }}
+        </td>
+    </tr>
+    
+    {% if cancel_by_owner %}
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
+            color: #000000;
+            font-family: sans-serif;" class="header">
+            Important Notice:
+        </td>
+    </tr>
+    
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-top: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 16px; line-height: 150%;
+            color: #000000;
+            font-family: sans-serif;">
+            Please be reminded that as a property owner, you are allowed to cancel a maximum of two (2) bookings per month to maintain service reliability and trust with our users. This is cancellation number {{ cancellations_this_month }} of the month.
+        </td>
+    </tr>
+    {% else %}
 
     <tr>
         <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
             color: #000000;
             font-family: sans-serif;" class="header">
-            Amount Details:
+            Cancellation Notification:
     </tr>
 
     <tr>
@@ -168,7 +188,7 @@ a, a:hover {
         </td>
     </tr>
     
-    
+    {% endif %}
     
     
 

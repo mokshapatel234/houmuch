@@ -521,7 +521,7 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
                     response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
-                    customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
+                    customer_data = customer_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage, is_cancel=True if cancellation_policies.exists() else False)
                     vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage, is_cancel=True if cancellation_policies.exists() else False)
                     send_mail(customer_data)
                     send_mail(vendor_data)
@@ -544,16 +544,16 @@ class CancelBookingView(APIView):
                     "currency": booking.currency,
                     "account": owner.account_id
                 }
-                customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
-                vendor_data = vendor_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, transfer_amount, cancellation_charge_amount, commission_percent, is_cancel=True)
-                send_mail(customer_data)
-                send_mail(vendor_data)
                 direct_transfer_response = razorpay_request("/v1/transfers", "post", data=transfer_data)
                 if direct_transfer_response.status_code != 200:
                     return error_response(DIRECT_TRANSFER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
+                customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
+                vendor_data = vendor_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, transfer_amount, cancellation_charge_amount, commission_percent, is_cancel=True)
+                send_mail(customer_data)
+                send_mail(vendor_data)
                 response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
                 return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
