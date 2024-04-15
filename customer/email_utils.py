@@ -69,24 +69,24 @@ def vendor_booking_confirmation_data(booking, guest):
 
 
 def customer_booking_confirmation_data(booking, guest, policies):
-    {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
-     "email": booking.customer.email,
-     "template": "customer_confirm_booking.html",
-     "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
-                 'property_name': booking.property.owner.hotel_name,
-                 'property_email': booking.property.owner.email,
-                 'property_phone_number': booking.property.owner.phone_number,
-                 'address': booking.property.owner.address,
-                 'property_id': booking.property.id,
-                 'room_name': booking.rooms.room_name,
-                 'room_type': booking.rooms.room_type,
-                 'floor': booking.rooms.floor,
-                 'amount': booking.amount,
-                 'num_of_adults': guest.no_of_adults,
-                 'num_of_children': guest.no_of_adults,
-                 'check_in_date': booking.check_in_date.date(),
-                 'check_out_date': booking.check_out_date.date(),
-                 'policies': policies}}
+    return {"subject": f"Booking Confirmation: Check-in on {booking.check_in_date.date()}",
+            "email": booking.customer.email,
+            "template": "customer_confirm_booking.html",
+            "context": {'customer_name': booking.customer.first_name + ' ' + booking.customer.last_name,
+                        'property_name': booking.property.owner.hotel_name,
+                        'property_email': booking.property.owner.email,
+                        'property_phone_number': booking.property.owner.phone_number,
+                        'address': booking.property.owner.address,
+                        'property_id': booking.property.id,
+                        'room_name': booking.rooms.room_name,
+                        'room_type': booking.rooms.room_type,
+                        'floor': booking.rooms.floor,
+                        'amount': booking.amount,
+                        'num_of_adults': guest.no_of_adults,
+                        'num_of_children': guest.no_of_adults,
+                        'check_in_date': booking.check_in_date.date(),
+                        'check_out_date': booking.check_out_date.date(),
+                        'policies': policies}}
 
 
 def customer_welcome_data(request, email):
