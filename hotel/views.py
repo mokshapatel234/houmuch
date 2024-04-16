@@ -489,8 +489,8 @@ class RoomInventoryViewSet(ModelViewSet):
             return self.get_paginated_response(serialized_data)
             # set_cache("room_inventory_list", request.user, serialized_data)
             # return response_data
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def update(self, request, *args, **kwargs):
         try:

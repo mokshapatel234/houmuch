@@ -400,7 +400,7 @@ class PayNowView(APIView):
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         order_data = {
@@ -560,4 +560,4 @@ class CancelBookingView(APIView):
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(e)
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
