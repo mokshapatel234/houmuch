@@ -15,7 +15,8 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year, \
+    get_updated_inventory
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
     NOT_REGISTERED_MESSAGE, OWNER_NOT_FOUND_MESSAGE, PROFILE_MESSAGE, PROFILE_UPDATE_MESSAGE, \
@@ -478,54 +479,10 @@ class RoomInventoryViewSet(ModelViewSet):
             today = now().date()
             start_date = today.replace(day=1)
             end_date = start_date + relativedelta(months=+6)
-
-            def get_updated_inventory(room_inventory):
-                updated_inventory = UpdateInventoryPeriod.objects.filter(
-                    room_inventory=room_inventory,
-                    date__range=(start_date, end_date),
-                    is_deleted=False,
-                ).select_related('request', 'type').annotate(
-                    month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
-                    year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
-                ).order_by('year', 'month', 'type')
-
-                grouped_data = []
-                multi_range_data = []  # Separate list for multi-range dates
-
-                for item in updated_inventory:
-                    if item.type_id == 3 and item.request:  # Handling multi-range dates
-                        request_id_group = next((g for g in multi_range_data if g.get('request_id') == item.request_id), None)
-                        if not request_id_group:
-                            request_details = item.request.request if item.request else "Unknown Request"
-                            request_id_group = {
-                                'request_id': item.request_id,
-                                'request_details': request_details,
-                                'types': defaultdict(list)
-                            }
-                            multi_range_data.append(request_id_group)
-                        serialized_item = UpdateInventoryPeriodSerializer(item).data
-                        request_id_group['types'][item.type.type].append(serialized_item)
-                    else:  # Regular updates
-                        month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
-                        month_year_group = next((g for g in grouped_data if g.get('month_year') == month_year), None)
-                        if not month_year_group:
-                            month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
-                            grouped_data.append(month_year_group)
-                        serialized_item = UpdateInventoryPeriodSerializer(item).data
-                        month_year_group['types'][item.type.type].append(serialized_item)
-
-                for group in grouped_data:
-                    group['types'] = dict(group['types'])
-
-                return {
-                    'regular_updates': grouped_data,
-                    'multi_range_updates': multi_range_data  # Adding the multi-range updates to the final output
-                }
-
             serialized_data = []
             for room_inventory in page:
                 inventory_data = RoomInventoryOutSerializer(room_inventory).data
-                updated_inventory = get_updated_inventory(room_inventory)
+                updated_inventory = get_updated_inventory(room_inventory, start_date, end_date)
                 inventory_data['updated_inventory'] = updated_inventory
                 serialized_data.append(inventory_data)
 
