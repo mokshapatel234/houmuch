@@ -171,6 +171,8 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 
 
 class UpdatedPeriodSerializer(serializers.ModelSerializer):
+    dates = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = UpdateInventoryPeriod
         exclude = ['created_at', 'updated_at', 'room_inventory']

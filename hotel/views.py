@@ -478,7 +478,7 @@ class RoomInventoryViewSet(ModelViewSet):
             page = self.paginate_queryset(queryset)
             today = now().date()
             start_date = today.replace(day=1)
-            end_date = start_date + relativedelta(months=+6)
+            end_date = start_date + relativedelta(months=+4)
             serialized_data = []
             for room_inventory in page:
                 inventory_data = RoomInventoryOutSerializer(room_inventory).data
