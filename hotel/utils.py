@@ -119,17 +119,17 @@ def generate_date_range(start_date, end_date):
 def update_period(updated_period_data, instance):
     dates = updated_period_data.pop('dates', [])
     removed_dates = updated_period_data.pop('removed_dates', [])
-
-    dates_str = ', '.join(dates)
-    update_request = UpdateRequest(request=dates_str)
-    update_request.save()
+    type_id = updated_period_data['type']
+    if dates:
+        dates_str = ', '.join(dates)
+        update_request = UpdateRequest(request=dates_str)
+        update_request.save()
 
     new_periods = []
     update_map = {}
-    if not dates:
+    if not dates and type_id == 1:
         dates = [now().date()]
     if 'type' in updated_period_data:
-        type_id = updated_period_data['type']
         updated_period_data['type'] = UpdateType.objects.get(id=type_id)
         if type_id == 3 and dates:
             all_dates_within_ranges = []
@@ -139,7 +139,6 @@ def update_period(updated_period_data, instance):
                     start_date, end_date = sorted_dates[i], sorted_dates[i + 1]
                     all_dates_within_ranges.extend(generate_date_range(start_date, end_date))
             dates = all_dates_within_ranges
-
     for date in dates:
         updated_period_data_copy = copy.deepcopy(updated_period_data)
         updated_period_data_copy['date'] = date
@@ -154,13 +153,32 @@ def update_period(updated_period_data, instance):
         UpdateInventoryPeriod.objects.bulk_create(new_periods)
     if update_map:
         UpdateInventoryPeriod.objects.bulk_update(update_map.values(), updated_period_data_copy.keys())
-    if removed_dates:
-        removed_dates = [parser.parse(date).date() if isinstance(date, str) else date for date in removed_dates]
+    if removed_dates and type_id == 3:
+        payload_removed_dates_set = set(removed_dates)
+        print(payload_removed_dates_set, "REMMMOVVVED")
+        processed_removed_dates = []
+        for i in range(0, len(removed_dates), 2):
+            start_date = parser.parse(removed_dates[i]).date()
+            end_date = parser.parse(removed_dates[i + 1]).date() if i + 1 < len(removed_dates) else start_date
+            processed_removed_dates.extend(generate_date_range(start_date, end_date))
+        removed_dates = [date.strftime('%Y-%m-%d') for date in processed_removed_dates]
+
         instances_to_mark_deleted = UpdateInventoryPeriod.objects.filter(
             room_inventory=instance,
-            date__in=removed_dates
+            date__in=[parser.parse(date).date() for date in removed_dates]
         )
-        instances_to_mark_deleted.update(is_deleted=True, deleted_at=now())
+        instances_to_mark_deleted.update(is_deleted=True, deleted_at=datetime.now())
+        update_requests_to_check = {instance.request for instance in instances_to_mark_deleted}
+        for update_request in update_requests_to_check:
+            current_dates = set(update_request.request.split(', '))
+            if current_dates == payload_removed_dates_set:
+                update_request.is_deleted = True
+                update_request.deleted_at = datetime.now()
+                update_request.save()
+            else:
+                updated_dates = current_dates - payload_removed_dates_set
+                update_request.request = ', '.join(sorted(updated_dates))
+                update_request.save()
 
 
 def get_days_before_check_in(booking, days_before_check_in):
