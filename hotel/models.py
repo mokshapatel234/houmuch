@@ -295,6 +295,7 @@ class PropertyDeal(models.Model):
 
 
 class BookingHistory(models.Model):
+    booking_id = models.CharField(max_length=255, unique=True, editable=False, null=True)
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_book')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_book')
     property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal', null=True)
@@ -309,7 +310,7 @@ class BookingHistory(models.Model):
     is_cancel = models.BooleanField(default=False)
     cancel_by_owner = models.BooleanField(default=False)
     cancel_date = models.DateTimeField(null=True)
-    cancel_reason = models.TextField(null=True)
+    cancel_reason = models.TextField(null=True, blank=True)
     book_status = models.BooleanField(default=False)
     payment_id = models.CharField(max_length=20, null=True)
     is_confirmed = models.BooleanField(default=False)

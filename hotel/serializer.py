@@ -377,6 +377,8 @@ class CancellationReasonSerializer(serializers.ModelSerializer):
 
 
 class CancelBookingSerializer(serializers.ModelSerializer):
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = BookingHistory
         fields = ['cancel_reason']
