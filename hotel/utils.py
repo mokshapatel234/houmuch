@@ -155,7 +155,6 @@ def update_period(updated_period_data, instance):
         UpdateInventoryPeriod.objects.bulk_update(update_map.values(), updated_period_data_copy.keys())
     if removed_dates and type_id == 3:
         payload_removed_dates_set = set(removed_dates)
-        print(payload_removed_dates_set, "REMMMOVVVED")
         processed_removed_dates = []
         for i in range(0, len(removed_dates), 2):
             start_date = parser.parse(removed_dates[i]).date()
