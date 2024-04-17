@@ -170,7 +170,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
                   'is_verified', 'created_at', 'updated_at']
 
 
-class UpdatedPeriodSerializer(serializers.ModelSerializer):
+class UpdatedPeriodSerializer(DynamicFieldsModelSerializer):
     dates = serializers.ListField(child=serializers.CharField(), required=False)
 
     class Meta:

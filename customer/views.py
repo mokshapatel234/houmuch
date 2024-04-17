@@ -321,9 +321,9 @@ class OrderSummaryView(ListAPIView):
                     'num_of_rooms': int(num_of_rooms),
                     'available_rooms': adjusted_availability,
                     'total_price': total_price,
-                    'gst_rate': gst_rate * 100,
-                    'gst_amount': gst_amount,
-                    'final_price': final_price,
+                    'gst_rate': round(gst_rate * 100),
+                    'gst_amount': round(gst_amount),
+                    'final_price': round(final_price),
                 },
                 'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
             }, status=status.HTTP_200_OK)
@@ -398,8 +398,7 @@ class PayNowView(APIView):
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
@@ -558,6 +557,5 @@ class CancelBookingView(APIView):
                 return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
