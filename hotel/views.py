@@ -13,7 +13,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, BookingRetrieveSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer, UpdatedPeriodSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
     error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year, \
     get_updated_inventory
@@ -51,9 +51,11 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import F, Func
 import calendar
 from django.db.models import Sum
+from customer.utils import calculate_available_rooms
 from customer.models import Customer
 from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, vendor_cancellation_data, \
     vendor_otp_data, vendor_property_verification_data, vendor_room_verification_data, customer_cancellation_data
+from datetime import datetime
 
 
 class HotelRegisterView(APIView):
@@ -120,8 +122,7 @@ class HotelLoginView(APIView):
 
         except Owner.DoesNotExist:
             return error_response(NOT_REGISTERED_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -271,8 +272,7 @@ class MasterRetrieveView(ListAPIView):
                 }
                 # set_cache("master_list", request.user, response_data)
             return Response(response_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
@@ -432,8 +432,7 @@ class RoomInventoryViewSet(ModelViewSet):
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
@@ -528,8 +527,7 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
@@ -858,7 +856,7 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
                     customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
-                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month, cancel_by_owner=True, )
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
@@ -874,15 +872,47 @@ class CancelBookingView(APIView):
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
                     customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
-                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
                     serializer.save(is_cancel=True, cancel_date=now())
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateInventoryList(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    pagination_class = CustomPagination
+
+    def list(self, request, *args, **kwargs):
+        try:
+            property = kwargs.get('id')
+            queryset = RoomInventory.objects.filter(property=property)
+            page = self.paginate_queryset(queryset)
+            date_str = kwargs.get('date', datetime.now().strftime('%Y-%m-%d'))
+            start_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            end_date = start_date + relativedelta(months=+4)
+            results = []
+            for room_inventory in page:
+                update = UpdateInventoryPeriod.objects.filter(room_inventory=room_inventory, date=start_date).first()
+                updated_inventory = get_updated_inventory(room_inventory, start_date, end_date)
+                _, available_rooms, _ = calculate_available_rooms(RoomInventory.objects.get(id=room_inventory.id), start_date, start_date, self.request.session)
+                if update:
+                    serializer = UpdatedPeriodSerializer(update, fields=('default_price', 'min_price', 'max_price', 'deal_price', 'num_of_rooms'))
+                else:
+                    serializer = UpdatedPeriodSerializer(room_inventory, fields=('default_price', 'min_price', 'max_price', 'deal_price', 'num_of_rooms'))
+                room_inventory_data = RoomInventoryOutSerializer(room_inventory, fields=('id', 'room_type', 'room_name', 'images', 'status')).data
+                results.append({
+                    'room_inventory': {**room_inventory_data, **serializer.data, "available_rooms": available_rooms},
+                    'updated_inventory': updated_inventory
+                })
+
+            return self.get_paginated_response(results)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
