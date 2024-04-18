@@ -422,7 +422,7 @@ class Ratings(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.ratings
+        return str(self.ratings)
 
 
 class CancellationReason(models.Model):

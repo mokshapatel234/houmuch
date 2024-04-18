@@ -527,8 +527,8 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -893,7 +893,7 @@ class UpdateInventoryList(ListAPIView):
             property = kwargs.get('id')
             queryset = RoomInventory.objects.filter(property=property)
             page = self.paginate_queryset(queryset)
-            date_str = kwargs.get('date', datetime.now().strftime('%Y-%m-%d'))
+            date_str = self.request.query_params.get('date', datetime.now().strftime('%Y-%m-%d'))
             start_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             end_date = start_date + relativedelta(months=+4)
             results = []
@@ -907,10 +907,11 @@ class UpdateInventoryList(ListAPIView):
                     serializer = UpdatedPeriodSerializer(room_inventory, fields=('default_price', 'min_price', 'max_price', 'deal_price', 'num_of_rooms'))
                 room_inventory_data = RoomInventoryOutSerializer(room_inventory, fields=('id', 'room_type', 'room_name', 'images', 'status')).data
                 results.append({
-                    'room_inventory': {**room_inventory_data, **serializer.data, "available_rooms": available_rooms},
+                    **room_inventory_data,
+                    **serializer.data,
+                    "available_rooms": available_rooms,
                     'updated_inventory': updated_inventory
                 })
-
             return self.get_paginated_response(results)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

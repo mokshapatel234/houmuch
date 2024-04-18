@@ -129,7 +129,9 @@ a, a:hover {
 			Occupancy: {{ num_of_adults }} adults, {{ num_of_children }} children <br>
 			Number Of Rooms: {{num_of_rooms}} <br>
 			Amount: {{ amount }} <br>
-            Cancellation Reason: {{cancel_reason}}
+			{% if cancel_reason %}
+            Cancellation Reason: {{cancel_reason}}			
+			{% endif %}
 		</td>
 	</tr>
 
