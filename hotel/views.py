@@ -856,7 +856,7 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
                     customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
-                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month+1, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
@@ -875,7 +875,7 @@ class CancelBookingView(APIView):
                     vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
-                    serializer.save(is_cancel=True, cancel_date=now())
+                    serializer.save(is_cancel=True, cancel_date=now(),cancel_by_owner=True)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
