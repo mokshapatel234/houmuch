@@ -432,8 +432,8 @@ class RoomInventoryViewSet(ModelViewSet):
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -770,7 +770,7 @@ class SubscriptionPlanView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
     pagination_class = CustomPagination
-    queryset = SubscriptionPlan.objects.all()
+    queryset = SubscriptionPlan.objects.all().order_by('id')
     serializer_class = SubscriptionPlanSerializer
 
 
