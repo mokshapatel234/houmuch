@@ -867,6 +867,7 @@ class CancelBookingView(APIView):
                 if order_response.status_code != 200:
                     return error_response(ORDER_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
                 refund_response = razorpay_request(f"/v1/payments/{booking.payment_id}/refund", "post", data={"amount": refund_amount * 100})
+                print(refund_response.json())
                 if refund_response.status_code != 200:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
