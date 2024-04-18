@@ -770,7 +770,7 @@ class SubscriptionPlanView(ListAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
     pagination_class = CustomPagination
-    queryset = SubscriptionPlan.objects.all()
+    queryset = SubscriptionPlan.objects.all().order_by('id')
     serializer_class = SubscriptionPlanSerializer
 
 
