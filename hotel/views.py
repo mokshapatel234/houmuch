@@ -403,13 +403,14 @@ class RoomInventoryViewSet(ModelViewSet):
             common_amenities = request.data.get('common_amenities', None)
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
+            num_of_rooms = request.data.get('num_of_rooms', None)
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             property_instance = Property.objects.get(id=property_id)
             number_of_rooms_limit = property_instance.number_of_rooms
             total_rooms = RoomInventory.objects.filter(property=property_instance).aggregate(total_rooms=Sum('num_of_rooms'))['total_rooms'] or 0
-            number_of_rooms_limit = property_instance.number_of_rooms
-            if total_rooms >= number_of_rooms_limit:
+            total_rooms_with_new = total_rooms + num_of_rooms
+            if total_rooms_with_new > number_of_rooms_limit:
                 return error_response(ADD_ROOM_LIMIT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             instance = serializer.save(property=property_instance)
             image_instances = []
@@ -856,7 +857,7 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
                     customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
-                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month+1, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month + 1, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
@@ -873,10 +874,10 @@ class CancelBookingView(APIView):
                 serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
                 if serializer.is_valid():
                     customer_data = customer_cancellation_data(booking, guest, refund_amount, cancel_by_owner=True)
-                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month, cancel_by_owner=True)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellations_this_month=cancellations_this_month + 1, cancel_by_owner=True)
                     send_mail(customer_data)
                     send_mail(vendor_data)
-                    serializer.save(is_cancel=True, cancel_date=now(),cancel_by_owner=True)
+                    serializer.save(is_cancel=True, cancel_date=now(), cancel_by_owner=True)
                     return deletion_success_response(REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)

@@ -157,7 +157,7 @@ class CustomerProfileView(APIView):
 class PropertyListView(generics.GenericAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    queryset = Property.objects.filter(is_verified=True).order_by('-id')
+    queryset = Property.objects.filter(is_verified=True, status=True).order_by('-id')
     serializer_class = PopertyListOutSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
