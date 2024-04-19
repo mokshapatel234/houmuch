@@ -178,6 +178,10 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
     room_image = serializers.SerializerMethodField()
     property_image = serializers.SerializerMethodField()
     owner_email = serializers.CharField(source='property.owner.email')
+    amount = serializers.SerializerMethodField()
+
+    def get_amount(self, obj):
+        return round(obj.amount)
 
     def get_room_image(self, obj):
         return RoomImage.objects.filter(room=obj.rooms).first().image
@@ -204,7 +208,7 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
     def get_cancellation_charges(self, instance):
         cancellation_policies = PropertyCancellation.objects.filter(property=instance.property).order_by('cancellation_days')
         if not cancellation_policies.exists():
-            return 0
+            return round(instance.amount)
         check_in_date = instance.check_in_date.date()
         days_before_check_in = (check_in_date - timezone.now().date()).days
         check_in_time_str = instance.property.check_in_time
@@ -218,12 +222,12 @@ class CustomerBookingSerializer(serializers.ModelSerializer):
                 cancellation_charge_percentage = policy.cancellation_percents
                 break
         cancellation_charge_amount = (instance.amount * cancellation_charge_percentage) / 100
-        return cancellation_charge_amount
+        return round(cancellation_charge_amount)
 
     class Meta:
         model = BookingHistory
         fields = ['id', 'customer', 'rooms', 'property', 'guest_details', 'cancellation_policy',
                   'cancellation_charges', 'num_of_rooms', 'order_id', 'transfer_id', 'check_in_date',
                   'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_by_owner', 'cancel_date',
-                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'owner_email',
+                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'booking_id', 'owner_email',
                   'payment_id', 'is_confirmed', 'created_at', 'property_deal']

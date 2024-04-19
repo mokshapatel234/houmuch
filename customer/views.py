@@ -16,7 +16,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, \
-    OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
+    ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, BOOKING_NOT_FOUND_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
     REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE, \
     PROPERTY_NOT_FOUND_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_CUSTOMER_MESSAGE
@@ -238,7 +238,7 @@ class PropertyRetriveView(RetrieveAPIView):
                 instance.room_inventory = RoomInventoryOutSerializer(room_instances).data
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PopertyListOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -281,7 +281,7 @@ class RoomRetriveView(RetrieveAPIView):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -462,7 +462,7 @@ class BookingRetrieveView(RetrieveAPIView):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -482,7 +482,7 @@ class PropertyRatingView(ListCreateAPIView):
                 serializer.save(property=property_instance, customer=self.request.user)
             return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Property.DoesNotExist:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 

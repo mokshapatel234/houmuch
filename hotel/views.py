@@ -26,7 +26,8 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     ACCOUNT_ERROR_MESSAGE, CREATE_PRODUCT_FAIL_MESSAGE, CANCELLATION_LIMIT_MESSAGE, \
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
     PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
-    ADD_ROOM_LIMIT_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE
+    ADD_ROOM_LIMIT_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE, EMAIL_ERROR_MESSAGE, PROPERTY_NOT_FOUND_MESSAGE, \
+    ROOM_NOT_FOUND_MESSAGE, BOOKING_NOT_FOUND_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -48,9 +49,8 @@ from collections import defaultdict
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import now
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, Func
+from django.db.models import F, Func, Sum
 import calendar
-from django.db.models import Sum
 from customer.utils import calculate_available_rooms
 from customer.models import Customer
 from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, vendor_cancellation_data, \
@@ -71,6 +71,8 @@ class HotelRegisterView(APIView):
                 return error_response(PHONE_REQUIRED_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Owner.objects.filter(phone_number=phone_number).exists():
                 return error_response(PHONE_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            if Owner.objects.filter(email=email).exists():
+                return error_response(EMAIL_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if Customer.objects.filter(phone_number=phone_number).exists():
                 return error_response(NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE, status.HTTP_400_BAD_REQUEST)
             else:
@@ -322,7 +324,7 @@ class PropertyViewSet(ModelViewSet):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -372,7 +374,7 @@ class PropertyViewSet(ModelViewSet):
                     PropertyImage.objects.filter(property=instance, image=removed_image_url).delete()
             return generate_response(updated_instance, DATA_UPDATE_MESSAGE, status.HTTP_200_OK, PropertyOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -433,6 +435,8 @@ class RoomInventoryViewSet(ModelViewSet):
             send_mail(data)
             # remove_cache("room_inventory_list", request.user)
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
+        except Property.DoesNotExist:
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
@@ -467,7 +471,7 @@ class RoomInventoryViewSet(ModelViewSet):
             }
             return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -535,7 +539,7 @@ class RoomInventoryViewSet(ModelViewSet):
             # remove_cache("room_inventory_list", request.user)
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
@@ -547,7 +551,7 @@ class RoomInventoryViewSet(ModelViewSet):
             RoomInventory.objects.filter(pk=instance.pk).delete()
             return deletion_success_response(DATA_DELETE_MESSAGE, status.HTTP_200_OK)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -730,7 +734,7 @@ class BookingRetrieveView(RetrieveAPIView):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
