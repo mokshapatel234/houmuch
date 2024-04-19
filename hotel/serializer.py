@@ -1,9 +1,10 @@
 from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, \
-    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, \
+    Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, BankingAddress, \
     Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
+from dateutil.relativedelta import relativedelta
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -62,20 +63,12 @@ class LoginSerializer(serializers.ModelSerializer):
 
 
 class OwnerProfileSerializer(DynamicFieldsModelSerializer):
+    category = CategorySerializer()
 
     class Meta:
         model = Owner
         fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
         read_only_fields = ('id', 'is_verified', 'is_active', 'is_email_verified')
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        category_instance = instance.category
-        if category_instance:
-            ret['category'] = CategorySerializer(category_instance).data
-        else:
-            ret['category'] = None
-        return ret
 
 
 class PropertyImageSerializer(serializers.ModelSerializer):
@@ -146,6 +139,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
     address = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     cancellation_policy = serializers.SerializerMethodField()
+    owner = OwnerProfileSerializer(fields=('hotel_name', 'email', 'phone_number'))
 
     def get_address(self, instance):
         owner = instance.owner
@@ -169,14 +163,16 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Property
-        fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+        fields = ['id', 'owner', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                   'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                   'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
                   'is_cancellation', 'status', 'is_online', 'address', 'images', 'cancellation_policy', 'hotel_class',
                   'is_verified', 'created_at', 'updated_at']
 
 
-class UpdatedPeriodSerializer(serializers.ModelSerializer):
+class UpdatedPeriodSerializer(DynamicFieldsModelSerializer):
+    dates = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = UpdateInventoryPeriod
         exclude = ['created_at', 'updated_at', 'room_inventory']
@@ -225,6 +221,12 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
         fields = ('otp',)
 
 
+class BankingAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankingAddress
+        exclude = ['created_at', 'updated_at', 'owner_banking']
+
+
 class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     email = serializers.CharField(required=False)
     phone = serializers.CharField(required=False)
@@ -234,10 +236,18 @@ class HotelOwnerBankingSerializer(serializers.ModelSerializer):
     type = serializers.CharField(required=False)
     account_id = serializers.CharField(required=False)
     status = serializers.BooleanField(required=False)
+    addresses = BankingAddressSerializer(required=False, write_only=True)
 
     class Meta:
         model = OwnerBankingDetail
-        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name', 'business_type', 'type', 'status']
+        fields = ['id', 'account_id', 'email', 'phone', 'contact_name', 'legal_business_name',
+                  'business_type', 'type', 'status', 'category', 'subcategory', 'addresses']
+
+    def create(self, validated_data):
+        address_data = validated_data.pop('addresses', {})
+        owner_banking_detail = OwnerBankingDetail.objects.create(**validated_data)
+        BankingAddress.objects.create(owner_banking=owner_banking_detail, **address_data)
+        return owner_banking_detail
 
 
 class SettlementSerializer(serializers.Serializer):
@@ -303,7 +313,9 @@ class AccountSerializer(HotelOwnerBankingSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         try:
+            address = BankingAddress.objects.get(owner_banking=instance)
             product = Product.objects.get(owner_banking=instance)
+            data['postal_code'] = address.postal_code if address else None
             data['product_id'] = product.product_id
             data['settlements_ifsc_code'] = product.settlements_ifsc_code
             data['settlements_beneficiary_name'] = product.settlements_beneficiary_name
@@ -328,10 +340,16 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class SubscriptionOutSerializer(serializers.ModelSerializer):
     subscription_plan = SubscriptionPlanSerializer()
     owner = OwnerProfileSerializer(fields=('hotel_name', 'email', 'phone_number'))
+    start_date = serializers.DateTimeField(source='created_at', format='%Y-%m-%d')
+    end_date = serializers.SerializerMethodField()
+
+    def get_end_date(self, obj):
+        end_date = obj.created_at + relativedelta(months=obj.subscription_plan.duration)
+        return end_date.strftime('%Y-%m-%d')
 
     class Meta:
         model = SubscriptionTransaction
-        fields = '__all__'
+        fields = ['id', 'subscription_plan', 'owner', 'razorpay_subscription_id', 'payment_status', 'start_date', 'end_date']
 
 
 class RatingsOutSerializer(serializers.ModelSerializer):
@@ -361,6 +379,8 @@ class CancellationReasonSerializer(serializers.ModelSerializer):
 
 
 class CancelBookingSerializer(serializers.ModelSerializer):
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = BookingHistory
         fields = ['cancel_reason']

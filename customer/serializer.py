@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import Customer
-from hotel.serializer import PropertyOutSerializer
-from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation
-from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, BookingRetrieveSerializer
+from hotel.serializer import PropertyOutSerializer, DynamicFieldsModelSerializer
+from hotel.models import Property, RoomInventory, BookingHistory, GuestDetail, Ratings, PropertyCancellation, RoomImage, PropertyImage
+from hotel.serializer import RoomInventoryOutSerializer, RoomTypeSerializer, CancellationSerializer
 from django.db.models import Avg
 from django.utils import timezone
 from datetime import datetime
@@ -26,7 +26,7 @@ class LoginSerializer(serializers.ModelSerializer):
         read_only_fields = ['first_name', 'last_name', 'email', 'profile_image', 'address', 'government_id', 'created_at', 'updated_at', 'deleted_at']
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class ProfileSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Customer
         fields = ['first_name', 'last_name', 'phone_number', 'email', 'address', 'government_id', 'profile_image']
@@ -34,6 +34,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class RoomInventorySerializer(serializers.ModelSerializer):
     available_rooms = serializers.IntegerField()
+    room_type = RoomTypeSerializer()
     # updated_period = serializers.SerializerMethodField()
     # is_updated_period = serializers.SerializerMethodField()
 
@@ -72,7 +73,7 @@ class RoomInventoryListSerializer(RoomInventoryOutSerializer):
         updated_availability = self.context.get('adjusted_availability', {})
         if instance.id in updated_availability:
             ret['available_rooms'] = updated_availability[instance.id]['available_rooms']
-            ret['default_price'] = updated_availability[instance.id]['effective_price']
+            ret['default_price'] = round(updated_availability[instance.id]['effective_price'])
         return ret
 
 
@@ -94,23 +95,32 @@ class PopertyListOutSerializer(PropertyOutSerializer):
 
 
 class OrderSummarySerializer(RoomInventorySerializer):
-    property_name = serializers.SerializerMethodField()
+    property_name = serializers.CharField(source='property.owner.hotel_name')
     room_type = RoomTypeSerializer()
-    owner_email = serializers.SerializerMethodField()
-    owner_phone_number = serializers.SerializerMethodField()
+    owner_email = serializers.CharField(source='property.owner.email')
+    owner_phone_number = serializers.CharField(source='property.owner.phone_number')
+    address = serializers.CharField(source='property.owner.address')
+    hotel_class = serializers.IntegerField(source='property.hotel_class')
+    image = serializers.SerializerMethodField()
+    cancellation_policy = serializers.SerializerMethodField()
+    customer = serializers.SerializerMethodField()
 
-    def get_property_name(self, obj):
-        return obj.property.owner.hotel_name
+    def get_customer(self, obj):
+        user = self.context.get('user', {})
+        return ProfileSerializer(user, fields=['first_name', 'last_name', 'email', 'phone_number']).data
 
-    def get_owner_email(self, obj):
-        return obj.property.owner.email
+    def get_image(self, obj):
+        image = RoomImage.objects.filter(room=obj).first()
+        return image.image
 
-    def get_owner_phone_number(self, obj):
-        return obj.property.owner.phone_number
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
 
     class Meta:
         model = RoomInventory
-        fields = ['id', 'default_price', 'property_name', 'children_capacity', 'room_type', 'owner_email', 'owner_phone_number', 'is_verified', 'status']
+        fields = ['id', 'customer', 'default_price', 'property_name', 'room_name', 'adult_capacity', 'children_capacity', 'room_type',
+                  'address', 'owner_email', 'owner_phone_number', 'hotel_class', 'is_verified', 'status', 'image', 'cancellation_policy']
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -155,13 +165,50 @@ class RatingSerializer(serializers.ModelSerializer):
         exclude = ['customer', 'property']
 
 
-class CustomerBookingSerializer(BookingRetrieveSerializer):
+class CustomerBookingSerializer(serializers.ModelSerializer):
+    customer = ProfileSerializer(fields=('first_name', 'last_name', 'phone_number'))
+    rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type', 'room_view', 'area_sqft', 'bed_type', 'room_features'))
+    property = PropertyOutSerializer(fields=('parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
+                                             'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
+                                             'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
+                                             'is_cancellation', 'address', 'hotel_class'))
+    guest_details = serializers.SerializerMethodField()
+    cancellation_policy = serializers.SerializerMethodField()
     cancellation_charges = serializers.SerializerMethodField()
+    room_image = serializers.SerializerMethodField()
+    property_image = serializers.SerializerMethodField()
+    owner_email = serializers.CharField(source='property.owner.email')
+    amount = serializers.SerializerMethodField()
+
+    def get_amount(self, obj):
+        return round(obj.amount)
+
+    def get_room_image(self, obj):
+        return RoomImage.objects.filter(room=obj.rooms).first().image
+
+    def get_property_image(self, obj):
+        return PropertyImage.objects.filter(property=obj.property).first().image
+
+    def get_cancellation_policy(self, obj):
+        cancellation_policies = [CancellationSerializer(policy).data for policy in PropertyCancellation.objects.filter(property=obj.property)]
+        return cancellation_policies
+
+    def get_guest_details(self, instance):
+        guests = GuestDetail.objects.filter(booking=instance).first()
+        if not guests:
+            return None
+        details = {
+            'num_of_adults': guests.no_of_adults,
+            'num_of_children': guests.no_of_children,
+            'ages_of_children': guests.age_of_children,
+            'total_guests': guests.no_of_adults + guests.no_of_children,
+        }
+        return details
 
     def get_cancellation_charges(self, instance):
         cancellation_policies = PropertyCancellation.objects.filter(property=instance.property).order_by('cancellation_days')
         if not cancellation_policies.exists():
-            return 0
+            return round(instance.amount)
         check_in_date = instance.check_in_date.date()
         days_before_check_in = (check_in_date - timezone.now().date()).days
         check_in_time_str = instance.property.check_in_time
@@ -175,10 +222,12 @@ class CustomerBookingSerializer(BookingRetrieveSerializer):
                 cancellation_charge_percentage = policy.cancellation_percents
                 break
         cancellation_charge_amount = (instance.amount * cancellation_charge_percentage) / 100
-        return cancellation_charge_amount
+        return round(cancellation_charge_amount)
 
-    def to_representation(self, instance):
-        ret = super(CustomerBookingSerializer, self).to_representation(instance)
-        ret.pop('num_of_adults', None)
-        ret.pop('num_of_children', None)
-        return ret
+    class Meta:
+        model = BookingHistory
+        fields = ['id', 'customer', 'rooms', 'property', 'guest_details', 'cancellation_policy',
+                  'cancellation_charges', 'num_of_rooms', 'order_id', 'transfer_id', 'check_in_date',
+                  'check_out_date', 'amount', 'currency', 'is_cancel', 'cancel_by_owner', 'cancel_date',
+                  'cancel_reason', 'room_image', 'property_image', 'book_status', 'booking_id', 'owner_email',
+                  'payment_id', 'is_confirmed', 'created_at', 'property_deal']

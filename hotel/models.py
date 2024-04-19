@@ -214,6 +214,17 @@ class UpdateType(models.Model):
         return self.type
 
 
+class UpdateRequest(models.Model):
+    request = models.TextField()
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.request
+
+
 class UpdateInventoryPeriod(models.Model):
     room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='update_room', null=True, blank=True)
     type = models.ForeignKey(UpdateType, on_delete=models.CASCADE, related_name="update_type", null=True)
@@ -223,6 +234,7 @@ class UpdateInventoryPeriod(models.Model):
     max_price = models.IntegerField(('Max Price'), default=0)
     num_of_rooms = models.IntegerField(("Num Of Rooms"), default=0)
     date = models.DateTimeField(blank=True, null=True)
+    request = models.ForeignKey(UpdateRequest, on_delete=models.CASCADE, related_name="update_request", null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
@@ -282,10 +294,11 @@ class PropertyDeal(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.session
+        return self.session.created_at
 
 
 class BookingHistory(models.Model):
+    booking_id = models.CharField(max_length=255, unique=True, editable=False, null=True)
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_book')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_book')
     property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal', null=True)
@@ -300,7 +313,7 @@ class BookingHistory(models.Model):
     is_cancel = models.BooleanField(default=False)
     cancel_by_owner = models.BooleanField(default=False)
     cancel_date = models.DateTimeField(null=True)
-    cancel_reason = models.TextField(null=True)
+    cancel_reason = models.TextField(null=True, blank=True)
     book_status = models.BooleanField(default=False)
     payment_id = models.CharField(max_length=20, null=True)
     is_confirmed = models.BooleanField(default=False)
@@ -320,11 +333,10 @@ class GuestDetail(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.no_of_adults
+        return str(self.no_of_adults + self.no_of_children)
 
 
 class OwnerBankingDetail(models.Model):
-
     hotel_owner = models.ForeignKey(Owner, on_delete=models.CASCADE, related_name='banking_details')
     email = models.EmailField(unique=True)
     phone = models.CharField(validators=[RegexValidator(regex=r"^\+?1?\d{10}$")], max_length=10, unique=True)
@@ -333,6 +345,8 @@ class OwnerBankingDetail(models.Model):
     account_id = models.CharField(max_length=20)
     legal_business_name = models.CharField(max_length=16)
     business_type = models.CharField(max_length=50)
+    category = models.CharField(max_length=255, null=True)
+    subcategory = models.CharField(max_length=255, null=True)
     status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -354,6 +368,20 @@ class Product(models.Model):
 
     def __str__(self):
         return self.product_id
+
+
+class BankingAddress(models.Model):
+    owner_banking = models.ForeignKey(OwnerBankingDetail, on_delete=models.CASCADE, related_name='banking_address')
+    street1 = models.CharField(max_length=255)
+    street2 = models.CharField(max_length=255)
+    city = models.CharField(max_length=255)
+    state = models.CharField(max_length=255)
+    postal_code = models.CharField(max_length=30)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return self.postal_code
 
 
 class SubscriptionPlan(models.Model):
@@ -395,7 +423,7 @@ class Ratings(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.ratings
+        return str(self.ratings)
 
 
 class CancellationReason(models.Model):

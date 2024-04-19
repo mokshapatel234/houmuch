@@ -37,7 +37,9 @@ class RoomInventoryFilter(filters.FilterSet):
                         room_inventory.available_rooms,
                         room_inventory.adjusted_min_rooms if room_inventory.adjusted_min_rooms is not None else room_inventory.available_rooms
                     ),
-                    'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price)  # Use effective_price if available, otherwise default_price
+                    'effective_price': getattr(room_inventory, 'effective_price', room_inventory.default_price),
+                    'adult_capacity': room_inventory.adult_capacity,
+                    'children_capacity': room_inventory.children_capacity
                 }
                 for room_inventory in queryset
             }
@@ -50,8 +52,18 @@ class RoomInventoryFilter(filters.FilterSet):
                         adjusted_availability[session_room_id]['available_rooms'] = new_availability
                         if new_availability < int(self.data.get('num_of_rooms')):
                             excluded_room_ids.append(session_room_id)
+            for room_id, details in adjusted_availability.items():
+                available_rooms = details['available_rooms']
+                num_of_rooms_request = int(self.data.get('num_of_rooms', 0))
+                num_of_adults_request = int(self.data.get('num_of_adults', 0))
+                num_of_childrens_request = int(self.data.get('num_of_childrens', 0))
+                adult_capacity_meets = (details['adult_capacity'] * num_of_rooms_request >= num_of_adults_request) if num_of_adults_request > 0 else True
+                children_capacity_meets = (details['children_capacity'] * num_of_rooms_request >= num_of_childrens_request) if num_of_childrens_request > 0 else True
+                if not (available_rooms >= num_of_rooms_request and adult_capacity_meets and children_capacity_meets):
+                    excluded_room_ids.append(room_id)
+
             if excluded_room_ids:
                 queryset = queryset.exclude(id__in=excluded_room_ids)
+
             self.request.adjusted_availability = adjusted_availability
-            # self.request.effective_price = effective_price
             return queryset

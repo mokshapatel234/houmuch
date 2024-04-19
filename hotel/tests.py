@@ -408,27 +408,12 @@ class AccountListViewTest(BaseHotelViewTest):
             "status": True
         }
 
-    def get_account_data_2(self):
-        # Helper method to get the second account data
-        return {
-            "hotel_owner": self.hotel,
-            "email": "test2@example.com",
-            "phone": "1234567891",
-            "contact_name": "John Doe",
-            "type": "type",
-            "account_id": "1234567890",
-            "legal_business_name": "Test Business 2",
-            "business_type": "Test Type 2",
-            "status": True
-        }
-
     def test_get_account_list_successful(self):
         # Create OwnerBankingDetail instances
         OwnerBankingDetail.objects.create(**self.get_account_data_1())
-        OwnerBankingDetail.objects.create(**self.get_account_data_2())
 
         self.client.force_authenticate(user=self.hotel, token=self.token)
-        response = self.client.get('/hotel/getAccountList/', format='json')
+        response = self.client.get('/hotel/getAccount/', format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         self.assertIn('data', response.data)
