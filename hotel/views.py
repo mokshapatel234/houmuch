@@ -505,9 +505,17 @@ class RoomInventoryViewSet(ModelViewSet):
             updated_period_data = request.data.pop('updated_period', None)
             images = request.data.pop('images', None)
             removed_images = request.data.pop('removed_images', None)
+            num_of_rooms = request.data.get('num_of_rooms', None)
             serializer = self.get_serializer(instance, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             updated_instance = serializer.save()
+            if num_of_rooms:
+                property_instance = Property.objects.get(id=instance.property.id)
+                number_of_rooms_limit = property_instance.number_of_rooms
+                total_rooms = RoomInventory.objects.filter(property=property_instance).exclude(id=instance.id).aggregate(total_rooms=Sum('num_of_rooms'))['total_rooms'] or 0
+                total_rooms_with_new = total_rooms + num_of_rooms
+                if total_rooms_with_new > number_of_rooms_limit:
+                    return error_response(ADD_ROOM_LIMIT_MESSAGE, status.HTTP_400_BAD_REQUEST)
             if updated_period_data:
                 update_period(updated_period_data, instance)
             if room_features:
