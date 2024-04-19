@@ -265,6 +265,7 @@ class OTP(models.Model):
 
 class BiddingSession(models.Model):
     is_open = models.BooleanField(default=False)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_bid_id', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
@@ -275,7 +276,7 @@ class BiddingSession(models.Model):
 class PropertyDeal(models.Model):
     session = models.ForeignKey(BiddingSession, on_delete=models.CASCADE, related_name='session_id')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_id')
-    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_id')
+    roominventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_id', blank=True, null=True)
     is_winning_bid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
@@ -414,3 +415,12 @@ class SubCancellationReason(models.Model):
 
     def __str__(self):
         return self.sub_reason
+
+class BiddingAmount(models.Model):
+    property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal_id')
+    amount = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return self.amount
