@@ -45,7 +45,8 @@ def calculate_avg_price(room_inventory_qs, start_date, end_date):
                 room_inventory=room_inventory,
                 date__date__lte=single_date,
                 date__date__gte=single_date,
-                status=True
+                status=True,
+                is_deleted=False
             ).aggregate(Avg('default_price'))
             daily_price = updates['default_price__avg'] if updates['default_price__avg'] is not None else room_inventory.default_price
             total_price += daily_price
@@ -63,27 +64,40 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         is_cancel=False
     ).values('rooms').annotate(total_booked=Sum('num_of_rooms')).values('total_booked')
     total_booked_subquery = Subquery(total_booked_subquery[:1], output_field=IntegerField())
-    update_inventory_subquery = UpdateInventoryPeriod.objects.filter(
-        room_inventory_id=OuterRef('pk'),
-        date__date__gte=start_date,
-        date__date__lte=end_date,
-        status=True
-    ).annotate(updated_min_rooms=Min('num_of_rooms')).values('updated_min_rooms')[:1]
-    rooms_with_false_status = UpdateInventoryPeriod.objects.filter(
-        room_inventory_id=OuterRef('pk'),
-        date__date__gte=start_date,
-        date__date__lte=end_date,
-        status=False
+    adjusted_min_rooms_subquery = Subquery(
+        UpdateInventoryPeriod.objects.filter(
+            room_inventory_id=OuterRef('pk'),
+            date__date__gte=start_date,
+            date__date__lte=end_date,
+            status=True,
+            is_deleted=False
+        ).values('room_inventory_id')
+        .annotate(min_rooms_over_period=Min('num_of_rooms'))
+        .values('min_rooms_over_period')[:1],
+        output_field=IntegerField()
     )
     room_inventory_query = room_inventory_query.annotate(
-        total_booked=Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
-        available_rooms=F('num_of_rooms') - Coalesce(Subquery(total_booked_subquery, output_field=IntegerField()), Value(0)),
-        adjusted_min_rooms=Subquery(update_inventory_subquery.values('updated_min_rooms'), output_field=IntegerField())
-    ).exclude(Exists(rooms_with_false_status))
-    room_inventory_query = room_inventory_query.filter(
-        Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
-        available_rooms__gte=num_of_rooms
-    ).order_by('default_price', '-available_rooms')
+        total_booked=Coalesce(total_booked_subquery, Value(0)),
+        available_rooms=F('num_of_rooms') - Coalesce(total_booked_subquery, Value(0)),
+        adjusted_min_rooms=Coalesce(adjusted_min_rooms_subquery, F('num_of_rooms'))
+    ).exclude(Exists(UpdateInventoryPeriod.objects.filter(
+        room_inventory_id=OuterRef('pk'),
+        date__date__gte=start_date,
+        date__date__lte=end_date,
+        status=False,
+        is_deleted=False
+    )))
+    # for room_inventory in room_inventory_query:
+    #     print(f"room ID: {room_inventory.id}")
+    #     print(f"Total Booked: {room_inventory.total_booked}")
+    #     print(f"Available Rooms: {room_inventory.available_rooms}")
+    #     print(f"Adjusted Minimum Rooms: {room_inventory.adjusted_min_rooms}")
+    #     print("------------------")
+
+    # room_inventory_query = room_inventory_query.filter(
+    #     Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
+    #     available_rooms__gte=num_of_rooms
+    # ).order_by('default_price', '-available_rooms')
 
     room_adjustments = calculate_avg_price(room_inventory_query, start_date, end_date)
     valid_room_ids = [room_id for room_id, adjustments in room_adjustments.items() if adjustments['avg_price'] is not None]
@@ -100,14 +114,13 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
     )
     if room_list:
         return room_inventory_query
-
     return room_inventory_query.first()
 
 
 def get_room_inventory(property, property_list, num_of_rooms, min_price, max_price, room_type,
                        check_in_date, check_out_date, num_of_adults, num_of_children, high_to_low, session):
     room_inventory_query = RoomInventory.objects.filter(property=property, is_verified=True, status=True
-                                                        ).order_by('default_price')
+                                                        )
     if room_type is not None:
         room_inventory_query = room_inventory_query.filter(room_type__id=room_type)
     if min_price is not None:
@@ -120,7 +133,7 @@ def get_room_inventory(property, property_list, num_of_rooms, min_price, max_pri
             check_in_date = current_datetime
         if check_out_date is None:
             check_out_date = current_datetime
-    available_room_inventory = is_booking_overlapping(room_inventory_query, check_in_date, check_out_date, num_of_rooms, room_list=True)
+    available_room_inventory = is_booking_overlapping(room_inventory_query, check_in_date, check_out_date, num_of_rooms, room_list=True).order_by('effective_price')
     adjusted_availability = {
         room_inventory.id: {
             'available_rooms': min(

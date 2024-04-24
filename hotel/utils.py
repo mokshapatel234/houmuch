@@ -169,16 +169,16 @@ def update_period(updated_period_data, instance):
         )
         instances_to_mark_deleted.update(is_deleted=True, deleted_at=datetime.now())
         update_requests_to_check = {instance.request for instance in instances_to_mark_deleted}
+
         for update_request in update_requests_to_check:
             current_dates = set(update_request.request.split(', '))
-            print(current_dates, "DATTTTTE", payload_removed_dates_set, "DATTTTTE")
-            if current_dates == payload_removed_dates_set:
-                update_request.is_deleted = True
-                update_request.deleted_at = datetime.now()
+            updated_dates = current_dates - payload_removed_dates_set            
+            if updated_dates:
+                update_request.request = ', '.join(sorted(updated_dates))
                 update_request.save()
             else:
-                updated_dates = current_dates - payload_removed_dates_set
-                update_request.request = ', '.join(sorted(updated_dates))
+                update_request.is_deleted = True
+                update_request.deleted_at = datetime.now()
                 update_request.save()
 
 

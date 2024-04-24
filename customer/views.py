@@ -220,8 +220,8 @@ class PropertyListView(generics.GenericAPIView):
             page = self.paginate_queryset(sorted_properties)
             serializer = self.serializer_class(page, many=True)
             return self.get_paginated_response(serializer.data)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRetriveView(RetrieveAPIView):
@@ -255,7 +255,7 @@ class RoomInventoryListView(ListAPIView):
     def get_queryset(self):
         self.adjusted_availability = {}
         property_id = self.kwargs.get('property_id')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True)
         return queryset if queryset.exists() else self.queryset
 
     def list(self, request, *args, **kwargs):
@@ -267,8 +267,8 @@ class RoomInventoryListView(ListAPIView):
                 serializer = self.get_serializer(page, many=True, context={'request': request, 'adjusted_availability': adjusted_availability})
                 return self.get_paginated_response(serializer.data)
             return Response(serializer.data)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class RoomRetriveView(RetrieveAPIView):
@@ -377,7 +377,6 @@ class PayNowView(APIView):
                     'booking_detail': booking_data,
                     'guest_detail': guest_data
                 }
-
                 serializer = CombinedSerializer(data=serializer_data, context={'request': request,
                                                                                'property': property_instance,
                                                                                'room': room_instance,
@@ -460,11 +459,14 @@ class BookingRetrieveView(RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
+            print(instance.check_in_date)
+            utc_check_in_date = instance.check_in_date.astimezone(datetime.timezone.utc)
+            print(utc_check_in_date.date())
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Http404:
             return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRatingView(ListCreateAPIView):

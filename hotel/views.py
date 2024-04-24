@@ -427,7 +427,6 @@ class RoomInventoryViewSet(ModelViewSet):
             if images:
                 for image in images:
                     image_instances.append(RoomImage(room=instance, image=image))
-
             if image_instances:
                 RoomImage.objects.bulk_create(image_instances)
             admin_email = User.objects.filter(is_superuser=True).first().email
@@ -437,37 +436,19 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Property.DoesNotExist:
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             today = now().date()
             start_date = today.replace(day=1)
-            end_date = start_date + relativedelta(months=+6)
-            updated_inventory = UpdateInventoryPeriod.objects.filter(
-                room_inventory=instance,
-                date__range=(start_date, end_date),
-                is_deleted=False,
-            ).annotate(
-                month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
-                year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
-            ).order_by('year', 'month', 'type')
-            grouped_data = []
-            for item in updated_inventory:
-                month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
-                month_year_group = find_month_year(month_year, grouped_data)
-                if not month_year_group:
-                    month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
-                    grouped_data.append(month_year_group)
-                serialized_item = UpdateInventoryPeriodSerializer(item).data
-                month_year_group['types'][item.type.type].append(serialized_item)
-            for group in grouped_data:
-                group['types'] = dict(group['types'])
+            end_date = start_date + relativedelta(months=+4)
+            updated_inventory = get_updated_inventory(instance, start_date, end_date)
             response_data = {
                 'room_inventory': RoomInventoryOutSerializer(instance).data,
-                'updated_inventory': grouped_data
+                'updated_inventory': updated_inventory
             }
             return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
