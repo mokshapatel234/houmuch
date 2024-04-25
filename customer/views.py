@@ -4,7 +4,8 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, GuestDetail, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
-from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
+from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, \
+    get_cancellation_charge_percentage, find_datetime
 from .email_utils import vendor_cancellation_data, customer_cancellation_data, customer_welcome_data
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
@@ -373,6 +374,11 @@ class PayNowView(APIView):
                 order = self.create_payment_order(amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp)
                 if not order:
                     return error_response("Failed to create payment order", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                check_in_datetime, check_out_datetime = find_datetime(check_in_date, check_out_date)
+                booking_data['check_in_date'] = check_in_datetime
+                booking_data['check_out_date'] = check_out_datetime
+
                 serializer_data = {
                     'booking_detail': booking_data,
                     'guest_detail': guest_data
@@ -383,10 +389,10 @@ class PayNowView(APIView):
                                                                                'order_id': order['id'],
                                                                                'transfer_id': order['transfers'][0]['id']})
                 if serializer.is_valid():
-                    serializer.save()
+                    serializer_data = serializer.save()
                     return Response({
                         'result': True,
-                        'data': {'order_id': order['id']},
+                        'data': BookingHistorySerializer(serializer_data['booking'], fields=('id', 'order_id')).data,
                         'message': PAYMENT_SUCCESS_MESSAGE
                     }, status=status.HTTP_200_OK)
                 else:
@@ -397,8 +403,8 @@ class PayNowView(APIView):
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         order_data = {
@@ -459,14 +465,11 @@ class BookingRetrieveView(RetrieveAPIView):
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            print(instance.check_in_date)
-            utc_check_in_date = instance.check_in_date.astimezone(datetime.timezone.utc)
-            print(utc_check_in_date.date())
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Http404:
             return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRatingView(ListCreateAPIView):

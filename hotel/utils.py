@@ -172,7 +172,7 @@ def update_period(updated_period_data, instance):
 
         for update_request in update_requests_to_check:
             current_dates = set(update_request.request.split(', '))
-            updated_dates = current_dates - payload_removed_dates_set            
+            updated_dates = current_dates - payload_removed_dates_set
             if updated_dates:
                 update_request.request = ', '.join(sorted(updated_dates))
                 update_request.save()

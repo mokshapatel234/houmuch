@@ -3,9 +3,11 @@ from datetime import datetime, timedelta
 from hotel.models import BookingHistory, UpdateInventoryPeriod
 from hotel.models import RoomInventory
 from .serializer import RoomInventorySerializer
-from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Q, Min, Avg, Case, When, FloatField, Exists
+from django.db.models import IntegerField, Subquery, OuterRef, F, Sum, Value, Min, Avg, Case, When, FloatField, Exists
 from django.db.models.functions import Coalesce
 from django.db.models import Func
+import pytz
+from django.conf import settings
 
 
 class Round(Func):
@@ -87,12 +89,6 @@ def is_booking_overlapping(room_inventory_query, start_date, end_date, num_of_ro
         status=False,
         is_deleted=False
     )))
-    # for room_inventory in room_inventory_query:
-    #     print(f"room ID: {room_inventory.id}")
-    #     print(f"Total Booked: {room_inventory.total_booked}")
-    #     print(f"Available Rooms: {room_inventory.available_rooms}")
-    #     print(f"Adjusted Minimum Rooms: {room_inventory.adjusted_min_rooms}")
-    #     print("------------------")
 
     # room_inventory_query = room_inventory_query.filter(
     #     Q(available_rooms__gte=F('adjusted_min_rooms')) | Q(adjusted_min_rooms__isnull=True),
@@ -206,3 +202,13 @@ def get_cancellation_charge_percentage(cancellation_policies, days_before_check_
             cancellation_charge_percentage = policy.cancellation_percents
             break
     return cancellation_charge_percentage
+
+
+def find_datetime(check_in_date_str, check_out_date_str):
+    current_time = datetime.now().time()
+    tz_info = pytz.timezone(settings.TIME_ZONE)
+    check_in_datetime = datetime.combine(datetime.fromisoformat(check_in_date_str), current_time)
+    check_out_datetime = datetime.combine(datetime.fromisoformat(check_out_date_str), current_time)
+    check_in_datetime = tz_info.localize(check_in_datetime)
+    check_out_datetime = tz_info.localize(check_out_datetime)
+    return check_in_datetime, check_out_datetime
