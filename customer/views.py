@@ -221,8 +221,8 @@ class PropertyListView(generics.GenericAPIView):
             page = self.paginate_queryset(sorted_properties)
             serializer = self.serializer_class(page, many=True)
             return self.get_paginated_response(serializer.data)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRetriveView(RetrieveAPIView):
@@ -268,8 +268,8 @@ class RoomInventoryListView(ListAPIView):
                 serializer = self.get_serializer(page, many=True, context={'request': request, 'adjusted_availability': adjusted_availability})
                 return self.get_paginated_response(serializer.data)
             return Response(serializer.data)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
 class RoomRetriveView(RetrieveAPIView):
@@ -403,8 +403,8 @@ class PayNowView(APIView):
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
         order_data = {
@@ -466,6 +466,26 @@ class BookingRetrieveView(RetrieveAPIView):
         try:
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
+        except Http404:
+            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class PaymentSuccessfulView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = CustomerBookingSerializer
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.serializer_class(instance, fields=('id', 'booking_id'))
+            return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:

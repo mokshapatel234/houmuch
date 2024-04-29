@@ -165,7 +165,7 @@ class RatingSerializer(serializers.ModelSerializer):
         exclude = ['customer', 'property']
 
 
-class CustomerBookingSerializer(serializers.ModelSerializer):
+class CustomerBookingSerializer(DynamicFieldsModelSerializer):
     customer = ProfileSerializer(fields=('first_name', 'last_name', 'phone_number'))
     rooms = RoomInventoryOutSerializer(fields=('room_name', 'room_type', 'room_view', 'area_sqft', 'bed_type', 'room_features'))
     property = PropertyOutSerializer(fields=('parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
