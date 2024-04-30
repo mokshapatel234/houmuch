@@ -8,6 +8,7 @@ from django.db.models.functions import Coalesce
 from django.db.models import Func
 import pytz
 from django.conf import settings
+import requests
 
 
 class Round(Func):
@@ -212,3 +213,32 @@ def find_datetime(check_in_date_str, check_out_date_str):
     check_in_datetime = tz_info.localize(check_in_datetime)
     check_out_datetime = tz_info.localize(check_out_datetime)
     return check_in_datetime, check_out_datetime
+
+
+# def send_push_notification(receivers, message, title, notification_type):
+#     try:
+#         for receiver in receivers:
+#             payload = {
+#                 "to": receiver,
+#                 "notification": {
+#                     "title": title,
+#                     "body": message,
+#                     "content_available": True,
+#                     "sound": "default"
+#                 },
+#                 "data": {
+#                     "type": notification_type
+#                 },
+#                 "priority": "high"
+#             }
+#             headers = {
+#                 "Content-Type": "application/json",
+#                 "Authorization": f"key={server_key}"
+#             }
+
+#             try:
+#                 response = requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+#             except requests.exceptions.RequestException as e:
+#                 print("Failed to send notification:", e)
+#     except Exception as e:
+#         print("Error in sending notification:", e)

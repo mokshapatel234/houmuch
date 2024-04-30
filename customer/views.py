@@ -180,9 +180,13 @@ class PropertyListView(generics.GenericAPIView):
             high_to_low = self.request.query_params.get('high_to_low', False)
             ratings = self.request.query_params.get('ratings', None)
             hotel_class = self.request.query_params.get('hotel_class', None)
+            bidding_mode = self.request.query_params.get('bidding_mode') == 'true'
             # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
             #     (int(num_of_children) if num_of_children is not None else 0)
-            queryset = self.get_queryset()
+            if bidding_mode:
+                queryset = Property.objects.filter(is_verified=True, status=True, owner__bidding_mode=True).order_by('-id')
+            else:
+                queryset = self.get_queryset()
             if nearby_popular_landmark:
                 queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
             if latitude and longitude:
@@ -221,8 +225,8 @@ class PropertyListView(generics.GenericAPIView):
             page = self.paginate_queryset(sorted_properties)
             serializer = self.serializer_class(page, many=True)
             return self.get_paginated_response(serializer.data)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRetriveView(RetrieveAPIView):
