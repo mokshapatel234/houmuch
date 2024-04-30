@@ -33,7 +33,6 @@ class Owner(models.Model):
     welcome_mail_sent = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     fcm_token = models.CharField(max_length=255, null=True, blank=True)
-    bidding_mode = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
@@ -152,7 +151,7 @@ class Property(models.Model):
     breakfast_included = models.BooleanField('Breakfast Included', default=False)
     is_cancellation = models.BooleanField('Is Cancellation Allowed', default=False)
     status = models.BooleanField('Status', default=False)
-    is_online = models.BooleanField('Is Online', default=False)
+    bidding_mode = models.BooleanField(default=False)
     is_verified = models.BooleanField('Is Verified', default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
