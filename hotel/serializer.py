@@ -170,7 +170,9 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
                   'is_verified', 'created_at', 'updated_at']
 
 
-class UpdatedPeriodSerializer(serializers.ModelSerializer):
+class UpdatedPeriodSerializer(DynamicFieldsModelSerializer):
+    dates = serializers.ListField(child=serializers.CharField(), required=False)
+
     class Meta:
         model = UpdateInventoryPeriod
         exclude = ['created_at', 'updated_at', 'room_inventory']
@@ -377,6 +379,8 @@ class CancellationReasonSerializer(serializers.ModelSerializer):
 
 
 class CancelBookingSerializer(serializers.ModelSerializer):
+    cancel_reason = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = BookingHistory
         fields = ['cancel_reason']

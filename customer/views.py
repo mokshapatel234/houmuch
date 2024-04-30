@@ -2,9 +2,10 @@ from rest_framework import permissions, status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import Customer
-from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, \
+from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, GuestDetail, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
 from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
+from .email_utils import vendor_cancellation_data, customer_cancellation_data, customer_welcome_data
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
 from hotel.models import Property, RoomInventory, BookingHistory, OwnerBankingDetail, Ratings, PropertyCancellation
@@ -15,7 +16,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, NOT_REGISTERED_MESSAGE, \
     PROFILE_MESSAGE, CUSTOMER_NOT_FOUND_MESSAGE, EMAIL_ALREADY_PRESENT_MESSAGE, PROFILE_UPDATE_MESSAGE, \
     PROFILE_ERROR_MESSAGE, ENTITY_ERROR_MESSAGE, PAYMENT_SUCCESS_MESSAGE, DATA_RETRIEVAL_MESSAGE, \
-    OBJECT_NOT_FOUND_MESSAGE, ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, \
+    ORDER_SUFFICIENT_MESSAGE, BOOKED_INFO_MESSAGE, REQUIREMENT_INFO_MESSAGE, BOOKING_NOT_FOUND_MESSAGE, \
     SESSION_INFO_MESSAGE, AVAILABILITY_INFO_MESSAGE, ROOM_NOT_AVAILABLE_MESSAGE, ORDER_ERROR_MESSAGE, \
     REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, DIRECT_TRANSFER_ERROR_MESSAGE, ROOM_NOT_FOUND_MESSAGE, \
     PROPERTY_NOT_FOUND_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_CUSTOMER_MESSAGE
@@ -136,12 +137,7 @@ class CustomerProfileView(APIView):
                     if Customer.objects.filter(email=email).exists():
                         return error_response(EMAIL_ALREADY_PRESENT_MESSAGE, status.HTTP_400_BAD_REQUEST)
                     else:
-                        data = {
-                            "subject": f'Welcome {request.user.first_name}',
-                            "email": email,
-                            "template": "welcome_customer.html",
-                            "context": {'first_name': request.user.first_name, 'last_name': request.user.last_name}
-                        }
+                        data = customer_welcome_data(request, email)
                         send_mail(data)
                 serializer.save()
                 response_data = {
@@ -161,7 +157,7 @@ class CustomerProfileView(APIView):
 class PropertyListView(generics.GenericAPIView):
     authentication_classes = (JWTAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-    queryset = Property.objects.filter(is_verified=True).order_by('-id')
+    queryset = Property.objects.filter(is_verified=True, status=True).order_by('-id')
     serializer_class = PopertyListOutSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
@@ -242,7 +238,7 @@ class PropertyRetriveView(RetrieveAPIView):
                 instance.room_inventory = RoomInventoryOutSerializer(room_instances).data
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, PopertyListOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -285,7 +281,7 @@ class RoomRetriveView(RetrieveAPIView):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -325,9 +321,9 @@ class OrderSummaryView(ListAPIView):
                     'num_of_rooms': int(num_of_rooms),
                     'available_rooms': adjusted_availability,
                     'total_price': total_price,
-                    'gst_rate': gst_rate * 100,
-                    'gst_amount': gst_amount,
-                    'final_price': final_price,
+                    'gst_rate': round(gst_rate * 100),
+                    'gst_amount': round(gst_amount),
+                    'final_price': round(final_price),
                 },
                 'message': ORDER_SUFFICIENT_MESSAGE if adjusted_availability >= int(num_of_rooms) else f"{availability_info} {booked_info} {session_info} {requirement_info}"
             }, status=status.HTTP_200_OK)
@@ -402,8 +398,7 @@ class PayNowView(APIView):
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except OwnerBankingDetail.DoesNotExist:
             return error_response(BANKING_DETAIL_NOT_EXIST_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def create_payment_order(self, amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp):
@@ -467,7 +462,7 @@ class BookingRetrieveView(RetrieveAPIView):
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Http404:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -487,7 +482,7 @@ class PropertyRatingView(ListCreateAPIView):
                 serializer.save(property=property_instance, customer=self.request.user)
             return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
         except Property.DoesNotExist:
-            return error_response(OBJECT_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
@@ -508,13 +503,14 @@ class CancelBookingView(APIView):
             id = self.kwargs.get('id')
             booking = BookingHistory.objects.get(id=id)
             check_in_date = booking.check_in_date.date()
-
+            guest = GuestDetail.objects.get(booking=booking)
             cancellation_policies = PropertyCancellation.objects.filter(property=booking.property).order_by('cancellation_days')
             owner = OwnerBankingDetail.objects.get(hotel_owner=booking.property.owner, status=True)
             days_before_check_in = (check_in_date - timezone.now().date()).days
             check_in_time = booking.property.check_in_time
             if not cancellation_policies.exists():
                 refund_amount = 0
+                cancellation_charge_percentage = 0
             else:
                 cancellation_charge_percentage = get_cancellation_charge_percentage(cancellation_policies, days_before_check_in, check_in_time)
                 cancellation_charge_amount = (booking.amount * cancellation_charge_percentage) / 100
@@ -524,6 +520,10 @@ class CancelBookingView(APIView):
                 if serializer.is_valid():
                     serializer.save(is_cancel=True, cancel_date=timezone.now())
                     response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
+                    customer_data = customer_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage, is_cancel=True if cancellation_policies.exists() else False)
+                    vendor_data = vendor_cancellation_data(booking, guest, refund_amount, cancellation_charge_percentage, is_cancel=True if cancellation_policies.exists() else False)
+                    send_mail(customer_data)
+                    send_mail(vendor_data)
                     return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
                 else:
                     return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
@@ -549,10 +549,13 @@ class CancelBookingView(APIView):
             serializer = CancelBookingSerializer(booking, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save(is_cancel=True, cancel_date=timezone.now())
+                customer_data = customer_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, is_cancel=True if cancellation_policies.exists() else False)
+                vendor_data = vendor_cancellation_data(booking, guest, cancellation_charge_percentage, refund_amount, transfer_amount, cancellation_charge_amount, commission_percent, is_cancel=True)
+                send_mail(customer_data)
+                send_mail(vendor_data)
                 response_serializer = BookingHistorySerializer(booking, fields=('id', 'order_id', 'transfer_id', 'payment_id'))
                 return generate_response(response_serializer.data, REFUND_SUCCESFULL_MESSAGE, status.HTTP_200_OK)
             else:
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(e)
+        except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)

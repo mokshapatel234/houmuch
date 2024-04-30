@@ -1,11 +1,10 @@
-<!DOCTYPE html>
-
-
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8">
   	<meta name="viewport" content="width=device-width, initial-scale=1.0;">
  	<meta name="format-detection" content="telephone=no"/>
+
+
 	<style>
 /* Reset styles */ 
 body { margin: 0; padding: 0; min-width: 100%; width: 100% !important; height: 100% !important;}
@@ -32,7 +31,7 @@ a, a:hover {
  	</style>
 
 	<!-- MESSAGE SUBJECT -->
-	<title>Welcome</title>
+	<title>Booking Cancellation</title>
 
 </head>
 
@@ -51,26 +50,7 @@ a, a:hover {
 
 <!-- WRAPPER -->
 <!-- Set wrapper width (twice) -->
-<table border="0" cellpadding="0" cellspacing="0" align="center"
-	width="560" style="border-collapse: collapse; border-spacing: 0; padding: 0; ;
-	max-width: 560px;" class="wrapper">
 
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 6.25%; padding-right: 6.25%; width: 87.5%;
-			padding-top: 20px;
-			padding-bottom: 20px;">
-
-			<!-- PREHEADER -->
-			<!-- Set text color to background color -->
-
-			<!-- LOGO -->
-			
-			
-		</td>
-	</tr>
-
-<!-- End of WRAPPER -->
-</table>
 
 <!-- WRAPPER / CONTEINER -->
 <!-- Set conteiner background color -->
@@ -81,7 +61,6 @@ a, a:hover {
 
 	<!-- HEADER -->
 	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
-	
 
 	<tr>
 		<td align="center" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 24px; font-weight: bold; line-height: 130%;
@@ -89,8 +68,8 @@ a, a:hover {
 			color: #000000;
 			font-family: sans-serif;" class="header">
 			<img border="0" vspace="0" hspace="0"
-			src="https://houmuch.s3.amazonaws.com/houmuch/verification.jpg"
-			width="302" height="213"
+			src="https://houmuch.s3.amazonaws.com/houmuch/lights.png"
+			width="210" height="157"
 			alt="Logo" title="Logo" style="
 			color: #000000;
 			font-size: 10px; margin: 0; padding: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; border: none; display: block;" />
@@ -102,30 +81,92 @@ a, a:hover {
 			padding-top: 50px;
 			color: #000000;
 			font-family: sans-serif;" class="header">
-				Hello {{hotel_name}}!
+            Your booking (Booking ID: {{ booking_id }}) has been cancelled!
 				
 		</td>
 	</tr>
-	
-	<!-- SUBHEADER -->
-	<!-- Set text color and font family ("sans-serif" or "Georgia, serif") -->
-	<tr>
-		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
-			padding-top: 20px;
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
 			color: #000000;
-			font-family: sans-serif;" class="subheader">
-			Welcome to our community of business owners! Your account has been successfully verified and is now partially activated. <br>
-			We're thrilled to have you with us! <br>
-			To fully unlock all the features of your account, please complete the email verification process.
+			font-family: sans-serif;" class="header">
+            <br>
+            Hi {{customer_name}},
+		</td>
+	</tr>
+	
+
+	<tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+            padding-top: 20px;
+            color: #000000;
+            font-family: sans-serif;" class="subheader">
+            We regret to inform you that your booking (Booking ID: {{ booking_id }}) has been canceled. Please review the details below regarding the cancellation. If you have any questions or need further assistance, do not hesitate to contact us. <br>
+        </td>
+    </tr>
+    
+
+	<tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
+			color: #000000;
+			font-family: sans-serif;" class="header">
+            Cancellation Details:
 		</td>
 	</tr>
 
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 15px; font-weight: 300; line-height: 150%;
+			padding-top: 20px;
+			color: #000000;
+			font-family: sans-serif;" class="subheader">
+            Property Name: {{ property_name }} <br>
+			Room Name: {{ room_name }} <br>
+			Room Type: {{ room_type }} <br>
+			Property Email: {{ property_email }} <br>
+			Property Phone Number: {{ property_number }} <br>
+			Address: {{ address }} <br>
+            Check-in Date: {{ check_in_date }} <br>
+			Check-out Date: {{ check_out_date }} <br>
+			Occupancy: {{ num_of_adults }} adults, {{ num_of_children }} children <br>
+			Number Of Rooms: {{num_of_rooms}} <br>
+			Amount: {{ amount }} <br>
+			{% if cancel_reason %}
+            Cancellation Reason: {{cancel_reason}}			
+			{% endif %}
+		</td>
+	</tr>
 
+    <tr>
+        <td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: bold; line-height: 130%;
+            color: #000000;
+            font-family: sans-serif;" class="header">
+            Cancellation Charges:
+    </tr>
+
+    <tr>
+		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-top: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 16px; line-height: 150%;
+			color: #000000;
+			font-family: sans-serif;">
+			{% if cancel_by_owner %}
+			We sincerely apologize for the inconvenience, but due to unforeseen circumstances requiring urgent attention at the property, the owner has had to cancel your booking. Rest assured, you will receive a full refund of the booking amount. This refund will be processed and returned to your account within 5-7 business days.
+			{% elif is_cancel %}
+			According to our cancellation policy, a cancellation fee of {{ cancellation_percents }}% of the total booking amount is charged upon cancellation.
+			{% if refund_amount > 0 %}
+			As a result, the refundable amount of {{ refund_amount }} will be processed and returned to your account within 5-7 business days.
+			{% else %}
+			There is no refund available as per our cancellation policy.
+			{% endif %}
+			{% else %}
+			This property does not allow cancellations. Therefore, no refund will be issued.
+			{% endif %}
+			We value your understanding and cooperation in this matter.
+		</td>
+	</tr>
+	
+    
 
 	<!-- BUTTON -->
-
-
-	<tr>
+	
+    <tr>
 		<td align="left" valign="top" style="border-collapse: collapse; border-spacing: 0; margin: 0; padding: 0; padding-bottom: 20px; padding-left: 10%; padding-right: 10%; width: 80%; font-size: 18px; font-weight: 300; line-height: 150%;
 			padding-top: 20px;
 			color: #000000;
