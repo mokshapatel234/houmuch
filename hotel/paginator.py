@@ -5,7 +5,7 @@ from hotel_app_backend.messages import DATA_RETRIEVAL_MESSAGE
 
 class CustomPagination(PageNumberPagination):
     page_size_query_param = 'per_page'
-    page_size = 5
+    page_size = 10
 
     def get_paginated_response(self, data):
         return Response({
