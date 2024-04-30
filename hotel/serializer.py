@@ -50,7 +50,7 @@ class LoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
         fields = '__all__'
-        read_only_fields = ('hotel_name', 'email', 'profile_image', 'address', 'government_id', 'gst', 'is_verified', 'is_email_verified', 'is_active', 'created_at', 'updated_at', 'deleted_at')
+        read_only_fields = ('hotel_name', 'email', 'profile_image', 'address', 'government_id', 'gst', 'is_verified', 'is_email_verified', 'is_active', 'bidding_mode', 'created_at', 'updated_at', 'deleted_at')
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -67,7 +67,7 @@ class OwnerProfileSerializer(DynamicFieldsModelSerializer):
 
     class Meta:
         model = Owner
-        fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
+        fields = ('id', 'hotel_name', 'email', 'profile_image', 'address', 'phone_number', 'category', 'bidding_mode', 'government_id', 'gst', 'is_verified', 'is_active', 'is_email_verified')
         read_only_fields = ('id', 'is_verified', 'is_active', 'is_email_verified')
 
 
@@ -166,7 +166,7 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
         fields = ['id', 'owner', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                   'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                   'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
-                  'is_cancellation', 'status', 'address', 'images', 'cancellation_policy', 'hotel_class', 'bidding_mode',
+                  'is_cancellation', 'status', 'address', 'images', 'cancellation_policy', 'hotel_class',
                   'is_verified', 'created_at', 'updated_at']
 
 
