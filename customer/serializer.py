@@ -90,7 +90,7 @@ class PopertyListOutSerializer(PropertyOutSerializer):
         fields = ['id', 'parent_hotel_group', 'hotel_nick_name', 'manager_name', 'hotel_phone_number',
                   'hotel_website', 'number_of_rooms', 'check_in_time', 'check_out_time', 'location',
                   'nearby_popular_landmark', 'property_type', 'room_types', 'pet_friendly', 'breakfast_included',
-                  'is_cancellation', 'status', 'is_online', 'address', 'images', 'is_verified', 'average_ratings',
+                  'is_cancellation', 'status', 'address', 'images', 'is_verified', 'average_ratings',
                   'hotel_class', 'cancellation_policy', 'room_inventory']
 
 
