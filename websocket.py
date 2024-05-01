@@ -495,7 +495,7 @@ async def room_connection(
                     if len(parts) == 2 and parts[1].isdigit():
                         room_id = int(parts[1])
                         await handle_finish_message(session_id, user_info, room_id, websocket)
-                        await handle_customer_stop(session_id)
+                        await handle_customer_stop(websocket, session_id)
                     else:
                         await websocket.send_text("Invalid message format. Please enter a valid room ID after 'finish'.")
 
