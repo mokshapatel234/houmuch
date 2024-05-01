@@ -10,6 +10,8 @@ from rest_framework import exceptions
 import os
 from django import setup
 import django
+import asyncio
+import json
 from typing import List
 from django.db.models import Min
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
@@ -346,6 +348,19 @@ async def handle_customer_stop(websocket, session_id: str):
         # Remove the session from the active_rooms dictionary
         del active_rooms[session_id]
 
+async def server_timeout(websocket, session_id: str):
+    await asyncio.sleep(60)
+    await update_is_open(session_id)
+    # Disconnect all owners associated with the session
+    if session_id in active_rooms:
+        if 'session_connections' in active_rooms[session_id]:
+            for connection in active_rooms[session_id]['session_connections']:
+                await connection.send_text("The session time has ended.")
+                await manager.disconnect(connection, session_id)
+        await websocket.send_text("The session time has ended.")
+        await manager.disconnect(websocket, session_id)
+        # Remove the session from the active_rooms dictionary
+        del active_rooms[session_id]
 
 async def get_all_quotes_for_session(session_id):
     try:
@@ -433,19 +448,21 @@ async def room_connection(
                     if session_id == "You have already created one session.":
                         await websocket.send_text(session_id)
                         return
-                    deal_prices = {}
+                    deal_prices = []
                     for room_id in room_ids_list:
                         try:
                             room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
                             owner_name = await get_owner_name_by_room_id(room_id)
                             hotel_name = await get_hotel_name_by_room_id(room_id)
-                            room_deal_prices[room_id] = room_inventory.deal_price
-                            deal_prices[room_id] = {
+                            
+                            room_info = {
                                 'owner': owner_name,
                                 'hotel_name': hotel_name,
                                 'amount': room_inventory.deal_price,
                                 'room_id': room_id
                             }
+                            
+                            deal_prices.append(room_info)
                             deal_id = await create_property_deal(session_id, customer_id, room_id)
 
                             await sync_to_async(BiddingAmount.objects.create)(
@@ -464,9 +481,8 @@ async def room_connection(
                     }
                     await websocket.send_text(f"Session ID: {session_id}")
                     await websocket.send_text("You are now connected to the session.")
-                    # await websocket.send_text("Deal prices for the rooms:")
-                    for room_id, info in deal_prices.items():
-                        await websocket.send_text(f"Room ID: {info['room_id']}, Hotel Name: {info['hotel_name']}, Amount: {info['amount']}, Owner Name:{info['owner']}")
+                    await websocket.send_text(json.dumps(deal_prices))
+                    asyncio.create_task(server_timeout(websocket, session_id))
 
         try:
             while True:
@@ -524,17 +540,22 @@ async def room_connection(
                                         sorted_quotes = sorted(all_quotes, key=lambda x: x['amount'])
 
                                         # Prepare the message to be sent to the customer
-                                        message_to_send = "Quotes received for the session:\n"
+                                        message_to_send = {"quotes_received": []}
+
                                         for quote in sorted_quotes:
                                             room_id = quote['room_id']
                                             hotel_nick_name = quote['hotel_nick_name']
                                             amount = quote['amount']
-                                            message_to_send += f"Room ID: {room_id}, Hotel name: {hotel_nick_name}, Amount: {amount}\n"
+                                            message_to_send["quotes_received"].append({
+                                                "room_id": room_id,
+                                                "hotel_name": hotel_nick_name,
+                                                "amount": amount
+                                            })
 
                                         # Send the message to each customer associated with the session
                                         for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
                                             await manager.send_personal_message(
-                                                message_to_send,
+                                                json.dumps(message_to_send),
                                                 customer_socket_id,
                                                 user_info,
                                                 session_id
