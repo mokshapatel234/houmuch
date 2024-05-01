@@ -14,8 +14,7 @@ import os
 from django import setup
 import django
 from typing import List
-from operator import itemgetter
-from collections import defaultdict
+from django.db.models import Min
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
 django.setup()
 
@@ -224,6 +223,12 @@ def update_is_open(session_id):
     bidding_session.save()
 
 @sync_to_async
+def update_property_deal_winning_bid_status(property_deal_id):
+    property_deal = PropertyDeal.objects.get(id=property_deal_id)
+    property_deal.is_winning_bid = True
+    property_deal.save()
+
+@sync_to_async
 def get_all_quotes_for_session_sync(session_id):
     try:
         # Query all bidding amounts for the given session ID
@@ -234,8 +239,13 @@ def get_all_quotes_for_session_sync(session_id):
         # Extract relevant information from each bidding amount
         quotes = []
         for amount in bidding_amounts:
+            room_id = amount.property_deal.roominventory_id
+            property_id = RoomInventory.objects.get(id=room_id).property_id
+            hotel_nick_name = Property.objects.filter(id=property_id).values_list('hotel_nick_name', flat=True).first()
+            
             quote_info = {
-                'room_id': amount.property_deal.roominventory_id,
+                'room_id': room_id,
+                'hotel_nick_name': hotel_nick_name,
                 'amount': amount.amount,
             }
             quotes.append(quote_info)
@@ -244,6 +254,10 @@ def get_all_quotes_for_session_sync(session_id):
     except Exception as e:
         print(f"Error retrieving quotes for session {session_id}: {e}")
         return []
+
+@sync_to_async
+def get_last_bidding_amount(property_deal_id):
+    return BiddingAmount.objects.filter(property_deal_id=property_deal_id).aggregate(Min('amount'))
 
 async def create_bidding_session(customer_id):
     print("Creating bidding session...")
@@ -258,7 +272,8 @@ async def create_bidding_session(customer_id):
 async def create_property_deal(session_id, customer_id, room_id):
     try:
 
-        await save_property_deal(session_id, customer_id, room_id)
+        deal_id = await save_property_deal(session_id, customer_id, room_id)
+        return deal_id
                                  
     except Exception as e:
         print("An error occurred while creating property deal:", e)
@@ -281,16 +296,57 @@ async def get_property_deal_id(session_id: str, room_id: int) -> Optional[int]:
     except PropertyDeal.DoesNotExist:
         return None
 
-async def handle_customer_stop(session_id: str):
+async def get_property_deal_owner_id(property_deal_id: int) -> Optional[int]:
+    try:
+        property_deal = await sync_to_async(PropertyDeal.objects.get)(id=property_deal_id)
+        owner_id = await sync_to_async(lambda: property_deal.roominventory.property.owner.id)()
+        return owner_id
+    except PropertyDeal.DoesNotExist:
+        return None
+
+# async def send_loser_messages(session_id: str, user_info: Customer, room_id: int, owner_id: int):
+#     # Get all connections in the session
+#     connections = session_connections.get(session_id, [])
+    
+#     for conn in connections:
+#         # Skip sending message to the owner
+#         if await get_current_user(conn,"owner") == owner_id:
+#             continue
+        
+#         await manager.send_personal_message(
+#             f"Sorry! Your bid for room {room_id} has not been accepted. You lost the bid.",
+#             id(conn),
+#             user_info,
+#             session_id
+#         )
+
+async def get_hotel_name_by_room_id(room_id):
+    try:
+        room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
+        hotel_name = await sync_to_async(lambda: room_inventory.property.hotel_nick_name)()
+        return hotel_name
+    except Exception as e:
+        return str(e)
+
+async def get_owner_name_by_room_id(room_id):
+    try:
+        room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
+        owner_name = await sync_to_async(lambda: room_inventory.property.owner.hotel_name)()
+        return owner_name
+    except Exception as e:
+        return str(e)
+
+async def handle_customer_stop(websocket, session_id: str):
     await update_is_open(session_id)
-    # Send message to all users in the room
-    if session_id in session_connections:
-        for connection in session_connections[session_id]:
-            await connection.send_text("The session has been closed by the customer.")
-            # Disconnect each connection in the session
-            await manager.disconnect(connection, session_id)
-        # Remove the session from the session_connections dictionary
-        # del session_connections[session_id]
+    # Disconnect all owners associated with the session
+    if session_id in active_rooms:
+        if 'session_connections' in active_rooms[session_id]:
+            for connection in active_rooms[session_id]['session_connections']:
+                await connection.send_text("The session has been closed by the customer.")
+                await manager.disconnect(connection, session_id)
+        await manager.disconnect(websocket, session_id)
+        # Remove the session from the active_rooms dictionary
+        del active_rooms[session_id]
 
 async def get_all_quotes_for_session(session_id):
     try:
@@ -301,8 +357,25 @@ async def get_all_quotes_for_session(session_id):
         print(f"Error retrieving quotes for session {session_id}: {e}")
         return []
 
+async def handle_finish_message(session_id: str, user_info: Customer, room_id: int, websocket: WebSocket):
+    if isinstance(user_info, Customer):
+        property_deal_id = await get_property_deal_id(session_id, room_id)
+        if property_deal_id is not None:
+            await update_property_deal_winning_bid_status(property_deal_id)
+            await update_is_open(session_id)
+            last_bid = await get_last_bidding_amount(property_deal_id)
+            last_amount = last_bid['amount__min'] if last_bid['amount__min'] is not None else 0
+            owner_id = await get_property_deal_owner_id(property_deal_id)
+            hotel_name = await get_hotel_name_by_room_id(room_id)
+            await manager.send_personal_message(
+                f"You selected {hotel_name} and the price for that is {last_amount}.",
+                id(websocket),
+                user_info,
+                session_id
+            )
+        else:
+            await manager.send_personal_message("Property deal ID not found for the room ID.")
 
-customer_socket_id = None
 active_rooms = {}
 room_deal_prices = {}
 session_connections = {}
@@ -315,8 +388,6 @@ async def room_connection(
     token: str = Query(None),
     room_ids: str = Query(None)
 ):
-    global customer_socket_id
-
     user_info = await get_current_user(token, user_type)
     if not user_info:
         await websocket.close(code=1008, reason="Unauthorized")
@@ -325,23 +396,25 @@ async def room_connection(
     try:
         if isinstance(user_info, Customer):
             customer_socket_id = id(websocket)
+            active_rooms.setdefault(session_id, {'customer_socket_ids': []})['customer_socket_ids'].append(customer_socket_id)
             await manager.connect(websocket)
 
         if session_id:
-            if session_id in active_rooms and active_rooms[session_id] == customer_socket_id:
+            if session_id in active_rooms and active_rooms[session_id]['customer_socket_ids']:
                 if isinstance(user_info, Owner):
                     await manager.connect(websocket)
                     await manager.update_active_room(websocket, session_id)
                     await websocket.send_text(f"You are now connected to session {session_id}.")
                     message = f"Owner {user_info.hotel_name} entered the session."
                     try:
-                        await manager.send_personal_message(message, customer_socket_id, user_info, session_id)
+                        for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
+                            await manager.send_personal_message(message, customer_socket_id, user_info, session_id)
                     except Exception as e:
                         print("Error sending message:", e)
                     
-                    if session_id not in session_connections:
-                        session_connections[session_id] = []
-                    session_connections[session_id].append(websocket)
+                    if 'session_connections' not in active_rooms[session_id]:
+                        active_rooms[session_id]['session_connections'] = []
+                    active_rooms[session_id]['session_connections'].append(websocket)
                 else:
                     await websocket.close(code=1008, reason="Owner ID not found.")
             else:
@@ -351,101 +424,172 @@ async def room_connection(
                 room_ids_list = [int(prop_id) for prop_id in room_ids.split(",")]
                 if len(room_ids_list) > 5:
                     await websocket.send_text("It is not allowed to add more than 5 properties in the bidding.")
+                    await websocket.close(code=1008, reason="Too many properties added")
+                    return
                 else:
                     customer_id = user_info.id
                     session_id = str(await create_bidding_session(customer_id))
+                    if session_id == "You have already created one session.":
+                        await websocket.send_text(session_id)
+                        return
                     deal_prices = {}
                     for room_id in room_ids_list:
                         try:
                             room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
+                            owner_name = await get_owner_name_by_room_id(room_id)
+                            hotel_name = await get_hotel_name_by_room_id(room_id)
                             room_deal_prices[room_id] = room_inventory.deal_price
-                            deal_prices[room_id] = room_inventory.deal_price
-                            await create_property_deal(session_id, customer_id, room_id)
+                            deal_prices[room_id] = {
+                                'owner': owner_name,
+                                'hotel_name': hotel_name,
+                                'amount': room_inventory.deal_price,
+                                'room_id': room_id
+                            }
+                            deal_id = await create_property_deal(session_id, customer_id, room_id)
+
+                            print(deal_id,"this is deal id")
+
+                            await sync_to_async(BiddingAmount.objects.create)(
+                                property_deal_id=deal_id,
+                                amount=room_inventory.deal_price
+                            )
                         except RoomInventory.DoesNotExist:
                             await websocket.send_text(f"Room with ID {room_id} not found.")
                             continue
+
+                    # Move database interactions outside the loop
                     await manager.save_active_room(websocket, session_id)
-                    active_rooms[session_id] = customer_socket_id
+                    active_rooms[session_id] = {
+                        'customer_socket_ids': [id(websocket)],
+                        'room_deal_prices': deal_prices
+                    }
                     await websocket.send_text(f"Session ID: {session_id}")
                     await websocket.send_text("You are now connected to the session.")
-                    await websocket.send_text(f"Deal prices for the rooms: {deal_prices}")
+                    # await websocket.send_text("Deal prices for the rooms:")
+                    for room_id, info in deal_prices.items():
+                        await websocket.send_text(f"Room ID: {info['room_id']}, Hotel Name: {info['hotel_name']}, Amount: {info['amount']}, Owner Name:{info['owner']}")
 
-        quotes = {}
         try:
             while True:
                 message = await websocket.receive_text()
 
                 if message.strip().lower() == "stop" and isinstance(user_info, Customer):
-                    await handle_customer_stop(session_id)
+                    await handle_customer_stop(websocket, session_id)
+                    
                     break
 
                 if message == "leave":
                     if isinstance(user_info, Owner):
                         await manager.disconnect(websocket, session_id)
-                        await manager.send_personal_message(
-                            f"{user_info.hotel_name} left the bidding session.",
-                            customer_socket_id,  # Send the message only to the customer
-                            user_info,
-                            session_id
-                        )
+                        for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
+                            await manager.send_personal_message(
+                                f"{user_info.hotel_name} left the bidding session.",
+                                customer_socket_id,  # Send the message only to the customer
+                                user_info,
+                                session_id
+                            )
                         return
                     else:
                         await websocket.send_text("You are not authorized to leave the session.")
-
-                if message.startswith("quote"):
-                    # Split the message by spaces to extract the bidding amount and room ID
+                
+                if message.strip().lower().startswith("finish") and isinstance(user_info, Customer):
                     parts = message.split()
-                    if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
-                        bidding_amount = float(parts[1])
-                        room_id = int(parts[2])
-
-                        if bidding_amount >= 0:
-                            # Get the property deal ID for the given room ID
-                            property_deal_id = await get_property_deal_id(session_id, room_id)
-                            if property_deal_id is not None:
-                                # Use sync_to_async to execute the database operation asynchronously
-                                await sync_to_async(BiddingAmount.objects.create)(
-                                    property_deal_id=property_deal_id,
-                                    amount=bidding_amount
-                                )
-
-                                # Send a confirmation message to the owner
-                                
-
-                                # Retrieve all quotes for the session from the database
-                                all_quotes = await get_all_quotes_for_session(session_id)
-
-                                if all_quotes:
-                                    # Sort the quotes in descending order of amount
-                                    sorted_quotes = sorted(all_quotes, key=lambda x: x['amount'])
-
-                                    # Prepare the message to be sent to the customer
-                                    message_to_send = "Quotes received for the session:\n"
-                                    for quote in sorted_quotes:
-                                        message_to_send += f"Room ID: {quote['room_id']}, Amount: {quote['amount']}\n"
-
-                                    # Send the message to the customer
-                                    
-                                    await manager.send_personal_message(
-                                        f"Your bid of {bidding_amount} for room {room_id} has been successfully sent.",
-                                        id(websocket),  # Send the message to the owner
-                                        user_info,
-                                        session_id
-                                    )
-                                    await manager.send_personal_message(
-                                        message_to_send,
-                                        customer_socket_id,
-                                        user_info,
-                                        session_id
-                                    )
-                            else:
-                                await websocket.send_text("Property deal ID not found for the room ID.")
-                        else:
-                            await websocket.send_text("Invalid bidding amount. Please enter a non-negative number.")
+                    if len(parts) == 2 and parts[1].isdigit():
+                        room_id = int(parts[1])
+                        await handle_finish_message(session_id, user_info, room_id, websocket)
+                        await handle_customer_stop(session_id)
                     else:
-                        await websocket.send_text("Invalid message format. Please enter a message in the format 'quote <amount> <room_id>'.")
+                        await websocket.send_text("Invalid message format. Please enter a valid room ID after 'finish'.")
+
                 else:
-                    await websocket.send_text("Invalid message format. Please enter a valid bidding amount.")
+                    if message.startswith("quote"):
+                        # Split the message by spaces to extract the bidding amount and room ID
+                        parts = message.split()
+                        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
+                            bidding_amount = float(parts[1])
+                            room_id = int(parts[2])
+
+                            if bidding_amount >= 0:
+                                # Get the property deal ID for the given room ID
+                                property_deal_id = await get_property_deal_id(session_id, room_id)
+                                if property_deal_id is not None:
+                                    # Use sync_to_async to execute the database operation asynchronously
+                                    await sync_to_async(BiddingAmount.objects.create)(
+                                        property_deal_id=property_deal_id,
+                                        amount=bidding_amount
+                                    )
+                                    # Retrieve all quotes for the session from the database
+                                    all_quotes = await get_all_quotes_for_session(session_id)
+
+                                    if all_quotes:
+                                        # Sort the quotes in descending order of amount
+                                        sorted_quotes = sorted(all_quotes, key=lambda x: x['amount'])
+
+                                        # Prepare the message to be sent to the customer
+                                        message_to_send = "Quotes received for the session:\n"
+                                        for quote in sorted_quotes:
+                                            room_id = quote['room_id']
+                                            hotel_nick_name = quote['hotel_nick_name']
+                                            amount = quote['amount']
+                                            message_to_send += f"Room ID: {room_id}, Hotel name: {hotel_nick_name}, Amount: {amount}\n"
+                                        
+                                        # Send the message to each customer associated with the session
+                                        for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
+                                            await manager.send_personal_message(
+                                                message_to_send,
+                                                customer_socket_id,
+                                                user_info,
+                                                session_id
+                                            )
+                                        
+                                        is_lowest_quote = True
+                                        for quote in all_quotes:
+                                            if quote['amount'] < bidding_amount:
+                                                is_lowest_quote = False
+                                                break
+                                        
+                                        if is_lowest_quote:
+                                            await manager.send_personal_message(
+                                                f"Your are winning the bid.",
+                                                id(websocket),  # Send the message to the owner
+                                                user_info,
+                                                session_id
+                                            )
+
+                                            # Inform other owners about their status
+                                            for owner_socket in active_rooms[session_id]['session_connections']:
+                                                owner_socket_id = id(owner_socket)
+                                                if owner_socket_id != id(websocket):
+                                                    await manager.send_personal_message(
+                                                        f"You are Losing the bid.",
+                                                        owner_socket_id,
+                                                        user_info,
+                                                        session_id
+                                                    )
+                                        
+                                        else:
+                                            await manager.send_personal_message(
+                                                f"You are Losing the bid.",
+                                                id(websocket),  # Send the message to the owner
+                                                user_info,
+                                                session_id
+                                            )
+
+                                        # Send confirmation message to the owner
+                                        await manager.send_personal_message(
+                                            f"Your bid of {bidding_amount} for room {room_id} has been successfully sent.",
+                                            id(websocket),  # Send the message to the owner
+                                            user_info,
+                                            session_id
+                                        )
+                                else:
+                                    await websocket.send_text("Property deal ID not found for the room ID.")
+                            else:
+                                await websocket.send_text("Invalid bidding amount. Please enter a non-negative number.")
+                        else:
+                            await websocket.send_text("Invalid message format. Please enter a message in the format 'quote <amount> <room_id>'.")
+                    else:
+                        await websocket.send_text("Invalid message format. Please enter a valid bidding amount.")
         
         except WebSocketDisconnect:
             await manager.disconnect(websocket, session_id)
