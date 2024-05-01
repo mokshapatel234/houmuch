@@ -6,7 +6,7 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     BathroomType, RoomFeature, CommonAmenities, Property, OTP, \
     RoomInventory, RoomImage, Category, PropertyImage, Ratings, UpdateInventoryPeriod, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
-    SubscriptionPlan, SubscriptionTransaction, CancellationReason, GuestDetail
+    SubscriptionPlan, SubscriptionTransaction, CancellationReason, GuestDetail, PropertyDeal
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
@@ -15,7 +15,7 @@ from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSeriali
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
     SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, \
+    error_response, deletion_success_response, check_plan_expiry, update_period, \
     get_updated_inventory
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
