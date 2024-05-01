@@ -443,6 +443,7 @@ class SubCancellationReason(models.Model):
     def __str__(self):
         return self.sub_reason
 
+
 class BiddingAmount(models.Model):
     property_deal = models.ForeignKey(PropertyDeal, on_delete=models.CASCADE, related_name='property_deal_id')
     amount = models.FloatField()

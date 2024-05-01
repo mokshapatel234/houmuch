@@ -1,10 +1,7 @@
-import re
-import uuid
 from fastapi import FastAPI, WebSocket, Query, HTTPException, Depends, Request
 from starlette.middleware.cors import CORSMiddleware
 from typing import Optional
 from starlette.websockets import WebSocketState
-import random
 import uvicorn
 from fastapi import WebSocketDisconnect
 import jwt
@@ -18,7 +15,7 @@ from django.db.models import Min
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
 django.setup()
 
-from hotel.models import Owner, BiddingSession, Property, PropertyDeal, RoomInventory,BiddingAmount
+from hotel.models import Owner, BiddingSession, Property, PropertyDeal, RoomInventory, BiddingAmount
 from customer.models import Customer
 
 
@@ -31,6 +28,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 class Singleton:
     _instances = {}
@@ -49,6 +47,7 @@ class Singleton:
         if cls not in cls._instances:
             cls._instances[cls] = cls(*args, **kwargs)
 
+
 class ConnectionManager(Singleton):
     def __init__(self):
         self.active_connections = []
@@ -56,7 +55,7 @@ class ConnectionManager(Singleton):
 
     async def connect(self, websocket: WebSocket):
         try:
-            await websocket.accept()  
+            await websocket.accept()
         except Exception as e:
             print(e)
 
@@ -68,7 +67,7 @@ class ConnectionManager(Singleton):
     async def save_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id] = [websocket]
         print(self.room_clients)
-    
+
     async def update_active_room(self, websocket: WebSocket, room_id):
         self.room_clients[room_id].append(websocket)
         print(self.room_clients)
@@ -100,7 +99,9 @@ class ConnectionManager(Singleton):
             except Exception as e:
                 print(f"Failed to send message to client : {e}")
 
+
 manager = ConnectionManager()
+
 
 class JWTAuthentication:
     async def authenticate(self, request, token, user_type):
@@ -134,7 +135,7 @@ class JWTAuthentication:
         request.user = user
 
         return (request.user, token)
-    
+
     @sync_to_async
     def get_business_owner(self, user_id):
         try:
@@ -148,7 +149,8 @@ class JWTAuthentication:
             return Customer.objects.get(id=user_id)
         except Customer.DoesNotExist:
             return None
-    
+
+
 async def verify_token(token: str, user_type: str, request: Request = Depends()):
     try:
         payload = jwt.decode(token, 'secret', algorithms=['HS256'])
@@ -164,6 +166,7 @@ async def verify_token(token: str, user_type: str, request: Request = Depends())
 
     return user
 
+
 async def get_current_user(token: str, user_type: str):
     """Helper function for auth with Firebase."""
     if not token:
@@ -178,23 +181,24 @@ async def get_current_user(token: str, user_type: str):
 @sync_to_async
 def save_bidding_session(customer_id):
     existing_open_session = BiddingSession.objects.filter(customer_id=customer_id, is_open=True).first()
-    
+
     if existing_open_session:
         return "You have already created one session."  # or raise Exception("Customer already has an open session")
-    
+
     # Create a new session for the customer
     result_instance = BiddingSession.objects.create(is_open=True, customer_id=customer_id)
-    
+
     # Return the ID of the created session
     return result_instance.id
+
 
 @sync_to_async
 def save_property_deal(session_id, customer_id, room_id):
     try:
-        room_inventory = RoomInventory.objects.get(id=room_id) 
+        room_inventory = RoomInventory.objects.get(id=room_id)
         property_deal = PropertyDeal.objects.create(
             session_id=session_id,
-            customer_id=customer_id,  
+            customer_id=customer_id,
             roominventory=room_inventory,
             is_winning_bid=False
         )
@@ -202,6 +206,7 @@ def save_property_deal(session_id, customer_id, room_id):
     except Exception as e:
         print("An error occurred while creating property deal:", e)
         return None
+
 
 @sync_to_async
 def featch_property_deal(session_id, room_id):
@@ -216,17 +221,20 @@ def featch_property_deal(session_id, room_id):
         print("An error featch:", e)
         return None
 
+
 @sync_to_async
 def update_is_open(session_id):
     bidding_session = BiddingSession.objects.get(id=session_id)
     bidding_session.is_open = False
     bidding_session.save()
 
+
 @sync_to_async
 def update_property_deal_winning_bid_status(property_deal_id):
     property_deal = PropertyDeal.objects.get(id=property_deal_id)
     property_deal.is_winning_bid = True
     property_deal.save()
+
 
 @sync_to_async
 def get_all_quotes_for_session_sync(session_id):
@@ -242,7 +250,7 @@ def get_all_quotes_for_session_sync(session_id):
             room_id = amount.property_deal.roominventory_id
             property_id = RoomInventory.objects.get(id=room_id).property_id
             hotel_nick_name = Property.objects.filter(id=property_id).values_list('hotel_nick_name', flat=True).first()
-            
+
             quote_info = {
                 'room_id': room_id,
                 'hotel_nick_name': hotel_nick_name,
@@ -255,9 +263,11 @@ def get_all_quotes_for_session_sync(session_id):
         print(f"Error retrieving quotes for session {session_id}: {e}")
         return []
 
+
 @sync_to_async
 def get_last_bidding_amount(property_deal_id):
     return BiddingAmount.objects.filter(property_deal_id=property_deal_id).aggregate(Min('amount'))
+
 
 async def create_bidding_session(customer_id):
     print("Creating bidding session...")
@@ -274,7 +284,7 @@ async def create_property_deal(session_id, customer_id, room_id):
 
         deal_id = await save_property_deal(session_id, customer_id, room_id)
         return deal_id
-                                 
+
     except Exception as e:
         print("An error occurred while creating property deal:", e)
         return None
@@ -283,7 +293,7 @@ async def create_property_deal(session_id, customer_id, room_id):
 async def get_property_deal(session_id, room_id):
     try:
         await featch_property_deal(session_id, room_id)
-                                 
+
     except Exception as e:
         print("An error:", e)
         return None
@@ -296,6 +306,7 @@ async def get_property_deal_id(session_id: str, room_id: int) -> Optional[int]:
     except PropertyDeal.DoesNotExist:
         return None
 
+
 async def get_property_deal_owner_id(property_deal_id: int) -> Optional[int]:
     try:
         property_deal = await sync_to_async(PropertyDeal.objects.get)(id=property_deal_id)
@@ -304,21 +315,6 @@ async def get_property_deal_owner_id(property_deal_id: int) -> Optional[int]:
     except PropertyDeal.DoesNotExist:
         return None
 
-# async def send_loser_messages(session_id: str, user_info: Customer, room_id: int, owner_id: int):
-#     # Get all connections in the session
-#     connections = session_connections.get(session_id, [])
-    
-#     for conn in connections:
-#         # Skip sending message to the owner
-#         if await get_current_user(conn,"owner") == owner_id:
-#             continue
-        
-#         await manager.send_personal_message(
-#             f"Sorry! Your bid for room {room_id} has not been accepted. You lost the bid.",
-#             id(conn),
-#             user_info,
-#             session_id
-#         )
 
 async def get_hotel_name_by_room_id(room_id):
     try:
@@ -328,6 +324,7 @@ async def get_hotel_name_by_room_id(room_id):
     except Exception as e:
         return str(e)
 
+
 async def get_owner_name_by_room_id(room_id):
     try:
         room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
@@ -335,6 +332,7 @@ async def get_owner_name_by_room_id(room_id):
         return owner_name
     except Exception as e:
         return str(e)
+
 
 async def handle_customer_stop(websocket, session_id: str):
     await update_is_open(session_id)
@@ -348,6 +346,7 @@ async def handle_customer_stop(websocket, session_id: str):
         # Remove the session from the active_rooms dictionary
         del active_rooms[session_id]
 
+
 async def get_all_quotes_for_session(session_id):
     try:
         # Call the synchronous function using sync_to_async
@@ -357,6 +356,7 @@ async def get_all_quotes_for_session(session_id):
         print(f"Error retrieving quotes for session {session_id}: {e}")
         return []
 
+
 async def handle_finish_message(session_id: str, user_info: Customer, room_id: int, websocket: WebSocket):
     if isinstance(user_info, Customer):
         property_deal_id = await get_property_deal_id(session_id, room_id)
@@ -365,7 +365,7 @@ async def handle_finish_message(session_id: str, user_info: Customer, room_id: i
             await update_is_open(session_id)
             last_bid = await get_last_bidding_amount(property_deal_id)
             last_amount = last_bid['amount__min'] if last_bid['amount__min'] is not None else 0
-            owner_id = await get_property_deal_owner_id(property_deal_id)
+            # owner_id = await get_property_deal_owner_id(property_deal_id)
             hotel_name = await get_hotel_name_by_room_id(room_id)
             await manager.send_personal_message(
                 f"You selected {hotel_name} and the price for that is {last_amount}.",
@@ -380,6 +380,7 @@ active_rooms = {}
 room_deal_prices = {}
 session_connections = {}
 
+
 @app.websocket("/ws/room_connection")
 async def room_connection(
     websocket: WebSocket,
@@ -392,7 +393,7 @@ async def room_connection(
     if not user_info:
         await websocket.close(code=1008, reason="Unauthorized")
         return
-    
+
     try:
         if isinstance(user_info, Customer):
             customer_socket_id = id(websocket)
@@ -411,7 +412,7 @@ async def room_connection(
                             await manager.send_personal_message(message, customer_socket_id, user_info, session_id)
                     except Exception as e:
                         print("Error sending message:", e)
-                    
+
                     if 'session_connections' not in active_rooms[session_id]:
                         active_rooms[session_id]['session_connections'] = []
                     active_rooms[session_id]['session_connections'].append(websocket)
@@ -447,8 +448,6 @@ async def room_connection(
                             }
                             deal_id = await create_property_deal(session_id, customer_id, room_id)
 
-                            print(deal_id,"this is deal id")
-
                             await sync_to_async(BiddingAmount.objects.create)(
                                 property_deal_id=deal_id,
                                 amount=room_inventory.deal_price
@@ -475,7 +474,6 @@ async def room_connection(
 
                 if message.strip().lower() == "stop" and isinstance(user_info, Customer):
                     await handle_customer_stop(websocket, session_id)
-                    
                     break
 
                 if message == "leave":
@@ -491,7 +489,7 @@ async def room_connection(
                         return
                     else:
                         await websocket.send_text("You are not authorized to leave the session.")
-                
+
                 if message.strip().lower().startswith("finish") and isinstance(user_info, Customer):
                     parts = message.split()
                     if len(parts) == 2 and parts[1].isdigit():
@@ -532,7 +530,7 @@ async def room_connection(
                                             hotel_nick_name = quote['hotel_nick_name']
                                             amount = quote['amount']
                                             message_to_send += f"Room ID: {room_id}, Hotel name: {hotel_nick_name}, Amount: {amount}\n"
-                                        
+
                                         # Send the message to each customer associated with the session
                                         for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
                                             await manager.send_personal_message(
@@ -541,16 +539,16 @@ async def room_connection(
                                                 user_info,
                                                 session_id
                                             )
-                                        
+
                                         is_lowest_quote = True
                                         for quote in all_quotes:
                                             if quote['amount'] < bidding_amount:
                                                 is_lowest_quote = False
                                                 break
-                                        
+
                                         if is_lowest_quote:
                                             await manager.send_personal_message(
-                                                f"Your are winning the bid.",
+                                                "Your are winning the bid.",
                                                 id(websocket),  # Send the message to the owner
                                                 user_info,
                                                 session_id
@@ -561,15 +559,15 @@ async def room_connection(
                                                 owner_socket_id = id(owner_socket)
                                                 if owner_socket_id != id(websocket):
                                                     await manager.send_personal_message(
-                                                        f"You are Losing the bid.",
+                                                        "You are Losing the bid.",
                                                         owner_socket_id,
                                                         user_info,
                                                         session_id
                                                     )
-                                        
+
                                         else:
                                             await manager.send_personal_message(
-                                                f"You are Losing the bid.",
+                                                "You are Losing the bid.",
                                                 id(websocket),  # Send the message to the owner
                                                 user_info,
                                                 session_id
@@ -590,10 +588,10 @@ async def room_connection(
                             await websocket.send_text("Invalid message format. Please enter a message in the format 'quote <amount> <room_id>'.")
                     else:
                         await websocket.send_text("Invalid message format. Please enter a valid bidding amount.")
-        
+
         except WebSocketDisconnect:
             await manager.disconnect(websocket, session_id)
-                 
+
     except Exception as e:
         print("An error occurred during websocket connection handling:")
         print(repr(e))
