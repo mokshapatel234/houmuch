@@ -396,7 +396,7 @@ class PayNowView(APIView):
                     serializer_data = serializer.save()
                     return Response({
                         'result': True,
-                        'data': BookingHistorySerializer(serializer_data['booking'], fields=('id', 'order_id')).data,
+                        'data': BookingHistorySerializer(serializer_data['booking'], fields=('id', 'order_id', 'booking_id')).data,
                         'message': PAYMENT_SUCCESS_MESSAGE
                     }, status=status.HTTP_200_OK)
                 else:
@@ -470,26 +470,6 @@ class BookingRetrieveView(RetrieveAPIView):
         try:
             instance = self.get_object()
             return generate_response(instance, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK, self.serializer_class)
-        except Http404:
-            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
-
-
-class PaymentSuccessfulView(RetrieveAPIView):
-    authentication_classes = (JWTAuthentication, )
-    permission_classes = (permissions.IsAuthenticated, )
-    serializer_class = CustomerBookingSerializer
-
-    def get_queryset(self):
-        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
-        return queryset
-
-    def retrieve(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            serializer = self.serializer_class(instance, fields=('id', 'booking_id'))
-            return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
             return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:

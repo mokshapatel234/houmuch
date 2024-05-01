@@ -289,6 +289,7 @@ class PropertyDeal(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_id')
     roominventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_id', blank=True, null=True)
     is_winning_bid = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
 
