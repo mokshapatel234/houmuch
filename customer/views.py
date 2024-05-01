@@ -527,6 +527,9 @@ class PropertyRatingView(ListCreateAPIView):
 
 
 class CancelBookingView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
     def post(self, request, *args, **kwargs):
         try:
             id = self.kwargs.get('id')
@@ -588,3 +591,16 @@ class CancelBookingView(APIView):
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+# class StartBidView(APIView):
+#     authentication_classes = (JWTAuthentication, )
+#     permission_classes = (permissions.IsAuthenticated, )
+
+#     def post(self, request, *args, **kwargs):
+#         receivers = ["dRYiZqRCQamWKDa7pOf9bn:APA91bHTCa0ZafFnp7DnozLsQ9xRK_XQMAETlNHa6Bz3CZshXOcjA1Y3N9t7jrC76-fo7T-lvgE3OF-KoQEBW_Azm1-zelaO6MQdbhsw1nTfZHiAXVpTGA7XdFesiBAwvIECA4IlhVdR"]
+#         message = "Hello Divyaraj"
+#         title = "TEST MESSAGE"
+#         if receivers:
+#             send_push_notification(receivers, message, title)
+#             return Response("TUREEEEEEEE")

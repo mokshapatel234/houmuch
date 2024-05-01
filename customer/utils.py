@@ -215,30 +215,27 @@ def find_datetime(check_in_date_str, check_out_date_str):
     return check_in_datetime, check_out_datetime
 
 
-# def send_push_notification(receivers, message, title, notification_type):
-#     try:
-#         for receiver in receivers:
-#             payload = {
-#                 "to": receiver,
-#                 "notification": {
-#                     "title": title,
-#                     "body": message,
-#                     "content_available": True,
-#                     "sound": "default"
-#                 },
-#                 "data": {
-#                     "type": notification_type
-#                 },
-#                 "priority": "high"
-#             }
-#             headers = {
-#                 "Content-Type": "application/json",
-#                 "Authorization": f"key={server_key}"
-#             }
+def send_push_notification(receivers, message, title):
+    try:
+        for receiver in receivers:
+            payload = {
+                "to": receiver,
+                "notification": {
+                    "title": title,
+                    "body": message,
+                    "content_available": True,
+                    "sound": "default"
+                },
+                "priority": "high"
+            }
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"key={settings.SERVER_KEY}"
+            }
 
-#             try:
-#                 response = requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
-#             except requests.exceptions.RequestException as e:
-#                 print("Failed to send notification:", e)
-#     except Exception as e:
-#         print("Error in sending notification:", e)
+            try:
+                requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+            except requests.exceptions.RequestException as e:
+                print("Failed to send notification:", e)
+    except Exception as e:
+        print("Error in sending notification:", e)
