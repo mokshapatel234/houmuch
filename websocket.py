@@ -12,6 +12,8 @@ from django import setup
 import django
 from typing import List
 from django.db.models import Min
+from django.conf import settings
+import requests
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
 django.setup()
 
@@ -177,6 +179,32 @@ async def get_current_user(token: str, user_type: str):
     except HTTPException as e:
         raise e
 
+
+async def send_push_notification(receivers, message, title):
+    try:
+        for receiver in receivers:
+            payload = {
+                "to": receiver,
+                "notification": {
+                    "title": title,
+                    "body": message,
+                    "content_available": True,
+                    "sound": "default"
+                },
+                "priority": "high"
+            }
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"key={settings.SERVER_KEY}"
+            }
+
+            try:
+                response =requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+                return response
+            except requests.exceptions.RequestException as e:
+                print("Failed to send notification:", e)
+    except Exception as e:
+        print("Error in sending notification:", e)
 
 @sync_to_async
 def save_bidding_session(customer_id):
@@ -376,6 +404,12 @@ async def handle_finish_message(session_id: str, user_info: Customer, room_id: i
         else:
             await manager.send_personal_message("Property deal ID not found for the room ID.")
 
+@sync_to_async
+def get_rooms_with_tokens(room_ids):
+    rooms = RoomInventory.objects.filter(id__in=room_ids).select_related('property__owner').all()
+    return [(room.property.owner.fcm_token) for room in rooms if room.property.owner.fcm_token]
+
+
 active_rooms = {}
 room_deal_prices = {}
 session_connections = {}
@@ -399,6 +433,10 @@ async def room_connection(
             customer_socket_id = id(websocket)
             active_rooms.setdefault(session_id, {'customer_socket_ids': []})['customer_socket_ids'].append(customer_socket_id)
             await manager.connect(websocket)
+            room_ids_list = room_ids.split(',')
+            receivers = await (get_rooms_with_tokens)(room_ids_list)
+            if receivers:
+                await send_push_notification(receivers, "message", "New Deal")
 
         if session_id:
             if session_id in active_rooms and active_rooms[session_id]['customer_socket_ids']:
