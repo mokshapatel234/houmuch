@@ -29,7 +29,7 @@ class RoomInventoryFilter(filters.FilterSet):
             queryset = is_booking_overlapping(queryset, self.data.get('check_in_date'),
                                               self.data.get('check_out_date'),
                                               self.data.get('num_of_rooms'),
-                                              room_list=True)
+                                              room_list=True).order_by('effective_price')
             excluded_room_ids = []
             adjusted_availability = {
                 room_inventory.id: {
