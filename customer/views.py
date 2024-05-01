@@ -4,7 +4,8 @@ from rest_framework.views import APIView
 from .models import Customer
 from .serializer import RegisterSerializer, LoginSerializer, ProfileSerializer, PopertyListOutSerializer, GuestDetail, \
     OrderSummarySerializer, RoomInventoryListSerializer, CombinedSerializer, RatingSerializer, CustomerBookingSerializer
-from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, get_cancellation_charge_percentage
+from .utils import generate_token, get_room_inventory, sort_properties_by_price, calculate_available_rooms, \
+    get_cancellation_charge_percentage, find_datetime
 from .email_utils import vendor_cancellation_data, customer_cancellation_data, customer_welcome_data
 from hotel.utils import error_response, send_mail, generate_response
 from hotel.filters import BookingFilter
@@ -179,9 +180,13 @@ class PropertyListView(generics.GenericAPIView):
             high_to_low = self.request.query_params.get('high_to_low', False)
             ratings = self.request.query_params.get('ratings', None)
             hotel_class = self.request.query_params.get('hotel_class', None)
+            bidding_mode = self.request.query_params.get('bidding_mode') == 'true'
             # total_guests = (int(num_of_adults) if num_of_adults is not None else 0) + \
             #     (int(num_of_children) if num_of_children is not None else 0)
-            queryset = self.get_queryset()
+            if bidding_mode:
+                queryset = Property.objects.filter(is_verified=True, status=True, owner__bidding_mode=True).order_by('-id')
+            else:
+                queryset = self.get_queryset()
             if nearby_popular_landmark:
                 queryset = queryset.filter(nearby_popular_landmark=nearby_popular_landmark)
             if latitude and longitude:
@@ -220,8 +225,8 @@ class PropertyListView(generics.GenericAPIView):
             page = self.paginate_queryset(sorted_properties)
             serializer = self.serializer_class(page, many=True)
             return self.get_paginated_response(serializer.data)
-        except Exception:
-            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class PropertyRetriveView(RetrieveAPIView):
@@ -255,7 +260,7 @@ class RoomInventoryListView(ListAPIView):
     def get_queryset(self):
         self.adjusted_availability = {}
         property_id = self.kwargs.get('property_id')
-        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True).order_by('default_price')
+        queryset = RoomInventory.objects.filter(property__id=property_id, is_verified=True, status=True)
         return queryset if queryset.exists() else self.queryset
 
     def list(self, request, *args, **kwargs):
@@ -373,21 +378,25 @@ class PayNowView(APIView):
                 order = self.create_payment_order(amount, remaining_amount_in_paise, account_id, currency, on_hold_until_timestamp)
                 if not order:
                     return error_response("Failed to create payment order", status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                check_in_datetime, check_out_datetime = find_datetime(check_in_date, check_out_date)
+                booking_data['check_in_date'] = check_in_datetime
+                booking_data['check_out_date'] = check_out_datetime
+
                 serializer_data = {
                     'booking_detail': booking_data,
                     'guest_detail': guest_data
                 }
-
                 serializer = CombinedSerializer(data=serializer_data, context={'request': request,
                                                                                'property': property_instance,
                                                                                'room': room_instance,
                                                                                'order_id': order['id'],
                                                                                'transfer_id': order['transfers'][0]['id']})
                 if serializer.is_valid():
-                    serializer.save()
+                    serializer_data = serializer.save()
                     return Response({
                         'result': True,
-                        'data': {'order_id': order['id']},
+                        'data': BookingHistorySerializer(serializer_data['booking'], fields=('id', 'order_id')).data,
                         'message': PAYMENT_SUCCESS_MESSAGE
                     }, status=status.HTTP_200_OK)
                 else:
@@ -467,6 +476,26 @@ class BookingRetrieveView(RetrieveAPIView):
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
 
+class PaymentSuccessfulView(RetrieveAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = CustomerBookingSerializer
+
+    def get_queryset(self):
+        queryset = BookingHistory.objects.filter(customer=self.request.user, book_status=True).order_by('-created_at')
+        return queryset
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            serializer = self.serializer_class(instance, fields=('id', 'booking_id'))
+            return generate_response(serializer.data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
+        except Http404:
+            return error_response(BOOKING_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
 class PropertyRatingView(ListCreateAPIView):
     authentication_classes = (JWTAuthentication, )
     permission_classes = (permissions.IsAuthenticated, )
@@ -498,6 +527,9 @@ class PropertyRatingView(ListCreateAPIView):
 
 
 class CancelBookingView(APIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+
     def post(self, request, *args, **kwargs):
         try:
             id = self.kwargs.get('id')
@@ -559,3 +591,16 @@ class CancelBookingView(APIView):
                 return error_response(REFUND_ERROR_MESSAGE, status.HTTP_400_BAD_REQUEST)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+# class StartBidView(APIView):
+#     authentication_classes = (JWTAuthentication, )
+#     permission_classes = (permissions.IsAuthenticated, )
+
+#     def post(self, request, *args, **kwargs):
+#         receivers = ["dRYiZqRCQamWKDa7pOf9bn:APA91bHTCa0ZafFnp7DnozLsQ9xRK_XQMAETlNHa6Bz3CZshXOcjA1Y3N9t7jrC76-fo7T-lvgE3OF-KoQEBW_Azm1-zelaO6MQdbhsw1nTfZHiAXVpTGA7XdFesiBAwvIECA4IlhVdR"]
+#         message = "Hello Divyaraj"
+#         title = "TEST MESSAGE"
+#         if receivers:
+#             send_push_notification(receivers, message, title)
+#             return Response("TUREEEEEEEE")

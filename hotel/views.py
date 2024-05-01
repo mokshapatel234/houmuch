@@ -10,12 +10,12 @@ from .models import Owner, PropertyType, RoomType, BedType, \
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
     PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
-    OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdateInventoryPeriodSerializer, \
+    OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdatedPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, BookingRetrieveSerializer, \
     PatchRequestSerializer, AccountSerializer, SubscriptionPlanSerializer, SubscriptionSerializer, UpdateTypeSerializer, \
-    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer, UpdatedPeriodSerializer
+    SubscriptionOutSerializer, RatingsOutSerializer, CancellationReasonSerializer, TransactionSerializer, CancelBookingSerializer
 from .utils import generate_token, model_name_to_snake_case, generate_response, generate_otp, send_mail, get_days_before_check_in, \
-    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, find_month_year, \
+    error_response, deletion_success_response, remove_cache, cache_response, set_cache, check_plan_expiry, update_period, \
     get_updated_inventory
 from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRESENT_MESSAGE, \
     REGISTRATION_SUCCESS_MESSAGE, EXCEPTION_MESSAGE, LOGIN_SUCCESS_MESSAGE, \
@@ -27,7 +27,7 @@ from hotel_app_backend.messages import PHONE_REQUIRED_MESSAGE, PHONE_ALREADY_PRE
     ACCOUNT_PRODUCT_UPDATION_FAIL_MESSAGE, ACCOUNT_DETAIL_UPDATE_MESSAGE, BANKING_DETAIL_NOT_EXIST_MESSAGE, \
     PRODUCT_AND_BANK_DETAIL_SUCESS_MESSAGE, REFUND_SUCCESFULL_MESSAGE, REFUND_ERROR_MESSAGE, ORDER_ERROR_MESSAGE, \
     ADD_ROOM_LIMIT_MESSAGE, NOT_ALLOWED_TO_REGISTER_AS_VENDOR_MESSAGE, EMAIL_ERROR_MESSAGE, PROPERTY_NOT_FOUND_MESSAGE, \
-    ROOM_NOT_FOUND_MESSAGE, BOOKING_NOT_FOUND_MESSAGE
+    ROOM_NOT_FOUND_MESSAGE, BOOKING_NOT_FOUND_MESSAGE, ACCOUNT_CREATE_FAIL_MESSAGE
 from hotel_app_backend.razorpay_utils import razorpay_request
 from .authentication import JWTAuthentication
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -49,8 +49,7 @@ from collections import defaultdict
 from django.utils.dateparse import parse_datetime
 from django.utils.timezone import now
 from dateutil.relativedelta import relativedelta
-from django.db.models import F, Func, Sum
-import calendar
+from django.db.models import Sum
 from customer.utils import calculate_available_rooms
 from customer.models import Customer
 from customer.email_utils import customer_booking_confirmation_data, vendor_booking_confirmation_data, vendor_cancellation_data, \
@@ -427,7 +426,6 @@ class RoomInventoryViewSet(ModelViewSet):
             if images:
                 for image in images:
                     image_instances.append(RoomImage(room=instance, image=image))
-
             if image_instances:
                 RoomImage.objects.bulk_create(image_instances)
             admin_email = User.objects.filter(is_superuser=True).first().email
@@ -437,37 +435,19 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Property.DoesNotExist:
             return error_response(PROPERTY_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
             today = now().date()
             start_date = today.replace(day=1)
-            end_date = start_date + relativedelta(months=+6)
-            updated_inventory = UpdateInventoryPeriod.objects.filter(
-                room_inventory=instance,
-                date__range=(start_date, end_date),
-                is_deleted=False,
-            ).annotate(
-                month=Func(F('date'), function='EXTRACT', template="%(function)s(MONTH from %(expressions)s)"),
-                year=Func(F('date'), function='EXTRACT', template="%(function)s(YEAR from %(expressions)s)"),
-            ).order_by('year', 'month', 'type')
-            grouped_data = []
-            for item in updated_inventory:
-                month_year = f"{calendar.month_name[int(item.month)]} {int(item.year)}"
-                month_year_group = find_month_year(month_year, grouped_data)
-                if not month_year_group:
-                    month_year_group = {'month_year': month_year, 'types': defaultdict(list)}
-                    grouped_data.append(month_year_group)
-                serialized_item = UpdateInventoryPeriodSerializer(item).data
-                month_year_group['types'][item.type.type].append(serialized_item)
-            for group in grouped_data:
-                group['types'] = dict(group['types'])
+            end_date = start_date + relativedelta(months=+4)
+            updated_inventory = get_updated_inventory(instance, start_date, end_date)
             response_data = {
                 'room_inventory': RoomInventoryOutSerializer(instance).data,
-                'updated_inventory': grouped_data
+                'updated_inventory': updated_inventory
             }
             return generate_response(response_data, DATA_RETRIEVAL_MESSAGE, status.HTTP_200_OK)
         except Http404:
@@ -540,8 +520,8 @@ class RoomInventoryViewSet(ModelViewSet):
             return generate_response(updated_instance, DATA_CREATE_MESSAGE, status.HTTP_200_OK, RoomInventoryOutSerializer)
         except Http404:
             return error_response(ROOM_NOT_FOUND_MESSAGE, status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -644,7 +624,7 @@ class AccountCreateApi(APIView):
 
                 return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
 
-            return error_response(CREATE_PRODUCT_FAIL_MESSAGE, status.HTTP_400_BAD_REQUEST)
+            return error_response(ACCOUNT_CREATE_FAIL_MESSAGE + response.json()['error']['description'], status.HTTP_400_BAD_REQUEST)
 
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
