@@ -1,5 +1,5 @@
 from django_filters import rest_framework as filters
-from .models import RoomInventory, BookingHistory
+from .models import RoomInventory, BookingHistory, PropertyDeal
 from django.utils import timezone
 
 
@@ -49,3 +49,24 @@ class TransactionFilter(filters.FilterSet):
     class Meta:
         model = BookingHistory
         fields = ['is_completed']
+
+
+class PropertyDealFilter(filters.FilterSet):
+    is_active = filters.BooleanFilter(method='filter_by_is_active')
+    is_confirm = filters.BooleanFilter(method='filter_by_is_confirm')
+
+    class Meta:
+        model = PropertyDeal
+        fields = ['is_active', 'is_confirm']
+
+    def filter_by_is_active(self, queryset, name, value):
+        if value:
+            return queryset.filter(is_active=True)
+        else:
+            return queryset.filter(is_active=False, session__is_open=True)
+
+    def filter_by_is_confirm(self, queryset, name, value):
+        if value:
+            return queryset.filter(is_winning_bid=True)
+        else:
+            return queryset.exclude(is_winning_bid=True)

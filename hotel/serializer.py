@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
     CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, BankingAddress, \
-    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
+    Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason, PropertyDeal
 from customer.models import Customer
 from dateutil.relativedelta import relativedelta
 
@@ -261,7 +261,7 @@ class PatchRequestSerializer(serializers.Serializer):
     tnc_accepted = serializers.BooleanField()
 
 
-class CustomerOutSerializer(serializers.ModelSerializer):
+class CustomerOutSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Customer
         fields = ('first_name', 'last_name', 'phone_number')
@@ -402,3 +402,11 @@ class BookingRetrieveSerializer(BookingHistorySerializer):
     def get_num_of_children(self, instance):
         guests = GuestDetail.objects.filter(booking=instance).first()
         return guests.no_of_children
+
+class PropertyDealSerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer(fields=('first_name', "last_name"))
+    roominventory = RoomInventoryOutSerializer(fields=('room_type', 'room_name', 'deal_price'))
+
+    class Meta:
+        model = PropertyDeal
+        fields = ['id', 'customer', 'roominventory', 'session', 'is_winning_bid', 'is_active', 'created_at', 'updated_at']
