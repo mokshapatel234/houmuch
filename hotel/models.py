@@ -276,6 +276,11 @@ class OTP(models.Model):
 
 class BiddingSession(models.Model):
     is_open = models.BooleanField(default=False)
+    no_of_adults = models.IntegerField(blank=True, null=True)
+    no_of_children = models.IntegerField(blank=True, null=True)
+    num_of_rooms = models.IntegerField(verbose_name='number_of_rooms', blank=True, null=True)
+    check_in_date = models.DateTimeField(blank=True, null=True)
+    check_out_date = models.DateTimeField(blank=True, null=True)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_bid_id', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
@@ -287,7 +292,7 @@ class BiddingSession(models.Model):
 class PropertyDeal(models.Model):
     session = models.ForeignKey(BiddingSession, on_delete=models.CASCADE, related_name='session_id')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='customer_id')
-    roominventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_id', blank=True, null=True)
+    room_inventory = models.ForeignKey(RoomInventory, on_delete=models.CASCADE, related_name='room_id', blank=True, null=True)
     is_winning_bid = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)

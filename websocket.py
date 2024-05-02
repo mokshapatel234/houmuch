@@ -201,12 +201,13 @@ async def send_push_notification(receivers, message, title):
             }
 
             try:
-                response =requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+                response = requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
                 return response
             except requests.exceptions.RequestException as e:
                 print("Failed to send notification:", e)
     except Exception as e:
         print("Error in sending notification:", e)
+
 
 @sync_to_async
 def save_bidding_session(customer_id):
@@ -229,7 +230,7 @@ def save_property_deal(session_id, customer_id, room_id):
         property_deal = PropertyDeal.objects.create(
             session_id=session_id,
             customer_id=customer_id,
-            roominventory=room_inventory,
+            room_inventory=room_inventory,
             is_winning_bid=False
         )
         return property_deal.id
@@ -243,7 +244,7 @@ def featch_property_deal(session_id, room_id):
     try:
         property_deal_query = PropertyDeal.objects.filter(
             session_id=session_id,
-            roominventory=room_id
+            room_inventory=room_id
         ).first()
         print(property_deal_query, "this is to get id")
         return property_deal_query
@@ -277,7 +278,7 @@ def get_all_quotes_for_session_sync(session_id):
         # Extract relevant information from each bidding amount
         quotes = []
         for amount in bidding_amounts:
-            room_id = amount.property_deal.roominventory_id
+            room_id = amount.property_deal.room_inventory_id
             property_id = RoomInventory.objects.get(id=room_id).property_id
             hotel_nick_name = Property.objects.filter(id=property_id).values_list('hotel_nick_name', flat=True).first()
 
@@ -331,7 +332,7 @@ async def get_property_deal(session_id, room_id):
 
 async def get_property_deal_id(session_id: str, room_id: int) -> Optional[int]:
     try:
-        property_deal = await sync_to_async(PropertyDeal.objects.get)(session_id=session_id, roominventory_id=room_id)
+        property_deal = await sync_to_async(PropertyDeal.objects.get)(session_id=session_id, room_inventory_id=room_id)
         return property_deal.id
     except PropertyDeal.DoesNotExist:
         return None
@@ -340,7 +341,7 @@ async def get_property_deal_id(session_id: str, room_id: int) -> Optional[int]:
 async def get_property_deal_owner_id(property_deal_id: int) -> Optional[int]:
     try:
         property_deal = await sync_to_async(PropertyDeal.objects.get)(id=property_deal_id)
-        owner_id = await sync_to_async(lambda: property_deal.roominventory.property.owner.id)()
+        owner_id = await sync_to_async(lambda: property_deal.room_inventory.property.owner.id)()
         return owner_id
     except PropertyDeal.DoesNotExist:
         return None
@@ -376,6 +377,7 @@ async def handle_customer_stop(websocket, session_id: str):
         # Remove the session from the active_rooms dictionary
         del active_rooms[session_id]
 
+
 async def server_timeout(websocket, session_id: str):
     await asyncio.sleep(60)
     await update_is_open(session_id)
@@ -389,6 +391,7 @@ async def server_timeout(websocket, session_id: str):
         await manager.disconnect(websocket, session_id)
         # Remove the session from the active_rooms dictionary
         del active_rooms[session_id]
+
 
 async def get_all_quotes_for_session(session_id):
     try:
@@ -418,6 +421,7 @@ async def handle_finish_message(session_id: str, user_info: Customer, room_id: i
             )
         else:
             await manager.send_personal_message("Property deal ID not found for the room ID.")
+
 
 @sync_to_async
 def get_rooms_with_tokens(room_ids):
@@ -449,9 +453,9 @@ async def room_connection(
             active_rooms.setdefault(session_id, {'customer_socket_ids': []})['customer_socket_ids'].append(customer_socket_id)
             await manager.connect(websocket)
             room_ids_list = room_ids.split(',')
-            receivers = await (get_rooms_with_tokens)(room_ids_list)
-            if receivers:
-                await send_push_notification(receivers, "message", "New Deal")
+            # receivers = await (get_rooms_with_tokens)(room_ids_list)
+            # if receivers:
+            #     await send_push_notification(receivers, "message", "New Deal")
 
         if session_id:
             if session_id in active_rooms and active_rooms[session_id]['customer_socket_ids']:
@@ -492,14 +496,14 @@ async def room_connection(
                             room_inventory = await sync_to_async(RoomInventory.objects.get)(id=room_id)
                             owner_name = await get_owner_name_by_room_id(room_id)
                             hotel_name = await get_hotel_name_by_room_id(room_id)
-                            
+
                             room_info = {
                                 'owner': owner_name,
                                 'hotel_name': hotel_name,
                                 'amount': room_inventory.deal_price,
                                 'room_id': room_id
                             }
-                            
+
                             deal_prices.append(room_info)
                             deal_id = await create_property_deal(session_id, customer_id, room_id)
 
