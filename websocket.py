@@ -19,7 +19,7 @@ import requests
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "hotel_app_backend.settings")
 django.setup()
 
-from hotel.models import Owner, BiddingSession, Property, PropertyDeal, RoomInventory, BiddingAmount
+from hotel.models import Owner, BiddingSession, Property, PropertyDeal, RoomInventory, BiddingAmount, Category
 from customer.models import Customer
 
 
@@ -298,21 +298,34 @@ def get_all_quotes_for_session_sync(session_id):
             property_deal__session_id=session_id
         )
 
+        # Dictionary to store quotes for each owner
+        owner_quotes = {}
+
         # Extract relevant information from each bidding amount
-        quotes = []
         for amount in bidding_amounts:
             room_id = amount.property_deal.room_inventory_id
             property_id = RoomInventory.objects.get(id=room_id).property_id
             hotel_nick_name = Property.objects.filter(id=property_id).values_list('hotel_nick_name', flat=True).first()
 
-            quote_info = {
+            owner_id = amount.property_deal.room_inventory.property.owner.id
+
+            if owner_id not in owner_quotes:
+                owner_quotes[owner_id] = []
+
+            owner_quotes[owner_id].append({
                 'room_id': room_id,
                 'hotel_nick_name': hotel_nick_name,
                 'amount': amount.amount,
-            }
-            quotes.append(quote_info)
+                'created_at': amount.created_at
+            })
 
-        return quotes
+        # Sort quotes by created_at for each owner and select the last two
+        last_two_quotes = []
+        for owner_id, quotes in owner_quotes.items():
+            sorted_quotes = sorted(quotes, key=lambda x: x['created_at'], reverse=True)[:2]
+            last_two_quotes.extend(sorted_quotes)
+
+        return last_two_quotes
     except Exception as e:
         print(f"Error retrieving quotes for session {session_id}: {e}")
         return []
@@ -402,7 +415,7 @@ async def handle_customer_stop(websocket, session_id: str):
 
 
 async def server_timeout(websocket, session_id: str):
-    await asyncio.sleep(120)
+    await asyncio.sleep(900)
     await update_is_open(session_id)
     # Disconnect all owners associated with the session
     if session_id in active_rooms:
@@ -526,6 +539,9 @@ async def room_connection(
                     if session_id == "You have already created one session.":
                         await websocket.send_text(session_id)
                         return
+
+                    category = await sync_to_async(Category.objects.first)()
+                    bid_time_duration = category.bid_time_duration
                     deal_prices = []
                     for room_id in room_ids_list:
                         try:
@@ -557,9 +573,14 @@ async def room_connection(
                         'customer_socket_ids': [id(websocket)],
                         'room_deal_prices': deal_prices
                     }
+
+                    response = {
+                        'properties': deal_prices,
+                        'bid_time_duration': bid_time_duration
+                    }
                     await websocket.send_text(f"Session ID: {session_id}")
                     await websocket.send_text("You are now connected to the session.")
-                    await websocket.send_text(json.dumps(deal_prices))
+                    await websocket.send_text(json.dumps(response))
                     asyncio.create_task(server_timeout(websocket, session_id))
 
         try:
