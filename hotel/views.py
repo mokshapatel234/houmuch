@@ -829,7 +829,7 @@ class DealListView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
 
     def get_queryset(self):
-        queryset = PropertyDeal.objects.filter(roominventory__property__owner=self.request.user).order_by('created_at')
+        queryset = PropertyDeal.objects.filter(room_inventory__property__owner=self.request.user).order_by('-created_at')
         return queryset
 
     def list(self, request):

@@ -69,4 +69,4 @@ class PropertyDealFilter(filters.FilterSet):
         if value:
             return queryset.filter(is_winning_bid=True)
         else:
-            return queryset.exclude(is_winning_bid=True)
+            return queryset.filter(is_winning_bid=False, session__is_open=False)
