@@ -215,7 +215,7 @@ def find_datetime(check_in_date_str, check_out_date_str):
     return check_in_datetime, check_out_datetime
 
 
-def send_push_notification(receivers, message, title):
+def send_push_notification(receivers, message, title, type):
     try:
         for receiver in receivers:
             payload = {
@@ -226,6 +226,9 @@ def send_push_notification(receivers, message, title):
                     "content_available": True,
                     "sound": "default"
                 },
+                "data": {
+                    "type": type
+                },
                 "priority": "high"
             }
             headers = {
@@ -234,7 +237,8 @@ def send_push_notification(receivers, message, title):
             }
 
             try:
-                requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+                response = requests.post('https://fcm.googleapis.com/fcm/send', json=payload, headers=headers)
+                return response
             except requests.exceptions.RequestException as e:
                 print("Failed to send notification:", e)
     except Exception as e:

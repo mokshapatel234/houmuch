@@ -4,7 +4,7 @@ from .views import PropertyViewSet, HotelRegisterView, HotelLoginView, OwnerProf
     MasterRetrieveView, RoomInventoryViewSet, OTPVerificationView, CategoryRetrieveView, \
     BookingListView, AccountCreateApi, AccountUpdateApi, SubscriptionView, \
     SubscriptionPlanView, TransactionListView, RatingsListView, CancelBookingView, \
-    BookingRetrieveView, AccountGetApi, UpdateInventoryList
+    BookingRetrieveView, AccountGetApi, UpdateInventoryList, DealListView
 
 
 router = DefaultRouter()
@@ -31,5 +31,6 @@ urlpatterns = [
     path('cancelBooking/<int:id>/', CancelBookingView.as_view(), name="vendor_cancel_booking"),
     path('bookingRetrieve/<int:pk>/', BookingRetrieveView.as_view(), name='booking_retrieve'),
     path('updateInventory/<int:id>/', UpdateInventoryList.as_view(), name='update_inventory'),
+    path('dealHistory/', DealListView.as_view(), name="Deal History"),
     path('', include(router.urls)),
 ]

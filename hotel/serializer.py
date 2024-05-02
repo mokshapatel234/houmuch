@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, \
-    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, \
+from .models import Owner, PropertyType, RoomType, BedType, BathroomType, RoomFeature, BiddingSession, \
+    CommonAmenities, Property, RoomInventory, UpdateInventoryPeriod, OTP, RoomImage, UpdateType, PropertyDeal, \
     Category, PropertyImage, PropertyCancellation, BookingHistory, OwnerBankingDetail, Ratings, BankingAddress, \
     Product, SubscriptionPlan, SubscriptionTransaction, GuestDetail, CancellationReason, SubCancellationReason
 from customer.models import Customer
@@ -261,7 +261,7 @@ class PatchRequestSerializer(serializers.Serializer):
     tnc_accepted = serializers.BooleanField()
 
 
-class CustomerOutSerializer(serializers.ModelSerializer):
+class CustomerOutSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Customer
         fields = ('first_name', 'last_name', 'phone_number')
@@ -402,3 +402,19 @@ class BookingRetrieveSerializer(BookingHistorySerializer):
     def get_num_of_children(self, instance):
         guests = GuestDetail.objects.filter(booking=instance).first()
         return guests.no_of_children
+
+
+class BiddingSessionSerializer(DynamicFieldsModelSerializer):
+    class Meta:
+        model = BiddingSession
+        fields = '__all__'
+
+
+class PropertyDealSerializer(serializers.ModelSerializer):
+    customer = CustomerOutSerializer(fields=('first_name', "last_name"))
+    room_inventory = RoomInventoryOutSerializer(fields=('room_type', 'room_name', 'deal_price'))
+    session = BiddingSessionSerializer(fields=('id', 'is_open', 'no_of_adults', 'no_of_children', 'num_of_rooms', 'check_in_date', 'check_out_date'))
+
+    class Meta:
+        model = PropertyDeal
+        fields = ['id', 'customer', 'room_inventory', 'session', 'is_winning_bid', 'is_active', 'created_at', 'updated_at']

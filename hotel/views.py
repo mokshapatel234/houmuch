@@ -8,7 +8,7 @@ from .models import Owner, PropertyType, RoomType, BedType, \
     PropertyCancellation, BookingHistory, Product, OwnerBankingDetail, UpdateType, \
     SubscriptionPlan, SubscriptionTransaction, CancellationReason, GuestDetail, PropertyDeal
 from .serializer import RegisterSerializer, LoginSerializer, OwnerProfileSerializer, \
-    PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, \
+    PropertySerializer, PropertyOutSerializer, PropertyTypeSerializer, RoomTypeSerializer, PropertyDealSerializer, \
     BedTypeSerializer, BathroomTypeSerializer, RoomFeatureSerializer, CommonAmenitiesSerializer, \
     OTPVerificationSerializer, RoomInventorySerializer, RoomInventoryOutSerializer, UpdatedPeriodSerializer, \
     CategorySerializer, PropertyImageSerializer, BookingHistorySerializer, HotelOwnerBankingSerializer, BookingRetrieveSerializer, \
@@ -36,7 +36,7 @@ from django.contrib.gis.geos import Point
 from django.http import Http404
 from hotel_app_backend.utils import delete_image_from_s3, razorpay_client
 from django.contrib.auth.models import User
-from .filters import RoomInventoryFilter, BookingFilter, TransactionFilter
+from .filters import RoomInventoryFilter, BookingFilter, TransactionFilter, PropertyDealFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -818,6 +818,28 @@ class RatingsListView(ListAPIView):
             return self.get_paginated_response(serializer.data)
         except Exception:
             return error_response(EXCEPTION_MESSAGE, status.HTTP_400_BAD_REQUEST)
+
+
+class DealListView(ListAPIView):
+    authentication_classes = (JWTAuthentication, )
+    permission_classes = (permissions.IsAuthenticated, )
+    serializer_class = PropertyDealSerializer
+    pagination_class = CustomPagination
+    filterset_class = PropertyDealFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        queryset = PropertyDeal.objects.filter(room_inventory__property__owner=self.request.user).order_by('-created_at')
+        return queryset
+
+    def list(self, request):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            serializer = self.serializer_class(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        except Exception as e:
+            return error_response(EXCEPTION_MESSAGE + str(e), status.HTTP_400_BAD_REQUEST)
 
 
 class CancelBookingView(APIView):
