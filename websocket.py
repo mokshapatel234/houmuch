@@ -76,9 +76,21 @@ class ConnectionManager(Singleton):
         self.room_clients[room_id].append(websocket)
         print(self.room_clients)
 
-    async def remove_active_room(self, websocket: WebSocket, room_id):
-        self.room_clients[room_id].pop(websocket)
-        print(self.room_clients)
+    async def remove_active_room(self, websocket: WebSocket, session_id):
+        if session_id in self.room_clients:
+            if websocket in self.room_clients[session_id]:
+                self.room_clients[session_id].remove(websocket)
+                print(f"Removed WebSocket from active rooms: {id(websocket)}")
+
+    async def disconnect_and_remove_room(self, websocket: WebSocket, session_id):
+        if session_id in self.room_clients:
+            if websocket in self.room_clients[session_id]:
+                self.room_clients[session_id].remove(websocket)
+                if 'session_connections' in active_rooms[session_id]:
+                    if websocket in active_rooms[session_id]['session_connections']:
+                        active_rooms[session_id]['session_connections'].remove(websocket)
+        print(f"Client #{id(websocket)} left the chat")
+        await websocket.close()
 
     async def send_message(self, message: str, websocket: WebSocket):
         if websocket.application_state == WebSocketState.CONNECTED:
@@ -180,7 +192,6 @@ async def get_current_user(token: str, user_type: str):
         return user_info
     except HTTPException as e:
         raise e
-
 
 
 async def send_push_notification(receivers, message, title, type):
@@ -387,7 +398,6 @@ async def handle_customer_stop(websocket, session_id: str):
                 await manager.disconnect(connection, session_id)
         await websocket.send_text("The session has been closed successfully.")
         await manager.disconnect(websocket, session_id)
-        # Remove the session from the active_rooms dictionary
         del active_rooms[session_id]
 
 
@@ -478,6 +488,7 @@ async def room_connection(
         if session_id:
             if session_id in active_rooms and active_rooms[session_id]['customer_socket_ids']:
                 if isinstance(user_info, Owner):
+                    print(id(websocket))
                     await manager.connect(websocket)
                     await manager.update_active_room(websocket, session_id)
                     await websocket.send_text(f"You are now connected to session {session_id}.")
@@ -562,7 +573,7 @@ async def room_connection(
                 if message == "leave":
                     if isinstance(user_info, Owner):
                         await websocket.send_text("you leave the bidding session successfully.")
-                        await manager.disconnect(websocket, session_id)
+                        await manager.disconnect_and_remove_room(websocket, session_id)
                         for customer_socket_id in active_rooms[session_id]['customer_socket_ids']:
                             await manager.send_personal_message(
                                 f"{user_info.hotel_name} left the bidding session.",
