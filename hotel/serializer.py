@@ -171,7 +171,8 @@ class PropertyOutSerializer(DynamicFieldsModelSerializer):
 
 
 class UpdatedPeriodSerializer(DynamicFieldsModelSerializer):
-    dates = serializers.ListField(child=serializers.CharField(), required=False)
+    dates = serializers.ListField(child=serializers.DateTimeField(), required=False)
+    # removed_dates = serializers.ListField(child=serializers.DateTimeField(), required=False)
 
     class Meta:
         model = UpdateInventoryPeriod
@@ -193,7 +194,7 @@ class UpdateInventoryPeriodSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UpdateInventoryPeriod
-        fields = ['date']
+        fields = ['date', 'default_price']
 
 
 class RoomInventoryOutSerializer(DynamicFieldsModelSerializer):

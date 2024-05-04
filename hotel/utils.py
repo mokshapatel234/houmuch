@@ -10,7 +10,6 @@ from django.utils import timezone
 import copy
 from .models import UpdateInventoryPeriod, UpdateType, UpdateRequest
 from dateutil import parser
-from django.utils.timezone import now
 import calendar
 from collections import defaultdict
 from django.db.models import F, Func
@@ -120,8 +119,10 @@ def update_period(updated_period_data, instance):
     dates = updated_period_data.pop('dates', [])
     removed_dates = updated_period_data.pop('removed_dates', [])
     type_id = updated_period_data['type']
+    current_time = datetime.now().time()
     if not dates and type_id == 1:
-        dates = [str(now().date())]
+        dates = [datetime.now().date().strftime('%Y-%m-%d')]
+
     if dates:
         dates_str = ', '.join(dates)
         update_request = UpdateRequest(request=dates_str)
@@ -133,15 +134,18 @@ def update_period(updated_period_data, instance):
         updated_period_data['type'] = UpdateType.objects.get(id=type_id)
         if type_id == 3 and dates:
             all_dates_within_ranges = []
-            sorted_dates = sorted(parser.parse(date).date() for date in dates)
+            sorted_dates = sorted(datetime.strptime(date, "%Y-%m-%d").date() for date in dates)
             for i in range(0, len(sorted_dates), 2):
                 if i + 1 < len(sorted_dates):
                     start_date, end_date = sorted_dates[i], sorted_dates[i + 1]
                     all_dates_within_ranges.extend(generate_date_range(start_date, end_date))
             dates = all_dates_within_ranges
+
     for date in dates:
+        if type(date) is str:
+            date = parser.parse(date).date()
         updated_period_data_copy = copy.deepcopy(updated_period_data)
-        updated_period_data_copy['date'] = date
+        updated_period_data_copy['date'] = datetime.combine(date, current_time)
         existing_instance = UpdateInventoryPeriod.objects.filter(date=date, room_inventory=instance, is_deleted=False).first()
         if existing_instance:
             for key, value in updated_period_data_copy.items():
@@ -149,10 +153,12 @@ def update_period(updated_period_data, instance):
             update_map[existing_instance.id] = existing_instance
         else:
             new_periods.append(UpdateInventoryPeriod(room_inventory=instance, request=update_request, **updated_period_data_copy))
+
     if new_periods:
         UpdateInventoryPeriod.objects.bulk_create(new_periods)
     if update_map:
         UpdateInventoryPeriod.objects.bulk_update(update_map.values(), updated_period_data_copy.keys())
+
     if removed_dates:
         payload_removed_dates_set = set(removed_dates)
         if type_id == 3:
@@ -165,7 +171,7 @@ def update_period(updated_period_data, instance):
 
         instances_to_mark_deleted = UpdateInventoryPeriod.objects.filter(
             room_inventory=instance,
-            date__in=[parser.parse(date).date() for date in removed_dates]
+            date__date__in=[parser.parse(date).date() for date in removed_dates]
         )
         instances_to_mark_deleted.update(is_deleted=True, deleted_at=datetime.now())
         update_requests_to_check = {instance.request for instance in instances_to_mark_deleted}
@@ -217,7 +223,8 @@ def get_updated_inventory(room_inventory, start_date, end_date):
                 request_details = item.request.request if item.request else "Unknown Request"
                 request_id_group = {
                     'request_id': item.request_id,
-                    'request_details': request_details
+                    'request_details': request_details,
+                    'default_price': item.default_price 
                 }
                 multi_range_data.append(request_id_group)
             serialized_item = UpdateInventoryPeriodSerializer(item).data
