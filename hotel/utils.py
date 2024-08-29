@@ -122,17 +122,15 @@ def update_period(updated_period_data, instance):
     current_time = datetime.now().time()
     if not dates and type_id == 1:
         dates = [datetime.now().date().strftime('%Y-%m-%d')]
-
-    if dates:
-        dates_str = ', '.join(dates)
-        update_request = UpdateRequest(request=dates_str)
-        update_request.save()
-
+    update_request = None
     new_periods = []
     update_map = {}
     if 'type' in updated_period_data:
         updated_period_data['type'] = UpdateType.objects.get(id=type_id)
         if type_id == 3 and dates:
+            dates_str = ', '.join(dates)
+            update_request = UpdateRequest(request=dates_str)
+            update_request.save()
             all_dates_within_ranges = []
             sorted_dates = sorted(datetime.strptime(date, "%Y-%m-%d").date() for date in dates)
             for i in range(0, len(sorted_dates), 2):
@@ -146,7 +144,7 @@ def update_period(updated_period_data, instance):
             date = parser.parse(date).date()
         updated_period_data_copy = copy.deepcopy(updated_period_data)
         updated_period_data_copy['date'] = datetime.combine(date, current_time)
-        existing_instance = UpdateInventoryPeriod.objects.filter(date=date, room_inventory=instance, is_deleted=False).first()
+        existing_instance = UpdateInventoryPeriod.objects.filter(date__date=date, room_inventory=instance, is_deleted=False).first()
         if existing_instance:
             for key, value in updated_period_data_copy.items():
                 setattr(existing_instance, key, value)
